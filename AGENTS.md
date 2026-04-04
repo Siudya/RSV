@@ -9,3 +9,4 @@
 
 * 代码修改后注意更新README.md和docs内文档
 * 生成的SystemVerilog文件使用`verilator --lint-only`来检查
+* commit message使用汉语
