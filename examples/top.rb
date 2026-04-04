@@ -5,44 +5,58 @@
 # instantiates two Counter modules with different widths.
 # Run:  ruby examples/top.rb
 
-require "fileutils"
-
 $LOAD_PATH.unshift(File.join(__dir__, "..", "lib"))
 require "rsv"
 
-top = RSV::ModuleDef.new("Top") do
-  clk = input(uint("clk"))
-  rst = input(uint("rst"))
-  enA = input(uint("en_a"))
-  enB = input(uint("en_b"))
-  countA = output(uint("count_a", width: 8))
-  countB = output(uint("count_b", width: 16))
+class Counter < RSV::ModuleDef
+  def build(width: 8)
+    parameter "WIDTH", width
 
-  instantiate "Counter", "u_counter_a",
-    params:      { "WIDTH" => 8 },
-    connections: {
-      "clk"   => clk,
-      "rst"   => rst,
-      "en"    => enA,
-      "count" => countA
-    }
+    clk = input("clk", bit)
+    rst = input("rst", bit)
+    en = input("en", bit)
+    count = output("count", uint("WIDTH"))
 
-  instantiate "Counter", "u_counter_b",
-    params:      { "WIDTH" => 16 },
-    connections: {
-      "clk"   => clk,
-      "rst"   => rst,
-      "en"    => enB,
-      "count" => countB
-    }
+    count_r = reg("count_r", uint("WIDTH"), init: "'0")
+    countNext = expr("count_next", count_r + 1)
+
+    count <= count_r
+
+    with_clk_and_rst(clk, rst)
+    always_ff do
+      svif(en) do
+        count_r <= countNext
+      end
+    end
+  end
 end
 
-sv = top.to_sv
-puts sv
+class Top < RSV::ModuleDef
+  def build
+    clk = input("clk", bit)
+    rst = input("rst", bit)
+    enA = input("en_a", bit)
+    enB = input("en_b", bit)
+    countA = output("count_a", uint(8))
+    countB = output("count_b", uint(16))
 
-# Write the generated SV to build/rtl/top.sv
-outDir  = File.join(__dir__, "..", "build", "rtl")
-FileUtils.mkdir_p(outDir)
-outFile = File.join(outDir, "top.sv")
-File.write(outFile, sv + "\n")
+    counterA = Counter.new(inst_name: "u_counter_a", width: 8)
+    counterA.clk <= clk
+    counterA.rst <= rst
+    counterA.en <= enA
+    countA <= counterA.count
+
+    counterB = Counter.new(inst_name: "u_counter_b", width: 16)
+    counterB.clk <= clk
+    counterB.rst <= rst
+    counterB.en <= enB
+    countB <= counterB.count
+  end
+end
+
+top = Top.new
+outFile = File.join(__dir__, "..", "build", "rtl", "top.sv")
+
+top.to_sv("-")
+top.to_sv(outFile)
 warn "Written to #{outFile}"

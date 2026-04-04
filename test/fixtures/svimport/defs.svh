@@ -1,0 +1,1 @@
+`define IMPORTED_WIDTH 12

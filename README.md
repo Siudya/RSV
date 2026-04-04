@@ -1,19 +1,19 @@
 # RSV — Ruby SystemVerilog Generator
 
-RSV is a lightweight Ruby DSL for generating readable SystemVerilog. It keeps
-module structure close to native SV while making signal declarations,
-expressions, and procedural blocks easier to describe in Ruby.
+RSV is a lightweight Ruby DSL for generating readable SystemVerilog with a
+class-based module API. 
 
 ## Environment
 
 - Ruby >= 2.7
 - xmake
-- No gem dependencies
-- Typst (optional, for compiling the detailed docs in `docs/`)
+- Typst (optional, for `xmake doc`)
+- pyslang
 
 ## Installation
 
 ```sh
+pip install pyslang
 git clone https://github.com/Siudya/RSV.git
 cd RSV
 ```
@@ -27,22 +27,43 @@ ruby examples/counter.rb
 ruby examples/top.rb
 ```
 
-Both examples print generated SystemVerilog to stdout and write the results to
-`build/rtl/`.
+Both examples print generated SystemVerilog with `to_sv("-")` and write the
+results to `build/rtl/`.
 
-Build the Typst documentation with xmake:
-
-```sh
-xmake doc
-```
-
-This generates `build/rsv_doc.pdf`.
-
-Run an RTL example or other Ruby generator script with xmake:
+Use xmake automation:
 
 ```sh
 xmake rtl -f counter
+xmake doc
 ```
+
+These generate `build/rtl/*.sv` and `build/rsv_doc.pdf`.
+
+## Import existing SystemVerilog modules
+
+`RSV.import_sv` can import an external SystemVerilog module as a black-box
+signature provider. The imported object exposes the module name, parameters,
+and ports, and can be instantiated inside RSV modules just like an RSV-defined
+module.
+
+```ruby
+Uart = RSV.import_sv("vendor/uart.sv", top: "Uart", incdirs: ["vendor/include"])
+
+class Top < RSV::ModuleDef
+  def build
+    clk = input("clk", bit)
+    tx = output("tx", bit)
+
+    uart = Uart.new(inst_name: "u_uart", WIDTH: 16)
+    uart.clk <= clk
+    tx <= uart.tx
+  end
+end
+```
+
+This importer uses `python3` + `pyslang` under the hood and currently imports
+module signatures only; it does not translate the imported module body into
+RSV.
 
 ## Project structure
 
@@ -51,9 +72,9 @@ RSV/
 ├── lib/        # RSV DSL, elaboration, validation, and emission
 ├── examples/   # Runnable Ruby examples
 ├── docs/       # Detailed Typst documentation
-├── build/      # Generated automation outputs such as rsv_doc.pdf and RTL
-├── test/       # Minitest regression tests
-└── out/        # Generated SystemVerilog output
+├── scripts/    # xmake task definitions
+├── build/      # Generated PDFs and RTL
+└── test/       # Minitest regression tests
 ```
 
 ## Documentation

@@ -1,72 +1,77 @@
 # frozen_string_literal: true
 
 module RSV
-  # Builder used inside always_ff and always_comb blocks.
-  # Provides nbAssign, assign, ifStmt, elsifStmt, elseStmt.
+  # Builder used inside always_ff, always_comb, and always_latch blocks.
   class ProceduralBuilder
     attr_reader :stmts
 
-    def initialize
+    def initialize(assign_context:)
       @stmts   = []
-      @lastIf  = nil
+      @last_if  = nil
+      @assign_context = assign_context
     end
 
     def build(&block)
       return self unless block_given?
 
-      RSV.withProceduralBuilder(self) do
+      RSV.with_procedural_builder(self) do
         instance_eval(&block)
       end
 
       self
     end
 
-    # Non-blocking assignment:  lhs <= rhs;
-    def nbAssign(lhs, rhs)
-      @stmts  << NbAssign.new(RSV.normalizeExpr(lhs), RSV.normalizeExpr(rhs))
-      @lastIf  = nil
-    end
-    alias nb_assign nbAssign
-
-    # Blocking assignment:  lhs = rhs;
-    def assign(lhs, rhs)
-      @stmts  << BlockingAssign.new(RSV.normalizeExpr(lhs), RSV.normalizeExpr(rhs))
-      @lastIf  = nil
-    end
-
     # if (<cond>) begin ... end
-    def ifStmt(cond, &block)
-      builder = ProceduralBuilder.new
+    def if_stmt(cond, &block)
+      builder = ProceduralBuilder.new(assign_context: @assign_context)
       builder.build(&block)
-      stmt    = IfStmt.new(RSV.normalizeExpr(cond), builder.stmts)
+      stmt    = IfStmt.new(RSV.normalize_expr(cond), builder.stmts)
       @stmts << stmt
-      @lastIf = stmt
-    end
-    alias if_stmt ifStmt
-
-    def when_(cond, &block)
-      ifStmt(cond, &block)
+      @last_if = stmt
     end
 
-    # else if (<cond>) begin ... end  — must follow ifStmt or elsifStmt
-    def elsifStmt(cond, &block)
-      raise "elsifStmt called without a preceding ifStmt" unless @lastIf
+    def svif(cond, &block)
+      if_stmt(cond, &block)
+    end
 
-      builder = ProceduralBuilder.new
+    # else if (<cond>) begin ... end  — must follow if_stmt or elsif_stmt
+    def elsif_stmt(cond, &block)
+      raise "elsif_stmt called without a preceding if_stmt" unless @last_if
+
+      builder = ProceduralBuilder.new(assign_context: @assign_context)
       builder.build(&block)
-      @lastIf.addElsif(RSV.normalizeExpr(cond), builder.stmts)
+      @last_if.add_elsif(RSV.normalize_expr(cond), builder.stmts)
     end
-    alias elsif_stmt elsifStmt
+    alias svelif elsif_stmt
 
-    # else begin ... end  — must follow ifStmt or elsifStmt
-    def elseStmt(&block)
-      raise "elseStmt called without a preceding ifStmt" unless @lastIf
+    # else begin ... end  — must follow if_stmt or elsif_stmt
+    def else_stmt(&block)
+      raise "else_stmt called without a preceding if_stmt" unless @last_if
 
-      builder = ProceduralBuilder.new
+      builder = ProceduralBuilder.new(assign_context: @assign_context)
       builder.build(&block)
-      @lastIf.setElse(builder.stmts)
-      @lastIf = nil
+      @last_if.set_else(builder.stmts)
+      @last_if = nil
     end
-    alias else_stmt elseStmt
+    alias svelse else_stmt
+
+    private
+
+    def append_assignment(lhs, rhs)
+      raise ArgumentError, "instance ports cannot be assigned inside procedural blocks" if lhs.is_a?(InstancePortHandler) || rhs.is_a?(InstancePortHandler)
+
+      normalized_lhs = RSV.normalize_expr(lhs)
+      normalized_rhs = RSV.normalize_expr(rhs)
+
+      stmt = if @assign_context == :always_ff
+        NbAssign.new(normalized_lhs, normalized_rhs)
+      else
+        BlockingAssign.new(normalized_lhs, normalized_rhs)
+      end
+
+      @stmts << stmt
+      @last_if = nil
+      stmt
+    end
   end
 end

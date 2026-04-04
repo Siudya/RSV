@@ -7,15 +7,30 @@ require "rsv"
 
 class HandlerDslTest < Minitest::Test
   def test_module_def_public_api_uses_snake_case
-    mod = RSV::ModuleDef.new("SnakeApi")
+    mod = module_class("SnakeApi").new
 
-    assert_respond_to mod, :assign_stmt
     assert_respond_to mod, :with_clk_and_rst
     assert_respond_to mod, :always_ff
     assert_respond_to mod, :always_comb
     assert_respond_to mod, :always_latch
     assert_respond_to mod, :to_sv
+    assert_respond_to mod, :wire
+    assert_respond_to mod, :reg
+    assert_respond_to mod, :bit
+    assert_respond_to mod, :uint
+    assert_respond_to mod, :bits
+    assert_respond_to mod, :sint
+    assert_respond_to mod, :clock
+    assert_respond_to mod, :reset
+    assert_respond_to mod, :arr
+    assert_respond_to mod, :mem
+    assert_respond_to mod, :mux
+    assert_respond_to mod, :mux1h
+    assert_respond_to mod, :muxp
 
+    refute_respond_to mod, :instantiate
+    refute_respond_to mod, :assign_stmt
+    refute_respond_to mod, :logic
     refute_respond_to mod, :assignStmt
     refute_respond_to mod, :withClkAndRst
     refute_respond_to mod, :alwaysFf
@@ -25,24 +40,24 @@ class HandlerDslTest < Minitest::Test
   end
 
   def test_handler_signals_emit_wire_and_logic_declarations
-    mod = RSV::ModuleDef.new("Counter") do
-      clk = input(uint("clk"))
-      rstN = input(uint("rst_n"))
-      count = output(uint("count", width: 16))
-      seed = wire(uint("seed", width: 16, init: 0x7))
-      countR = logic(uint("count_r", width: 16))
+    mod = module_class("Counter") do
+      clk = input("clk", bit)
+      rst_n = input("rst_n", bit)
+      count = output("count", uint(16))
+      seed = wire("seed", uint(16), init: 0x7)
+      count_r = reg("count_r", uint(16))
 
-      assign_stmt(count, countR)
+      count <= count_r
 
-      always_ff("posedge #{clk} or negedge #{rstN}") do
-        ifStmt("!#{rstN}") do
-          nbAssign(countR, "'0")
+      always_ff("posedge #{clk} or negedge #{rst_n}") do
+        if_stmt("!#{rst_n}") do
+          count_r <= "'0"
         end
-        elseStmt do
-          nbAssign(countR, seed)
+        else_stmt do
+          count_r <= seed
         end
       end
-    end
+    end.new
 
     expected = <<~SV.chomp
       module Counter (
@@ -51,7 +66,7 @@ class HandlerDslTest < Minitest::Test
         output logic [15:0] count
       );
 
-        wire  [15:0] seed    = 16'h7;
+        logic [15:0] seed    = 16'h7;
         logic [15:0] count_r;
 
         assign count = count_r;
@@ -71,39 +86,60 @@ class HandlerDslTest < Minitest::Test
   end
 
   def test_handlers_can_be_used_in_instance_connections
-    mod = RSV::ModuleDef.new("Top") do
-      clk = input(uint("clk"))
-      count = logic(uint("count", width: 16))
-
-      instantiate "Counter", "u_counter",
-        params: { "WIDTH" => 16 },
-        connections: { "clk" => clk, "count" => count }
+    counter_class = module_class("Counter") do
+      clk = input("clk", bit)
+      count = output("count", uint(16))
     end
+
+    mod = Class.new(RSV::ModuleDef) do
+      define_singleton_method(:name) { "Top" }
+
+      define_method(:build) do
+        clk = input("clk", bit)
+        count = wire("count", uint(16))
+
+        counter = counter_class.new(inst_name: "u_counter")
+        counter.clk <= clk
+        count <= counter.count
+      end
+    end.new
 
     sv = mod.to_sv
 
+    assert_includes sv, "Counter u_counter ("
     assert_includes sv, ".clk(clk)"
     assert_includes sv, ".count(count)"
   end
 
-  def test_local_declarations_are_aligned
-    mod = RSV::ModuleDef.new("AlignedDecls") do
-      wire(uint("a"))
-      logic(uint("count_r", width: 16))
-      wire(uint("seed", width: 16, init: 0x7))
-    end
+    def test_local_declarations_are_aligned
+      mod = module_class("AlignedDecls") do
+      wire("a", bit)
+      reg("count_r", uint(16))
+      wire("seed", uint(16), init: 0x7)
+      end.new
 
     expected = <<~SV.chomp
       module AlignedDecls (
       );
 
-        wire         a;
+        logic        a;
         logic [15:0] count_r;
-        wire  [15:0] seed    = 16'h7;
+        logic [15:0] seed    = 16'h7;
 
       endmodule
     SV
 
     assert_equal expected, mod.to_sv
+  end
+
+  private
+
+  def module_class(name, &build_block)
+    build_block ||= proc {}
+
+    Class.new(RSV::ModuleDef) do
+      define_singleton_method(:name) { name }
+      define_method(:build, &build_block)
+    end
   end
 end

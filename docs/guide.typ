@@ -1,55 +1,75 @@
 = RSV Guide
 
-This guide covers the normal RSV workflow: declare signals, build expressions,
-describe procedural behavior, and emit SystemVerilog.
+This guide covers the normal RSV workflow: define a module class, declare
+signals, build expressions, describe procedural behavior, and emit
+SystemVerilog.
 
 == Workflow
 
-+ Declare parameters and typed signals with `parameter(...)` and `uint(...)`.
-+ Create ports and locals with `input(...)`, `output(...)`, `wire(...)`,
-  `logic(...)`, and `reg(...)`.
++ Define a Ruby class that inherits from `RSV::ModuleDef`.
++ Implement hardware construction in `build(...)` or `initialize(...)`.
++ If you override `initialize(...)`, call `super()` before using the DSL.
++ Declare parameters with `parameter(...)` and anonymous RSV data types with
+  `bit(...)`, `uint(...)`, `arr(...)`, and `mem(...)`.
++ Create named ports and locals with `input("name", type)`,
+  `output("name", type)`, `wire("name", type)`, and `reg("name", type)`.
++ Use `arr.fill(...)` and `mem.fill(...)` to build shaped reset initializers.
 + Materialize named intermediate wires with `expr(...)`.
 + Describe sequential or combinational behavior with `always_ff`,
   `always_latch`, and `always_comb`.
-+ Emit the final module with `to_sv`.
++ Use left assignment `<=` or right assignment `>=` in user code.
++ Write comparisons with `eq/ne/lt/le/gt/ge`, logical ops with `.and(...)`
+  and `.or(...)`, and reductions with `.or_r` / `.and_r`.
++ Use `sig[i]`, `sig[msb, lsb]` or `sig[msb..lsb]`, and `sig[base, :+, w]` /
+  `sig[base, :-, w]` for bit-select and slicing.
++ While `arr(...)` / `mem(...)` dimensions remain, `sig[...]` only accepts a
+  single index.
++ Emit the final module with `to_sv`, `to_sv("-")`, or `to_sv(path)`.
 
 == Two-pass elaboration
 
 RSV first builds an AST from the Ruby DSL. A second elaboration pass then:
 
 - infers expression widths,
-- lowers `expr(...)` into `wire` plus `assign`,
+- lowers top-level `<=` / `>=` into continuous `assign`,
+- lowers procedural assignment into `<=` inside `always_ff` and `=` elsewhere,
+- lowers `expr(...)` into a named RSV `wire` that emits as SV `logic` plus an
+  `assign`,
 - injects reset branches for `reg(..., init: ...)` inside domain-driven
   `always_ff` blocks,
-- validates assignment contexts before the final SV text is emitted.
+- validates assignment contexts and single-driver rules before the final SV
+  text is emitted.
 
 == Worked example
 
 ```ruby
 require "rsv"
 
-counter = RSV::ModuleDef.new("Counter") do
-  parameter "WIDTH", 8
+class Counter < RSV::ModuleDef
+  def build(width: 8)
+    parameter "WIDTH", width
 
-  clk = input(uint("clk"))
-  rst = input(uint("rst"))
-  en = input(uint("en"))
-  count = output(uint("count", width: "WIDTH"))
+    clk = input("clk", bit)
+    rst = input("rst", bit)
+    en = input("en", bit)
+    count = output("count", uint("WIDTH"))
 
-  countR = reg(uint("count_r", width: "WIDTH", init: "'0"))
-  countNext = expr("count_next", countR + 1)
+    countR = reg("count_r", uint("WIDTH"), init: "'0")
+    countNext = expr("count_next", countR + 1)
 
-  assign_stmt(count, countR)
+    countR >= count
 
-  with_clk_and_rst(clk, rst)
-  always_ff do
-    when_(en) do
-      countR <= countNext
+    with_clk_and_rst(clk, rst)
+    always_ff do
+      svif(en) do
+        countR <= countNext
+      end
     end
   end
 end
 
-puts counter.to_sv
+counter = Counter.new(width: 8)
+counter.to_sv("-")
 ```
 
 == Generated SystemVerilog
@@ -65,7 +85,7 @@ module Counter #(
 );
 
   logic [WIDTH-1:0] count_r;
-  wire [WIDTH-1:0] count_next;
+  logic [WIDTH-1:0] count_next;
 
   assign count_next = count_r + 1;
   assign count = count_r;
@@ -80,6 +100,54 @@ module Counter #(
 
 endmodule
 ```
+
+== Submodule instantiation
+
+When `Counter.new(...)` is called at top level, it creates a module object. When
+it is called inside another module, it creates a submodule instance handle.
+Ports are connected later with `<=` or `>=`.
+
+```ruby
+class Top < RSV::ModuleDef
+  def build
+    clk = input("clk", bit)
+    rst = input("rst", bit)
+    count = output("count", uint(8))
+
+    counter = Counter.new(inst_name: "u_counter", width: 8)
+    counter.clk <= clk
+    rst >= counter.rst
+    counter.count >= count
+  end
+end
+```
+
+== Packed arrays and unpacked memories
+
+Use `arr(...)` to add packed dimensions before the scalar bit width and `mem(...)`
+to add unpacked dimensions after the variable name. They build anonymous data
+types, so you pass the resulting type to `wire(...)`, `reg(...)`, or a port
+declaration. For multiple dimensions, use either `arr([i, j, k], uint(8))` /
+`mem([i, j, k], uint(8))` or the variadic forms `arr(i, j, k, uint(8))` /
+`mem(i, j, k, uint(8))`.
+
+```ruby
+packed = reg("cnt_arr_0", arr([i, j, k], uint(8)))
+memory = reg("cnt_mem_0", mem([i, j, k], uint(8)))
+mixed = reg("cnt_dat", mem([a, b, c], arr([d, e, f], uint(8))))
+filled = reg("cnt_init", mem(16, uint(16)), init: mem.fill(16, uint(16, 0x75)))
+```
+
+```systemverilog
+logic [k][j][i][7:0] cnt_arr_0;
+logic [7:0]          cnt_mem_0[k][j][i];
+logic [f][e][d][7:0] cnt_dat[c][b][a];
+logic [15:0]         cnt_init[16];
+```
+
+As long as a shaped signal still has `arr(...)` / `mem(...)` dimensions left,
+`[]` means index selection only. After those dimensions are consumed, plain
+vector indexing and slicing behave the same as before.
 
 == Example scripts
 

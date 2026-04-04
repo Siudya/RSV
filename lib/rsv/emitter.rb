@@ -5,30 +5,30 @@ module RSV
   class Emitter
     INDENT = "  "
 
-    def emitModule(mod)
+    def emit_module(mod)
       lines = []
 
       if mod.params.empty?
         lines << "module #{mod.name} ("
       else
         lines << "module #{mod.name} #("
-        lines.concat(emitParamsList(mod.params))
+        lines.concat(emit_params_list(mod.params))
         lines << ") ("
       end
 
-      lines.concat(emitPortsList(mod.ports))
+      lines.concat(emit_ports_list(mod.ports))
       lines << ");"
       lines << ""
 
       unless mod.locals.empty?
-        lines.concat(emitLocalDecls(mod.locals, 1))
+        lines.concat(emit_local_decls(mod.locals, 1))
         lines << ""
       end
 
       mod.stmts.each_with_index do |stmt, idx|
-        lines.concat(emitStmt(stmt, 1))
-        nextStmt = mod.stmts[idx + 1]
-        lines << "" if nextStmt && blankLineBetween?(stmt, nextStmt)
+        lines.concat(emit_stmt(stmt, 1))
+        next_stmt = mod.stmts[idx + 1]
+        lines << "" if next_stmt && blank_line_between?(stmt, next_stmt)
       end
 
       lines << "" unless mod.stmts.empty?
@@ -43,7 +43,7 @@ module RSV
       INDENT * level
     end
 
-    def packedDim(width)
+    def packed_dim(width)
       return nil if width == 1 || width == "1"
 
       if width.is_a?(Integer)
@@ -53,182 +53,305 @@ module RSV
       end
     end
 
-    def emitParamsList(params)
+    def packed_decl_dims(width, packed_dims)
+      dims = packed_dims.map { |dim| "[#{emit_expr(dim)}]" }
+      scalar = packed_dim(width)
+      dims << scalar if scalar
+      dims.join
+    end
+
+    def unpacked_decl_dims(unpacked_dims)
+      unpacked_dims.map { |dim| "[#{emit_expr(dim)}]" }.join
+    end
+
+    def emit_params_list(params)
       params.each_with_index.map do |param, idx|
         comma = idx < params.size - 1 ? "," : ""
-        typePart = param.paramType ? "#{param.paramType} " : ""
-        "#{ind(1)}parameter #{typePart}#{param.name} = #{param.value}#{comma}"
+        type_part = param.param_type ? "#{param.param_type} " : ""
+        "#{ind(1)}parameter #{type_part}#{param.name} = #{param.value}#{comma}"
       end
     end
 
-    def emitPortsList(ports)
+    def emit_ports_list(ports)
       return [] if ports.empty?
 
       entries = ports.map do |port|
-        dim = packedDim(port.width)
-        signedStr = port.signed ? "signed " : ""
-        typePart = "logic #{signedStr}#{dim ? "#{dim} " : ""}"
-        { dir: port.dir.to_s, type: typePart, name: port.name }
+        signed_str = port.signed ? "signed " : ""
+        dims = packed_decl_dims(port.width, port.packed_dims)
+        type_part = "logic #{signed_str}#{dims}".rstrip
+        name_part = "#{port.name}#{unpacked_decl_dims(port.unpacked_dims)}"
+        { dir: port.dir.to_s, type: type_part, name: name_part }
       end
 
-      maxDir = entries.map { |entry| entry[:dir].length }.max
-      maxType = entries.map { |entry| entry[:type].length }.max
+      max_dir = entries.map { |entry| entry[:dir].length }.max
+      max_type = entries.map { |entry| entry[:type].length }.max
 
       entries.each_with_index.map do |entry, idx|
         comma = idx < entries.size - 1 ? "," : ""
-        dir = entry[:dir].ljust(maxDir)
-        type = entry[:type].ljust(maxType)
-        "#{ind(1)}#{dir} #{type}#{entry[:name]}#{comma}"
+        dir = entry[:dir].ljust(max_dir)
+        type = entry[:type].ljust(max_type)
+        "#{ind(1)}#{dir} #{type} #{entry[:name]}#{comma}"
       end
     end
 
-    def emitLocalDecls(locals, level)
+    def emit_local_decls(locals, level)
       entries = locals.map do |sig|
-        dim = packedDim(sig.width)
-        widthTokens = []
-        widthTokens << "signed" if sig.signed
-        widthTokens << dim if dim
-        initValue = sig.init.nil? ? nil : emitLiteralInit(sig.init, sig.width)
-        { kind: sig.svKind.to_s, width: widthTokens.join(" "), name: sig.name, init: initValue }
+        packed_field = []
+        packed_field << "signed" if sig.signed
+        decl_dims = packed_decl_dims(sig.width, sig.packed_dims)
+        packed_field << decl_dims unless decl_dims.empty?
+        init_value = sig.init.nil? ? nil : emit_literal_init(sig.init, sig.width)
+        {
+          kind: sig.sv_kind.to_s,
+          packed: packed_field.join(" "),
+          name: "#{sig.name}#{unpacked_decl_dims(sig.unpacked_dims)}",
+          init: init_value
+        }
       end
 
-      maxKind = entries.map { |entry| entry[:kind].length }.max
-      maxWidth = entries.map { |entry| entry[:width].length }.max
-      maxName = entries.map { |entry| entry[:name].length }.max
+      max_kind = entries.map { |entry| entry[:kind].length }.max
+      max_packed = entries.map { |entry| entry[:packed].length }.max
+      max_name = entries.map { |entry| entry[:name].length }.max
 
       entries.map do |entry|
-        prefix = entry[:kind].ljust(maxKind)
-        prefix = "#{prefix} #{entry[:width].ljust(maxWidth)}" if maxWidth.positive?
+        prefix = entry[:kind].ljust(max_kind)
+        prefix = "#{prefix} #{entry[:packed].ljust(max_packed)}" if max_packed.positive?
 
         if entry[:init]
-          namePart = entry[:name].ljust(maxName)
-          "#{ind(level)}#{prefix} #{namePart} = #{entry[:init]};"
+          name_part = entry[:name].ljust(max_name)
+          "#{ind(level)}#{prefix} #{name_part} = #{entry[:init]};"
         else
           "#{ind(level)}#{prefix} #{entry[:name]};"
         end
       end
     end
 
-    def emitLiteralInit(init, width)
+    def emit_literal_init(init, width)
       return init if init.is_a?(String)
       return init.to_s unless init.is_a?(Integer) && width.is_a?(Integer) && init >= 0
 
       "#{width}'h#{init.to_s(16)}"
     end
 
-    def emitStmt(stmt, level)
+    def emit_stmt(stmt, level)
       case stmt
       when AssignStmt
-        ["#{ind(level)}assign #{emitExpr(stmt.lhs)} = #{emitExpr(stmt.rhs)};"]
+        ["#{ind(level)}assign #{emit_expr(stmt.lhs)} = #{emit_expr(stmt.rhs)};"]
       when AlwaysFF
-        emitAlwaysFf(stmt, level)
+        emit_always_ff(stmt, level)
       when AlwaysLatch
-        emitAlwaysLatch(stmt, level)
+        emit_always_latch(stmt, level)
       when AlwaysComb
-        emitAlwaysComb(stmt, level)
+        emit_always_comb(stmt, level)
       when Instance
-        emitInstance(stmt, level)
+        emit_instance(stmt, level)
+      when MuxCaseStmt
+        emit_mux_case_stmt(stmt, level)
       else
         ["#{ind(level)}// unknown statement: #{stmt.class}"]
       end
     end
 
-    def emitAlwaysFf(stmt, level)
+    def emit_always_ff(stmt, level)
       lines = ["#{ind(level)}always_ff @(#{stmt.sensitivity}) begin"]
-      stmt.body.each { |procStmt| lines.concat(emitProcStmt(procStmt, level + 1)) }
+      stmt.body.each { |proc_stmt| lines.concat(emit_proc_stmt(proc_stmt, level + 1)) }
       lines << "#{ind(level)}end"
     end
 
-    def emitAlwaysComb(stmt, level)
+    def emit_always_comb(stmt, level)
       lines = ["#{ind(level)}always_comb begin"]
-      stmt.body.each { |procStmt| lines.concat(emitProcStmt(procStmt, level + 1)) }
+      stmt.body.each { |proc_stmt| lines.concat(emit_proc_stmt(proc_stmt, level + 1)) }
       lines << "#{ind(level)}end"
     end
 
-    def emitAlwaysLatch(stmt, level)
+    def emit_always_latch(stmt, level)
       lines = ["#{ind(level)}always_latch begin"]
-      stmt.body.each { |procStmt| lines.concat(emitProcStmt(procStmt, level + 1)) }
+      stmt.body.each { |proc_stmt| lines.concat(emit_proc_stmt(proc_stmt, level + 1)) }
       lines << "#{ind(level)}end"
     end
 
-    def blankLineBetween?(stmt, nextStmt)
-      !(stmt.is_a?(AssignStmt) && nextStmt.is_a?(AssignStmt))
+    def blank_line_between?(stmt, next_stmt)
+      !(stmt.is_a?(AssignStmt) && next_stmt.is_a?(AssignStmt))
     end
 
-    def emitProcStmt(stmt, level)
+    def emit_proc_stmt(stmt, level)
       case stmt
       when NbAssign
-        ["#{ind(level)}#{emitExpr(stmt.lhs)} <= #{emitExpr(stmt.rhs)};"]
+        ["#{ind(level)}#{emit_expr(stmt.lhs)} <= #{emit_expr(stmt.rhs)};"]
       when BlockingAssign
-        ["#{ind(level)}#{emitExpr(stmt.lhs)} = #{emitExpr(stmt.rhs)};"]
+        ["#{ind(level)}#{emit_expr(stmt.lhs)} = #{emit_expr(stmt.rhs)};"]
       when IfStmt
-        emitIfStmt(stmt, level)
+        emit_if_stmt(stmt, level)
+      when ForStmt
+        emit_for_stmt(stmt, level)
       else
         ["#{ind(level)}// unknown proc stmt: #{stmt.class}"]
       end
     end
 
-    def emitIfStmt(stmt, level)
-      lines = ["#{ind(level)}if (#{emitExpr(stmt.cond)}) begin"]
-      stmt.thenStmts.each { |procStmt| lines.concat(emitProcStmt(procStmt, level + 1)) }
+    def emit_if_stmt(stmt, level)
+      lines = ["#{ind(level)}if (#{emit_expr(stmt.cond)}) begin"]
+      stmt.then_stmts.each { |proc_stmt| lines.concat(emit_proc_stmt(proc_stmt, level + 1)) }
 
-      stmt.elsifClauses.each do |clause|
-        lines << "#{ind(level)}end else if (#{emitExpr(clause[:cond])}) begin"
-        clause[:stmts].each { |procStmt| lines.concat(emitProcStmt(procStmt, level + 1)) }
+      stmt.elsif_clauses.each do |clause|
+        lines << "#{ind(level)}end else if (#{emit_expr(clause[:cond])}) begin"
+        clause[:stmts].each { |proc_stmt| lines.concat(emit_proc_stmt(proc_stmt, level + 1)) }
       end
 
-      if stmt.elseStmts
+      if stmt.else_stmts
         lines << "#{ind(level)}end else begin"
-        stmt.elseStmts.each { |procStmt| lines.concat(emitProcStmt(procStmt, level + 1)) }
+        stmt.else_stmts.each { |proc_stmt| lines.concat(emit_proc_stmt(proc_stmt, level + 1)) }
       end
 
       lines << "#{ind(level)}end"
     end
 
-    def emitInstance(inst, level)
+    def emit_for_stmt(stmt, level)
+      lines = [
+        "#{ind(level)}for (int #{stmt.index_name} = 0; #{stmt.index_name} < #{emit_expr(stmt.limit)}; #{stmt.index_name} = #{stmt.index_name} + 1) begin"
+      ]
+      stmt.body.each { |proc_stmt| lines.concat(emit_proc_stmt(proc_stmt, level + 1)) }
+      lines << "#{ind(level)}end"
+    end
+
+    def emit_instance(inst, level)
       lines = []
 
       if inst.params.empty?
-        lines << "#{ind(level)}#{inst.moduleName} #{inst.instName} ("
+        lines << "#{ind(level)}#{inst.module_name} #{inst.inst_name} ("
       else
-        lines << "#{ind(level)}#{inst.moduleName} #("
-        paramPairs = inst.params.to_a
-        paramPairs.each_with_index do |(key, value), idx|
-          comma = idx < paramPairs.size - 1 ? "," : ""
+        lines << "#{ind(level)}#{inst.module_name} #("
+        param_pairs = inst.params.to_a
+        param_pairs.each_with_index do |(key, value), idx|
+          comma = idx < param_pairs.size - 1 ? "," : ""
           lines << "#{ind(level + 1)}.#{key}(#{value})#{comma}"
         end
-        lines << "#{ind(level)}) #{inst.instName} ("
+        lines << "#{ind(level)}) #{inst.inst_name} ("
       end
 
-      connPairs = inst.connections.to_a
-      connPairs.each_with_index do |(port, sig), idx|
-        comma = idx < connPairs.size - 1 ? "," : ""
-        lines << "#{ind(level + 1)}.#{port}(#{emitExpr(sig)})#{comma}"
+      conn_pairs = inst.connections.to_a
+      conn_pairs.each_with_index do |(port, sig), idx|
+        comma = idx < conn_pairs.size - 1 ? "," : ""
+        lines << "#{ind(level + 1)}.#{port}(#{emit_expr(sig)})#{comma}"
       end
 
       lines << "#{ind(level)});"
     end
 
-    def emitExpr(expr, parentPrecedence = 0)
-      expr = RSV.normalizeExpr(expr)
+    def emit_mux_case_stmt(stmt, level)
+      sel_width = stmt.sel.width
+      dats = stmt.dats
+      lhs_name = emit_expr(stmt.lhs)
+      sel_name = emit_expr(stmt.sel)
+
+      dat_entries = collect_mux_entries(dats)
+      raise ArgumentError, "mux1h/muxp dats length must match sel width" if dat_entries.size != sel_width
+
+      case_keyword = stmt.case_type == :unique ? "unique casez" : "priority casez"
+      lines = []
+      lines << "#{ind(level)}always_comb begin"
+      lines << "#{ind(level + 1)}#{case_keyword} (#{sel_name})"
+
+      if stmt.case_type == :priority
+        lsb_first = stmt.lsb_first
+        # Emit entries from highest priority to lowest priority
+        indices = lsb_first ? (0...sel_width).to_a : (0...sel_width).to_a.reverse
+        lowest_priority_idx = lsb_first ? sel_width - 1 : 0
+
+        indices.each do |i|
+          pattern = build_muxp_pattern(sel_width, i, lsb_first)
+          lines << "#{ind(level + 2)}#{sel_width}'b#{pattern}: #{lhs_name} = #{emit_expr(dat_entries[i])};"
+        end
+
+        lines << "#{ind(level + 2)}default: #{lhs_name} = #{emit_expr(dat_entries[lowest_priority_idx])};"
+      else
+        (0...sel_width).each do |i|
+          pattern = build_mux1h_pattern(sel_width, i)
+          lines << "#{ind(level + 2)}#{sel_width}'b#{pattern}: #{lhs_name} = #{emit_expr(dat_entries[i])};"
+        end
+
+        zero_width = RSV.infer_expr_width(stmt.lhs)
+        zero_lit = zero_width ? "#{zero_width}'d0" : "'0"
+        lines << "#{ind(level + 2)}default: #{lhs_name} = #{zero_lit};"
+      end
+
+      lines << "#{ind(level + 1)}endcase"
+      lines << "#{ind(level)}end"
+      lines
+    end
+
+    def collect_mux_entries(dats)
+      if dats.is_a?(SignalHandler) && (!dats.unpacked_dims.empty? || !dats.packed_dims.empty?)
+        dim = if !dats.unpacked_dims.empty?
+          RSV.dimension_value(dats.unpacked_dims.first)
+        else
+          RSV.dimension_value(dats.packed_dims.first)
+        end
+        return (0...dim).map { |i| IndexExpr.new(dats, LiteralExpr.new(i)) }
+      end
+
+      raise ArgumentError, "mux1h/muxp dats must be an arr or mem signal"
+    end
+
+    def build_mux1h_pattern(width, idx)
+      # one-hot exact: only bit idx is 1, rest are 0
+      (0...width).reverse_each.map { |i| i == idx ? "1" : "0" }.join
+    end
+
+    def build_muxp_pattern(width, idx, lsb_first)
+      # For lsb_first: sel[0] has highest priority
+      #   bit idx=1, bits with higher priority (< idx) = 0, others = ?
+      # For msb_first: sel[N-1] has highest priority
+      #   bit idx=1, bits with higher priority (> idx) = 0, others = ?
+      (0...width).reverse_each.map do |i|
+        if i == idx
+          "1"
+        elsif lsb_first ? (i < idx) : (i > idx)
+          "0"
+        else
+          "?"
+        end
+      end.join
+    end
+
+    def emit_expr(expr, parent_precedence = 0)
+      expr = RSV.normalize_expr(expr)
 
       case expr
+      when ClockSignal
+        expr.name
+      when ResetSignal
+        expr.name
       when SignalHandler
         expr.name
       when RawExpr
         expr.source
       when LiteralExpr
-        emitLiteralExpr(expr)
+        emit_literal_expr(expr)
       when IndexExpr
-        "#{emitExpr(expr.base, precedenceFor(:index))}[#{emitExpr(expr.index)}]"
+        "#{emit_expr(expr.base, precedence_for(:index))}[#{emit_expr(expr.index)}]"
+      when RangeSelectExpr
+        "#{emit_expr(expr.base, precedence_for(:index))}[#{emit_expr(expr.msb)}:#{emit_expr(expr.lsb)}]"
+      when IndexedPartSelectExpr
+        "#{emit_expr(expr.base, precedence_for(:index))}[#{emit_expr(expr.start)} #{emit_indexed_direction(expr.direction)} #{emit_expr(expr.part_width)}]"
+      when UnaryExpr
+        emit_unary_expr(expr, parent_precedence)
       when BinaryExpr
-        emitBinaryExpr(expr, parentPrecedence)
+        emit_binary_expr(expr, parent_precedence)
+      when AsSintExpr
+        "$signed(#{emit_expr(expr.operand)})"
+      when MuxExpr
+        sel_str = emit_expr(expr.sel, 6)
+        a_str = emit_expr(expr.a, 6)
+        b_str = emit_expr(expr.b, 6)
+        rendered = "#{sel_str} ? #{a_str} : #{b_str}"
+        parent_precedence > 5 ? "(#{rendered})" : rendered
       else
         expr.to_s
       end
     end
 
-    def emitLiteralExpr(expr)
+    def emit_literal_expr(expr)
       if !expr.width.is_a?(Integer)
         return "'0" if expr.value == 0 && expr.format == :hex
 
@@ -242,24 +365,96 @@ module RSV
       "#{expr.width}'#{base}#{value}"
     end
 
-    def emitBinaryExpr(expr, parentPrecedence)
-      prec = precedenceFor(expr.op)
-      lhs = emitExpr(expr.lhs, prec + 1)
-      rhs = emitExpr(expr.rhs, prec + 1)
-      rendered = "#{lhs} #{expr.op} #{rhs}"
-      prec < parentPrecedence ? "(#{rendered})" : rendered
+    def emit_binary_expr(expr, parent_precedence)
+      prec = precedence_for(expr.op)
+      lhs = emit_expr(expr.lhs, prec)
+      rhs = emit_expr(expr.rhs, prec + 1)
+      rendered = "#{lhs} #{emit_operator(expr.op)} #{rhs}"
+      prec < parent_precedence ? "(#{rendered})" : rendered
     end
 
-    def precedenceFor(op)
+    def emit_unary_expr(expr, parent_precedence)
+      prec = precedence_for(expr.op)
+      operand = emit_expr(expr.operand, prec)
+      rendered = "#{emit_unary_operator(expr.op)}#{operand}"
+      prec < parent_precedence ? "(#{rendered})" : rendered
+    end
+
+    def emit_operator(op)
+      case op
+      when :<<
+        "<<"
+      when :>>
+        ">>"
+      when :<=
+        "<="
+      when :>=
+        ">="
+      when :==
+        "=="
+      when :!=
+        "!="
+      when :logic_and
+        "&&"
+      when :logic_or
+        "||"
+      else
+        op.to_s
+      end
+    end
+
+    def emit_unary_operator(op)
+      case op
+      when :!
+        "!"
+      when :~
+        "~"
+      when :reduce_or
+        "|"
+      when :reduce_and
+        "&"
+      else
+        op.to_s
+      end
+    end
+
+    def emit_indexed_direction(direction)
+      case direction
+      when :+
+        "+:"
+      when :-
+        "-:"
+      else
+        direction.to_s
+      end
+    end
+
+    def precedence_for(op)
       case op
       when :index
         100
-      when :<, :>, :>=
-        20
-      when :&, :|, :^
-        30
+      when :!, :~, :reduce_or, :reduce_and
+        80
+      when :*, :/, :%
+        70
       when :+, :-
-        40
+        60
+      when :<<, :>>
+        50
+      when :&
+        30
+      when :^
+        25
+      when :|
+        20
+      when :<, :<=, :>, :>=
+        20
+      when :==, :!=
+        18
+      when :logic_and
+        15
+      when :logic_or
+        10
       else
         10
       end

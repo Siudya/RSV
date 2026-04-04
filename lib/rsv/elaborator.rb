@@ -7,52 +7,74 @@ module RSV
   # - sizes numeric literals from surrounding context
   class Elaborator
     def elaborate(mod)
-      @sourceLocalsByName = mod.locals.each_with_object({}) { |local, memo| memo[local.name] = local }
+      @source_locals_by_name = mod.locals.each_with_object({}) { |local, memo| memo[local.name] = local }
 
       ElaboratedModule.new(
         mod.name,
         params: mod.params.dup,
         ports: mod.ports.dup,
-        locals: mod.locals.map { |local| elaborateLocal(local) },
-        stmts: mod.stmts.flat_map { |stmt| elaborateStmt(stmt) }
+        locals: mod.locals.map { |local| elaborate_local(local) },
+        stmts: mod.stmts.flat_map { |stmt| elaborate_stmt(stmt) }
       )
     end
 
     private
 
-    def elaborateLocal(local)
-      spec = SignalSpec.new(local.name, width: local.width, signed: local.signed, init: local.init)
-      LocalDecl.new(local.svKind, spec, init: local.init, resetInit: local.resetInit)
+    def elaborate_local(local)
+      spec = SignalSpec.new(
+        local.name,
+        width: local.width,
+        signed: local.signed,
+        init: local.init,
+        packed_dims: local.packed_dims,
+        unpacked_dims: local.unpacked_dims
+      )
+      LocalDecl.new(local.sv_kind, spec, init: local.init, reset_init: local.reset_init)
     end
 
-    def elaborateStmt(stmt)
+    def elaborate_stmt(stmt)
       case stmt
       when AssignStmt
-        [AssignStmt.new(elaborateExpr(stmt.lhs), elaborateExpr(stmt.rhs, targetWidth: RSV.inferExprWidth(stmt.lhs)))]
+        [AssignStmt.new(elaborate_expr(stmt.lhs), elaborate_expr(stmt.rhs, target_width: RSV.infer_expr_width(stmt.lhs)))]
       when AlwaysFF
-        [elaborateAlwaysFf(stmt)]
+        [elaborate_always_ff(stmt)]
       when AlwaysLatch
-        [AlwaysLatch.new(stmt.body.map { |procStmt| elaborateProcStmt(procStmt) })]
+        [AlwaysLatch.new(stmt.body.map { |proc_stmt| elaborate_proc_stmt(proc_stmt) })]
       when AlwaysComb
-        [AlwaysComb.new(stmt.body.map { |procStmt| elaborateProcStmt(procStmt) })]
+        [AlwaysComb.new(stmt.body.map { |proc_stmt| elaborate_proc_stmt(proc_stmt) })]
       when Instance
-        [Instance.new(stmt.moduleName, stmt.instName, params: stmt.params, connections: elaborateConnections(stmt.connections))]
+        [Instance.new(stmt.module_name, stmt.inst_name, params: stmt.params, connections: elaborate_connections(stmt.connections))]
+      when MuxCaseStmt
+        [stmt]
       else
         [stmt]
       end
     end
 
-    def elaborateConnections(connections)
-      connections.transform_values { |signal| elaborateExpr(signal) }
+    def elaborate_connections(connections)
+      connections.transform_values { |signal| elaborate_expr(signal) }
     end
 
-    def elaborateAlwaysFf(stmt)
-      body = stmt.body.map { |procStmt| elaborateProcStmt(procStmt) }
+    def elaborate_always_ff(stmt)
+      body = stmt.body.map { |proc_stmt| elaborate_proc_stmt(proc_stmt) }
 
-      if stmt.domainDriven?
-        resetExpr = elaborateExpr(stmt.reset)
-        body = synthesizeResetBody(resetExpr, body)
-        sensitivity = "posedge #{stmt.clock} or posedge #{stmt.reset}"
+      if stmt.domain_driven?
+        clk = stmt.clock
+        rst = stmt.reset
+
+        clk_edge = clk.is_a?(ClockSignal) && clk.negated ? "negedge" : "posedge"
+        rst_edge = rst.is_a?(ResetSignal) && rst.negated ? "negedge" : "posedge"
+        clk_name = clk.is_a?(ClockSignal) ? clk.name : clk.to_s
+        rst_name = rst.is_a?(ResetSignal) ? rst.name : rst.to_s
+
+        if rst.is_a?(ResetSignal) && rst.negated
+          reset_expr = elaborate_expr(UnaryExpr.new(:!, RSV.normalize_expr(rst_name)))
+        else
+          reset_expr = elaborate_expr(RSV.normalize_expr(rst_name))
+        end
+
+        body = synthesize_reset_body(reset_expr, body)
+        sensitivity = "#{clk_edge} #{clk_name} or #{rst_edge} #{rst_name}"
       else
         sensitivity = stmt.sensitivity
       end
@@ -60,115 +82,159 @@ module RSV
       AlwaysFF.new(body, sensitivity: sensitivity)
     end
 
-    def synthesizeResetBody(resetExpr, body)
-      assignedNames = collectAssignedNames(body)
-      resetLocals = assignedNames.filter_map do |name|
-        local = @sourceLocalsByName[name]
+    def synthesize_reset_body(reset_expr, body)
+      assigned_names = collect_assigned_names(body)
+      reset_locals = assigned_names.filter_map do |name|
+        local = @source_locals_by_name[name]
         local if local&.resettable?
       end
-      return body if resetLocals.empty?
+      return body if reset_locals.empty?
 
-      resetBody = resetLocals.map do |local|
-        lhs = SignalHandler.new(local.name, width: local.width, signed: local.signed, kind: :logic)
-        rhs = elaborateExpr(RSV.resetInitExpr(local.resetInit, local.width), targetWidth: local.width)
-        NbAssign.new(lhs, rhs)
-      end
+      reset_body = reset_locals.flat_map { |local| synthesize_local_reset(local) }
 
-      resetStmt = IfStmt.new(resetExpr, resetBody)
+      reset_stmt = IfStmt.new(reset_expr, reset_body)
 
       if body.size == 1 && body.first.is_a?(IfStmt)
-        mergeResetWithIf(resetStmt, body.first)
-        [resetStmt]
+        merge_reset_with_if(reset_stmt, body.first)
+        [reset_stmt]
       else
-        resetStmt.setElse(body)
-        [resetStmt]
+        reset_stmt.set_else(body)
+        [reset_stmt]
       end
     end
 
-    def mergeResetWithIf(resetStmt, ifStmt)
-      resetStmt.addElsif(ifStmt.cond, ifStmt.thenStmts)
-      ifStmt.elsifClauses.each do |clause|
-        resetStmt.addElsif(clause[:cond], clause[:stmts])
+    def merge_reset_with_if(reset_stmt, if_stmt)
+      reset_stmt.add_elsif(if_stmt.cond, if_stmt.then_stmts)
+      if_stmt.elsif_clauses.each do |clause|
+        reset_stmt.add_elsif(clause[:cond], clause[:stmts])
       end
-      resetStmt.setElse(ifStmt.elseStmts) if ifStmt.elseStmts
+      reset_stmt.set_else(if_stmt.else_stmts) if if_stmt.else_stmts
     end
 
-    def collectAssignedNames(stmts)
+    def synthesize_local_reset(local)
+      lhs = SignalHandler.new(
+        local.name,
+        width: local.width,
+        signed: local.signed,
+        kind: :logic,
+        packed_dims: local.packed_dims,
+        unpacked_dims: local.unpacked_dims
+      )
+      rhs = elaborate_expr(RSV.reset_init_expr(local.reset_init, local.width), target_width: local.width)
+      dims = local.unpacked_dims + local.packed_dims
+      build_reset_loop(lhs, dims, rhs, local.name, 0)
+    end
+
+    def build_reset_loop(lhs, dims, rhs, base_name, depth)
+      return [NbAssign.new(lhs, rhs)] if dims.empty?
+
+      idx_name = "#{base_name}_idx_#{depth}"
+      indexed_lhs = IndexExpr.new(lhs, RawExpr.new(idx_name))
+      limit = elaborate_expr(dims.first)
+      body = build_reset_loop(indexed_lhs, dims.drop(1), rhs, base_name, depth + 1)
+      [ForStmt.new(idx_name, limit, body)]
+    end
+
+    def collect_assigned_names(stmts)
       names = []
-      stmts.each { |stmt| collectAssignedNamesFromStmt(stmt, names) }
+      stmts.each { |stmt| collect_assigned_names_from_stmt(stmt, names) }
       names.uniq
     end
 
-    def collectAssignedNamesFromStmt(stmt, names)
+    def collect_assigned_names_from_stmt(stmt, names)
       case stmt
       when NbAssign, BlockingAssign
-        names << stmt.lhs.baseName if stmt.lhs.respond_to?(:baseName)
+        names << stmt.lhs.base_name if stmt.lhs.respond_to?(:base_name)
       when IfStmt
-        stmt.thenStmts.each { |nested| collectAssignedNamesFromStmt(nested, names) }
-        stmt.elsifClauses.each do |clause|
-          clause[:stmts].each { |nested| collectAssignedNamesFromStmt(nested, names) }
+        stmt.then_stmts.each { |nested| collect_assigned_names_from_stmt(nested, names) }
+        stmt.elsif_clauses.each do |clause|
+          clause[:stmts].each { |nested| collect_assigned_names_from_stmt(nested, names) }
         end
-        stmt.elseStmts&.each { |nested| collectAssignedNamesFromStmt(nested, names) }
+        stmt.else_stmts&.each { |nested| collect_assigned_names_from_stmt(nested, names) }
       end
     end
 
-    def elaborateProcStmt(stmt)
+    def elaborate_proc_stmt(stmt)
       case stmt
       when NbAssign
-        lhs = elaborateExpr(stmt.lhs)
-        NbAssign.new(lhs, elaborateExpr(stmt.rhs, targetWidth: RSV.inferExprWidth(lhs)))
+        lhs = elaborate_expr(stmt.lhs)
+        NbAssign.new(lhs, elaborate_expr(stmt.rhs, target_width: RSV.infer_expr_width(lhs)))
       when BlockingAssign
-        lhs = elaborateExpr(stmt.lhs)
-        BlockingAssign.new(lhs, elaborateExpr(stmt.rhs, targetWidth: RSV.inferExprWidth(lhs)))
+        lhs = elaborate_expr(stmt.lhs)
+        BlockingAssign.new(lhs, elaborate_expr(stmt.rhs, target_width: RSV.infer_expr_width(lhs)))
       when IfStmt
-        lowered = IfStmt.new(elaborateExpr(stmt.cond), stmt.thenStmts.map { |nested| elaborateProcStmt(nested) })
-        stmt.elsifClauses.each do |clause|
-          lowered.addElsif(elaborateExpr(clause[:cond]), clause[:stmts].map { |nested| elaborateProcStmt(nested) })
+        lowered = IfStmt.new(elaborate_expr(stmt.cond), stmt.then_stmts.map { |nested| elaborate_proc_stmt(nested) })
+        stmt.elsif_clauses.each do |clause|
+          lowered.add_elsif(elaborate_expr(clause[:cond]), clause[:stmts].map { |nested| elaborate_proc_stmt(nested) })
         end
-        lowered.setElse(stmt.elseStmts.map { |nested| elaborateProcStmt(nested) }) if stmt.elseStmts
+        lowered.set_else(stmt.else_stmts.map { |nested| elaborate_proc_stmt(nested) }) if stmt.else_stmts
         lowered
       else
         stmt
       end
     end
 
-    def elaborateExpr(expr, targetWidth: nil)
-      expr = RSV.normalizeExpr(expr)
+    def elaborate_expr(expr, target_width: nil)
+      expr = RSV.normalize_expr(expr)
 
       case expr
-      when SignalHandler
+      when SignalHandler, ClockSignal, ResetSignal
         expr
       when RawExpr
         expr
       when LiteralExpr
-        targetWidth ? expr.withWidth(targetWidth) : expr
+        target_width ? expr.with_width(target_width) : expr
+      when UnaryExpr
+        elaborate_unary_expr(expr, target_width: target_width)
       when IndexExpr
-        IndexExpr.new(elaborateExpr(expr.base), elaborateExpr(expr.index))
+        IndexExpr.new(elaborate_expr(expr.base), elaborate_expr(expr.index))
+      when RangeSelectExpr
+        RangeSelectExpr.new(elaborate_expr(expr.base), elaborate_expr(expr.msb), elaborate_expr(expr.lsb))
+      when IndexedPartSelectExpr
+        IndexedPartSelectExpr.new(elaborate_expr(expr.base), elaborate_expr(expr.start), expr.direction, elaborate_expr(expr.part_width))
       when BinaryExpr
-        elaborateBinaryExpr(expr, targetWidth: targetWidth)
+        elaborate_binary_expr(expr, target_width: target_width)
+      when AsSintExpr
+        AsSintExpr.new(elaborate_expr(expr.operand, target_width: target_width))
+      when MuxExpr
+        MuxExpr.new(elaborate_expr(expr.sel), elaborate_expr(expr.a, target_width: target_width), elaborate_expr(expr.b, target_width: target_width))
       else
         expr
       end
     end
 
-    def elaborateBinaryExpr(expr, targetWidth:)
-      lhsWidth = RSV.inferExprWidth(expr.lhs)
-      rhsWidth = RSV.inferExprWidth(expr.rhs)
-      sharedWidth = [lhsWidth, rhsWidth].compact.max || targetWidth
+    def elaborate_binary_expr(expr, target_width:)
+      lhs_width = RSV.infer_expr_width(expr.lhs)
+      rhs_width = RSV.infer_expr_width(expr.rhs)
+      shared_width = [lhs_width, rhs_width].compact.max || target_width
 
-      lhs = elaborateExpr(expr.lhs, targetWidth: literalTargetWidth(expr.op, expr.lhs, rhsWidth, sharedWidth))
-      rhs = elaborateExpr(expr.rhs, targetWidth: literalTargetWidth(expr.op, expr.rhs, lhsWidth, sharedWidth))
+      lhs = elaborate_expr(expr.lhs, target_width: literal_target_width(expr.op, expr.lhs, rhs_width, shared_width))
+      rhs = elaborate_expr(expr.rhs, target_width: literal_target_width(expr.op, expr.rhs, lhs_width, shared_width))
       BinaryExpr.new(lhs, expr.op, rhs)
     end
 
-    def literalTargetWidth(op, expr, otherWidth, fallbackWidth)
+    def elaborate_unary_expr(expr, target_width:)
+      operand_target = unary_literal_target_width(expr.op, target_width)
+      UnaryExpr.new(expr.op, elaborate_expr(expr.operand, target_width: operand_target))
+    end
+
+    def literal_target_width(op, expr, other_width, fallback_width)
       return nil unless expr.is_a?(LiteralExpr)
 
       case op
-      when :<, :>, :>=, :+, :-, :&, :|, :^
-        otherWidth || fallbackWidth
+      when :<, :<=, :>, :>=, :==, :!=, :logic_and, :logic_or, :+, :-, :*, :/, :%, :<<, :>>, :&, :|, :^
+        other_width || fallback_width
       else
-        fallbackWidth
+        fallback_width
+      end
+    end
+
+    def unary_literal_target_width(op, fallback_width)
+      case op
+      when :~
+        fallback_width
+      else
+        nil
       end
     end
   end

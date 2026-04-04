@@ -6,26 +6,28 @@ $LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
 require "rsv"
 
 class SequentialDslTest < Minitest::Test
-  def test_expr_creates_inferred_wire_and_assign
+  def test_expr_creates_inferred_logic_and_assign
     c = nil
-    mod = RSV::ModuleDef.new("ExprTop") do
-      a = wire(uint("a", width: 4))
-      b = logic(uint("b", width: 16))
+    mod = module_class("ExprTop") do
+      a = wire("a", uint(4))
+      b = wire("b", uint(16))
+      out = output("out", uint(16))
       c = expr("c", a + b)
 
-      assign_stmt(b, c)
-    end
+      out <= c
+    end.new
 
     expected = <<~SV.chomp
       module ExprTop (
+        output logic [15:0] out
       );
 
-        wire  [3:0]  a;
+        logic [3:0]  a;
         logic [15:0] b;
-        wire  [15:0] c;
+        logic [15:0] c;
 
         assign c = a + b;
-        assign b = c;
+        assign out = c;
 
       endmodule
     SV
@@ -36,33 +38,33 @@ class SequentialDslTest < Minitest::Test
   end
 
   def test_reg_assignment_requires_always_ff_or_always_latch
-    error = assert_raises(ArgumentError) do
-      RSV::ModuleDef.new("BadRegAssign") do
-        a = wire(uint("a", width: 8))
-        r = reg(uint("r", width: 8, init: 0))
+      error = assert_raises(ArgumentError) do
+        module_class("BadRegAssign") do
+        a = wire("a", uint(8))
+        r = reg("r", uint(8), init: 0)
 
-        assign_stmt(r, a)
-      end.to_sv
+        r <= a
+        end.new.to_sv
     end
 
     assert_equal "reg signal r must be assigned inside always_ff or always_latch", error.message
   end
 
-  def test_logic_can_be_assigned_in_assign_and_always_comb
-    mod = RSV::ModuleDef.new("LogicAssigns") do
-      a = input(uint("a", width: 8))
-      out = output(uint("out", width: 8))
-      tmp = logic(uint("tmp", width: 8))
+  def test_wire_can_be_assigned_in_assign_and_always_comb
+    mod = module_class("WireAssigns") do
+      a = input("a", uint(8))
+      out = output("out", uint(8))
+      tmp = wire("tmp", uint(8))
 
-      assign_stmt(out, tmp)
+      out <= tmp
 
       always_comb do
-        assign(tmp, a)
+        tmp <= a
       end
-    end
+    end.new
 
     expected = <<~SV.chomp
-      module LogicAssigns (
+      module WireAssigns (
         input  logic [7:0] a,
         output logic [7:0] out
       );
@@ -82,38 +84,122 @@ class SequentialDslTest < Minitest::Test
   end
 
   def test_reg_cannot_be_assigned_in_always_comb
-    error = assert_raises(ArgumentError) do
-      RSV::ModuleDef.new("BadRegComb") do
-        a = input(uint("a", width: 8))
-        r = reg(uint("r", width: 8, init: 0))
+      error = assert_raises(ArgumentError) do
+        module_class("BadRegComb") do
+        a = input("a", uint(8))
+        r = reg("r", uint(8), init: 0)
 
         always_comb do
-          assign(r, a)
+          r <= a
         end
-      end.to_sv
+      end.new.to_sv
     end
 
     assert_equal "reg signal r must be assigned inside always_ff or always_latch", error.message
   end
 
+  def test_wire_cannot_be_assigned_in_always_ff
+      error = assert_raises(ArgumentError) do
+        module_class("BadWireFf") do
+        clk = input("clk", bit)
+        rst = input("rst", bit)
+        d = input("d", uint(8))
+        w = wire("w", uint(8))
+
+        with_clk_and_rst(clk, rst)
+        always_ff do
+          svif(1) do
+            w <= d
+          end
+        end
+      end.new.to_sv
+    end
+
+    assert_equal "wire signal w must be assigned inside always_comb or outside procedural blocks", error.message
+  end
+
+  def test_wire_cannot_be_assigned_in_always_latch
+      error = assert_raises(ArgumentError) do
+        module_class("BadWireLatch") do
+        en = input("en", bit)
+        d = input("d", uint(8))
+        w = wire("w", uint(8))
+
+        always_latch do
+          svif(en) do
+            w <= d
+          end
+        end
+      end.new.to_sv
+    end
+
+    assert_equal "wire signal w must be assigned inside always_comb or outside procedural blocks", error.message
+  end
+
+  def test_signal_cannot_be_assigned_by_assign_and_always_block
+      error = assert_raises(ArgumentError) do
+        module_class("MixedDrivers") do
+        a = input("a", uint(8))
+        b = input("b", uint(8))
+        w = wire("w", uint(8))
+
+        w <= a
+
+        always_comb do
+          w <= b
+        end
+      end.new.to_sv
+    end
+
+    assert_equal "signal w cannot be assigned in multiple always/assign blocks", error.message
+  end
+
+  def test_signal_cannot_be_assigned_in_multiple_always_blocks
+      error = assert_raises(ArgumentError) do
+        module_class("DoubleAlways") do
+        a = input("a", uint(8))
+        b = input("b", uint(8))
+        w = wire("w", uint(8))
+
+        always_comb do
+          w <= a
+        end
+
+        always_comb do
+          w <= b
+        end
+      end.new.to_sv
+    end
+
+    assert_equal "signal w cannot be assigned in multiple always/assign blocks", error.message
+  end
+
+  def test_explicit_logic_declaration_is_removed
+    assert_raises(NoMethodError) do
+      module_class("NoLogic") do
+        logic("tmp", uint(8))
+      end.new
+    end
+  end
+
   def test_expr_inlines_anonymous_intermediate_expressions
     d = nil
-    mod = RSV::ModuleDef.new("InlineExpr") do
-      a = wire(uint("a", width: 8))
-      b = wire(uint("b", width: 8))
+    mod = module_class("InlineExpr") do
+      a = wire("a", uint(8))
+      b = wire("b", uint(8))
       c = a + b
       d = expr("d", c + a)
-    end
+    end.new
 
     expected = <<~SV.chomp
       module InlineExpr (
       );
 
-        wire [7:0] a;
-        wire [7:0] b;
-        wire [7:0] d;
+        logic [7:0] a;
+        logic [7:0] b;
+        logic [7:0] d;
 
-        assign d = (a + b) + a;
+        assign d = a + b + a;
 
       endmodule
     SV
@@ -123,18 +209,18 @@ class SequentialDslTest < Minitest::Test
     assert_equal expected, mod.to_sv
   end
 
-  def test_reg_can_be_assigned_in_always_latch
-    mod = RSV::ModuleDef.new("LatchTop") do
-      en = input(uint("en"))
-      d = input(uint("d", width: 8))
-      q = reg(uint("q", width: 8))
+  def test_reg_can_be_assigned_in_always_latch_using_blocking_assignment
+    mod = module_class("LatchTop") do
+      en = input("en", bit)
+      d = input("d", uint(8))
+      q = reg("q", uint(8))
 
       always_latch do
-        when_(en) do
+        svif(en) do
           q <= d
         end
       end
-    end
+    end.new
 
     expected = <<~SV.chomp
       module LatchTop (
@@ -146,7 +232,7 @@ class SequentialDslTest < Minitest::Test
 
         always_latch begin
           if (en) begin
-            q <= d;
+            q = d;
           end
         end
 
@@ -157,20 +243,20 @@ class SequentialDslTest < Minitest::Test
   end
 
   def test_reg_declarations_emit_resettable_always_ff
-    mod = RSV::ModuleDef.new("Counter") do
-      clk0 = input(uint("clk_0"))
-      rst0 = input(uint("rst_0"))
-      cnt = reg(uint("cnt", width: 16, init: 0x75))
-      err = logic(uint("err", width: 16))
+    mod = module_class("Counter") do
+      clk0 = input("clk_0", bit)
+      rst0 = input("rst_0", bit)
+      cnt = reg("cnt", uint(16), init: 0x75)
+      err = reg("err", uint(16))
 
       with_clk_and_rst(clk0, rst0)
       always_ff do
-        when_(cnt < 85) do
+        svif(cnt.lt(85)) do
           cnt <= cnt + 1
-          err[0] <= (cnt > 85)
+          err[0] <= cnt.gt(85)
         end
       end
-    end
+    end.new
 
     expected = <<~SV.chomp
       module Counter (
@@ -197,28 +283,28 @@ class SequentialDslTest < Minitest::Test
   end
 
   def test_with_clk_and_rst_switches_sequential_domain
-    mod = RSV::ModuleDef.new("Top") do
-      clk0 = input(uint("clk_0"))
-      rst0 = input(uint("rst_0"))
-      clk1 = input(uint("clk_1"))
-      rst1 = input(uint("rst_1"))
-      cnt0 = reg(uint("cnt0", width: 16, init: 0x75))
-      cnt1 = reg(uint("cnt1", width: 16, init: 0x45))
+    mod = module_class("Top") do
+      clk0 = input("clk_0", bit)
+      rst0 = input("rst_0", bit)
+      clk1 = input("clk_1", bit)
+      rst1 = input("rst_1", bit)
+      cnt0 = reg("cnt0", uint(16), init: 0x75)
+      cnt1 = reg("cnt1", uint(16), init: 0x45)
 
       with_clk_and_rst(clk0, rst0)
       always_ff do
-        when_(cnt0 < 85) do
+        svif(cnt0.lt(85)) do
           cnt0 <= cnt0 + 1
         end
       end
 
       with_clk_and_rst(clk1, rst1)
       always_ff do
-        when_(cnt1 < 97) do
+        svif(cnt1.lt(97)) do
           cnt1 <= cnt1 + 1
         end
       end
-    end
+    end.new
 
     sv = mod.to_sv
 
@@ -227,5 +313,16 @@ class SequentialDslTest < Minitest::Test
     assert_includes sv, "always_ff @(posedge clk_1 or posedge rst_1) begin"
     assert_includes sv, "cnt1 <= 16'h45;"
     assert_includes sv, "cnt1 < 16'd97"
+  end
+
+  private
+
+  def module_class(name, &build_block)
+    build_block ||= proc {}
+
+    Class.new(RSV::ModuleDef) do
+      define_singleton_method(:name) { name }
+      define_method(:build, &build_block)
+    end
   end
 end
