@@ -17,24 +17,24 @@ counter = RSV::ModuleDef.new("Counter") do
 
   logic "count_r", width: "WIDTH"
 
-  assign_stmt "count", "count_r"
+  assignStmt "count", "count_r"
 
-  always_ff "posedge clk or negedge rst_n" do
-    if_stmt "!rst_n" do
-      nb_assign "count_r", "'0"
+  alwaysFf "posedge clk or negedge rst_n" do
+    ifStmt "!rst_n" do
+      nbAssign "count_r", "'0"
     end
-    elsif_stmt "en" do
-      nb_assign "count_r", "count_r + 1'b1"
+    elsifStmt "en" do
+      nbAssign "count_r", "count_r + 1'b1"
     end
   end
 end
 
-sv = counter.to_sv
+sv = counter.toSv
 puts sv
 
 # Write the generated SV to out/counter.sv
-out_dir  = File.join(__dir__, "..", "out")
-Dir.mkdir(out_dir) unless Dir.exist?(out_dir)
-out_file = File.join(out_dir, "counter.sv")
-File.write(out_file, sv + "\n")
-warn "Written to #{out_file}"
+outDir  = File.join(__dir__, "..", "out")
+Dir.mkdir(outDir) unless Dir.exist?(outDir)
+outFile = File.join(outDir, "counter.sv")
+File.write(outFile, sv + "\n")
+warn "Written to #{outFile}"

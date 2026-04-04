@@ -35,11 +35,11 @@ top = RSV::ModuleDef.new("Top") do
     }
 end
 
-sv = top.to_sv
+sv = top.toSv
 puts sv
 
-out_dir  = File.join(__dir__, "..", "out")
-Dir.mkdir(out_dir) unless Dir.exist?(out_dir)
-out_file = File.join(out_dir, "top.sv")
-File.write(out_file, sv + "\n")
-warn "Written to #{out_file}"
+outDir  = File.join(__dir__, "..", "out")
+Dir.mkdir(outDir) unless Dir.exist?(outDir)
+outFile = File.join(outDir, "top.sv")
+File.write(outFile, sv + "\n")
+warn "Written to #{outFile}"

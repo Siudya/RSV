@@ -2,7 +2,7 @@
 
 module RSV
   # Top-level DSL class.  Construct a SystemVerilog module description with a
-  # block-based Ruby API and convert it to SV text with #to_sv.
+  # block-based Ruby API and convert it to SV text with #toSv.
   #
   # Example:
   #   mod = RSV::ModuleDef.new("Counter") do
@@ -10,14 +10,14 @@ module RSV
   #     input  "clk"
   #     output "count", width: "WIDTH"
   #     logic  "count_r", width: "WIDTH"
-  #     assign_stmt "count", "count_r"
-  #     always_ff "posedge clk or negedge rst_n" do
-  #       if_stmt "!rst_n" do
-  #         nb_assign "count_r", "'0"
+  #     assignStmt "count", "count_r"
+  #     alwaysFf "posedge clk or negedge rst_n" do
+  #       ifStmt "!rst_n" do
+  #         nbAssign "count_r", "'0"
   #       end
   #     end
   #   end
-  #   puts mod.to_sv
+  #   puts mod.toSv
   class ModuleDef
     attr_reader :name, :params, :ports, :locals, :stmts
 
@@ -68,24 +68,24 @@ module RSV
     # ── Statements ────────────────────────────────────────────────────────────
 
     # Continuous assignment:  assign <lhs> = <rhs>;
-    def assign_stmt(lhs, rhs)
+    def assignStmt(lhs, rhs)
       @stmts << AssignStmt.new(lhs, rhs)
     end
 
     # always_ff @(<sensitivity>) begin ... end
-    #   always_ff "posedge clk or negedge rst_n" do
-    #     if_stmt "!rst_n" do
-    #       nb_assign "q", "'0"
+    #   alwaysFf "posedge clk or negedge rst_n" do
+    #     ifStmt "!rst_n" do
+    #       nbAssign "q", "'0"
     #     end
     #   end
-    def always_ff(sensitivity, &block)
+    def alwaysFf(sensitivity, &block)
       builder = ProceduralBuilder.new
       builder.instance_eval(&block) if block_given?
       @stmts << AlwaysFF.new(sensitivity, builder.stmts)
     end
 
     # always_comb begin ... end
-    def always_comb(&block)
+    def alwaysComb(&block)
       builder = ProceduralBuilder.new
       builder.instance_eval(&block) if block_given?
       @stmts << AlwaysComb.new(builder.stmts)
@@ -95,15 +95,15 @@ module RSV
     #   instantiate "Counter", "u_cnt",
     #     params:      { "WIDTH" => 8 },
     #     connections: { "clk" => "clk", "count" => "cnt_out" }
-    def instantiate(module_name, inst_name, params: {}, connections: {})
-      @stmts << Instance.new(module_name, inst_name, params: params, connections: connections)
+    def instantiate(moduleName, instName, params: {}, connections: {})
+      @stmts << Instance.new(moduleName, instName, params: params, connections: connections)
     end
 
     # ── Output ────────────────────────────────────────────────────────────────
 
     # Emit the module as a SystemVerilog string.
-    def to_sv
-      Emitter.new.emit_module(self)
+    def toSv
+      Emitter.new.emitModule(self)
     end
   end
 end

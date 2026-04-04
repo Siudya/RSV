@@ -15,12 +15,12 @@ module RSV
 
   # Represents a parameter declaration.
   class ParamDecl
-    attr_reader :name, :value, :param_type
+    attr_reader :name, :value, :paramType
 
-    def initialize(name, value, param_type)
-      @name       = name
-      @value      = value
-      @param_type = param_type  # e.g. "int", "logic [7:0]", or nil
+    def initialize(name, value, paramType)
+      @name      = name
+      @value     = value
+      @paramType = paramType  # e.g. "int", "logic [7:0]", or nil
     end
   end
 
@@ -52,31 +52,31 @@ module RSV
 
   # Procedural if / else-if / else statement.
   class IfStmt
-    attr_reader :cond, :then_stmts, :elsif_clauses, :else_stmts
+    attr_reader :cond, :thenStmts, :elsifClauses, :elseStmts
 
-    def initialize(cond, then_stmts)
+    def initialize(cond, thenStmts)
       @cond          = cond
-      @then_stmts    = then_stmts
-      @elsif_clauses = []   # Array of { cond:, stmts: }
-      @else_stmts    = nil
+      @thenStmts     = thenStmts
+      @elsifClauses  = []   # Array of { cond:, stmts: }
+      @elseStmts     = nil
     end
 
-    def add_elsif(cond, stmts)
-      @elsif_clauses << { cond: cond, stmts: stmts }
+    def addElsif(cond, stmts)
+      @elsifClauses << { cond: cond, stmts: stmts }
     end
 
-    def set_else(stmts)
-      @else_stmts = stmts
+    def setElse(stmts)
+      @elseStmts = stmts
     end
   end
 
   # Module instantiation.
   class Instance
-    attr_reader :module_name, :inst_name, :params, :connections
+    attr_reader :moduleName, :instName, :params, :connections
 
-    def initialize(module_name, inst_name, params:, connections:)
-      @module_name  = module_name
-      @inst_name    = inst_name
+    def initialize(moduleName, instName, params:, connections:)
+      @moduleName   = moduleName
+      @instName     = instName
       @params       = params       # Hash: param_name (String) => value
       @connections  = connections  # Hash: port_name  (String) => signal
     end
