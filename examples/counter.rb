@@ -1,8 +1,10 @@
 # frozen_string_literal: true
 # examples/counter.rb
 #
-# Generates a parameterized synchronous counter with active-low reset.
+# Generates a parameterized synchronous counter with auto-generated reset logic.
 # Run:  ruby examples/counter.rb
+
+require "fileutils"
 
 $LOAD_PATH.unshift(File.join(__dir__, "..", "lib"))
 require "rsv"
@@ -10,31 +12,30 @@ require "rsv"
 counter = RSV::ModuleDef.new("Counter") do
   parameter "WIDTH", 8
 
-  input  "clk"
-  input  "rst_n"
-  input  "en"
-  output "count", width: "WIDTH"
+  clk = input(uint("clk"))
+  rst = input(uint("rst"))
+  en = input(uint("en"))
+  count = output(uint("count", width: "WIDTH"))
 
-  logic "count_r", width: "WIDTH"
+  countR = reg(uint("count_r", width: "WIDTH", init: "'0"))
+  countNext = expr("count_next", countR + 1)
 
-  assignStmt "count", "count_r"
+  assign_stmt(count, countR)
 
-  alwaysFf "posedge clk or negedge rst_n" do
-    ifStmt "!rst_n" do
-      nbAssign "count_r", "'0"
-    end
-    elsifStmt "en" do
-      nbAssign "count_r", "count_r + 1'b1"
+  with_clk_and_rst(clk, rst)
+  always_ff do
+    when_(en) do
+      countR <= countNext
     end
   end
 end
 
-sv = counter.toSv
+sv = counter.to_sv
 puts sv
 
-# Write the generated SV to out/counter.sv
-outDir  = File.join(__dir__, "..", "out")
-Dir.mkdir(outDir) unless Dir.exist?(outDir)
+# Write the generated SV to build/rtl/counter.sv
+outDir  = File.join(__dir__, "..", "build", "rtl")
+FileUtils.mkdir_p(outDir)
 outFile = File.join(outDir, "counter.sv")
 File.write(outFile, sv + "\n")
 warn "Written to #{outFile}"

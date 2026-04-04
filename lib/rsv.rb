@@ -2,7 +2,9 @@
 
 require_relative "rsv/nodes"
 require_relative "rsv/procbuilder"
+require_relative "rsv/validator"
 require_relative "rsv/moddef"
+require_relative "rsv/elaborator"
 require_relative "rsv/emitter"
 
 # RSV — Ruby SystemVerilog Generator
