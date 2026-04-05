@@ -44,8 +44,6 @@ module RSV
         [AlwaysComb.new(stmt.body.map { |proc_stmt| elaborate_proc_stmt(proc_stmt) })]
       when Instance
         [Instance.new(stmt.module_name, stmt.inst_name, params: stmt.params, connections: elaborate_connections(stmt.connections))]
-      when MuxCaseStmt
-        [stmt]
       else
         [stmt]
       end
@@ -198,6 +196,10 @@ module RSV
         AsSintExpr.new(elaborate_expr(expr.operand, target_width: target_width))
       when MuxExpr
         MuxExpr.new(elaborate_expr(expr.sel), elaborate_expr(expr.a, target_width: target_width), elaborate_expr(expr.b, target_width: target_width))
+      when CatExpr
+        CatExpr.new(expr.parts.map { |p| elaborate_expr(p) })
+      when FillExpr
+        FillExpr.new(elaborate_expr(expr.count), elaborate_expr(expr.part))
       else
         expr
       end

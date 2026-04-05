@@ -402,6 +402,44 @@ module RSV
     def element_width;  @handler.element_width end
   end
 
+  # Bit concatenation: {a, b, c}
+  class CatExpr
+    include ExprOps
+
+    attr_reader :parts
+
+    def initialize(parts)
+      @parts = parts.map { |p| RSV.normalize_expr(p) }
+    end
+
+    def width
+      widths = @parts.map { |p| RSV.infer_expr_width(p) }
+      return nil if widths.any?(&:nil?)
+
+      widths.sum
+    end
+  end
+
+  # Bit replication: {n{a}}
+  class FillExpr
+    include ExprOps
+
+    attr_reader :count, :part
+
+    def initialize(count, part)
+      @count = RSV.normalize_expr(count)
+      @part  = RSV.normalize_expr(part)
+    end
+
+    def width
+      count_val = @count.is_a?(LiteralExpr) ? @count.value : nil
+      part_width = RSV.infer_expr_width(@part)
+      return nil unless count_val.is_a?(Integer) && part_width
+
+      count_val * part_width
+    end
+  end
+
   # Ternary mux expression: s ? a : b
   class MuxExpr
     include ExprOps
@@ -864,7 +902,8 @@ module RSV
   def self.normalize_expr(operand)
     case operand
     when SignalHandler, RawExpr, LiteralExpr, BinaryExpr, UnaryExpr, IndexExpr,
-         RangeSelectExpr, IndexedPartSelectExpr, AsSintExpr, ClockSignal, ResetSignal, MuxExpr
+         RangeSelectExpr, IndexedPartSelectExpr, AsSintExpr, ClockSignal, ResetSignal,
+         MuxExpr, CatExpr, FillExpr
       operand
     when String
       RawExpr.new(operand)
@@ -913,6 +952,10 @@ module RSV
     when AsSintExpr
       expr.width
     when MuxExpr
+      expr.width
+    when CatExpr
+      expr.width
+    when FillExpr
       expr.width
     else
       nil

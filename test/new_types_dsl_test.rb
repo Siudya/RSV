@@ -212,10 +212,13 @@ class NewTypesDslTest < Minitest::Test
       dats = input("dats", mem([3], uint(8)))
       out = wire("out", uint(8))
 
-      mux1h(sel, dats, result: out)
+      always_comb do
+        mux1h(sel, dats, result: out)
+      end
     end.new
 
     sv = mod.to_sv
+    assert_includes sv, "always_comb begin"
     assert_includes sv, "unique casez (sel)"
     assert_includes sv, "3'b001: out = dats[0];"
     assert_includes sv, "3'b010: out = dats[1];"
@@ -223,6 +226,17 @@ class NewTypesDslTest < Minitest::Test
     assert_includes sv, "default: out = 8'd0;"
     assert_includes sv, "endcase"
     refute_includes sv, "?"
+  end
+
+  def test_mux1h_outside_always_raises
+    assert_raises(ArgumentError) do
+      module_class("Mux1hBad") do
+        sel = input("sel", uint(3))
+        dats = input("dats", mem([3], uint(8)))
+        out = wire("out", uint(8))
+        mux1h(sel, dats, result: out)
+      end.new
+    end
   end
 
   # ── muxp ─────────────────────────────────────────────────────────────────
@@ -233,10 +247,13 @@ class NewTypesDslTest < Minitest::Test
       dats = input("dats", mem([3], uint(8)))
       out = wire("out", uint(8))
 
-      muxp(sel, dats, result: out)
+      always_comb do
+        muxp(sel, dats, result: out)
+      end
     end.new
 
     sv = mod.to_sv
+    assert_includes sv, "always_comb begin"
     assert_includes sv, "priority casez (sel)"
     # lsb_first (default): sel[0] highest priority, checked first
     assert_includes sv, "3'b??1: out = dats[0];"
@@ -253,7 +270,9 @@ class NewTypesDslTest < Minitest::Test
       dats = input("dats", mem([3], uint(8)))
       out = wire("out", uint(8))
 
-      muxp(sel, dats, result: out, lsb_first: false)
+      always_comb do
+        muxp(sel, dats, result: out, lsb_first: false)
+      end
     end.new
 
     sv = mod.to_sv
@@ -264,6 +283,72 @@ class NewTypesDslTest < Minitest::Test
     assert_includes sv, "3'b001: out = dats[0];"
     # default = lowest priority data
     assert_includes sv, "default: out = dats[0];"
+  end
+
+  def test_muxp_outside_always_raises
+    assert_raises(ArgumentError) do
+      module_class("MuxpBad") do
+        sel = input("sel", uint(3))
+        dats = input("dats", mem([3], uint(8)))
+        out = wire("out", uint(8))
+        muxp(sel, dats, result: out)
+      end.new
+    end
+  end
+
+  # ── cat ───────────────────────────────────────────────────────────────────
+
+  def test_cat_emits_concatenation
+    mod = module_class("CatTest") do
+      a = input("a", uint(4))
+      b = input("b", uint(4))
+      c = input("c", uint(8))
+      out = output("out", uint(16))
+      out <= cat(a, b, c)
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "assign out = {a, b, c};"
+  end
+
+  def test_cat_inside_always_comb
+    mod = module_class("CatComb") do
+      a = input("a", uint(4))
+      b = input("b", uint(4))
+      out = wire("out", uint(8))
+      always_comb do
+        out <= cat(a, b)
+      end
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "out = {a, b};"
+  end
+
+  # ── fill ──────────────────────────────────────────────────────────────────
+
+  def test_fill_emits_replication
+    mod = module_class("FillTest") do
+      a = input("a", uint(4))
+      out = output("out", uint(16))
+      out <= fill(4, a)
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "assign out = {4{a}};"
+  end
+
+  def test_fill_inside_always_comb
+    mod = module_class("FillComb") do
+      a = input("a", uint(1))
+      out = wire("out", uint(8))
+      always_comb do
+        out <= fill(8, a)
+      end
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "out = {8{a}};"
   end
 
   # ── index type checking ────────────────────────────────────────────────

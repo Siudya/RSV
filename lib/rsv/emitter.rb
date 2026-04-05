@@ -145,8 +145,6 @@ module RSV
         emit_always_comb(stmt, level)
       when Instance
         emit_instance(stmt, level)
-      when MuxCaseStmt
-        emit_mux_case_stmt(stmt, level)
       else
         ["#{ind(level)}// unknown statement: #{stmt.class}"]
       end
@@ -184,6 +182,8 @@ module RSV
         emit_if_stmt(stmt, level)
       when ForStmt
         emit_for_stmt(stmt, level)
+      when MuxCaseStmt
+        emit_mux_case_inline(stmt, level)
       else
         ["#{ind(level)}// unknown proc stmt: #{stmt.class}"]
       end
@@ -238,7 +238,7 @@ module RSV
       lines << "#{ind(level)});"
     end
 
-    def emit_mux_case_stmt(stmt, level)
+    def emit_mux_case_inline(stmt, level)
       sel_width = stmt.sel.width
       dats = stmt.dats
       lhs_name = emit_expr(stmt.lhs)
@@ -249,34 +249,31 @@ module RSV
 
       case_keyword = stmt.case_type == :unique ? "unique casez" : "priority casez"
       lines = []
-      lines << "#{ind(level)}always_comb begin"
-      lines << "#{ind(level + 1)}#{case_keyword} (#{sel_name})"
+      lines << "#{ind(level)}#{case_keyword} (#{sel_name})"
 
       if stmt.case_type == :priority
         lsb_first = stmt.lsb_first
-        # Emit entries from highest priority to lowest priority
         indices = lsb_first ? (0...sel_width).to_a : (0...sel_width).to_a.reverse
         lowest_priority_idx = lsb_first ? sel_width - 1 : 0
 
         indices.each do |i|
           pattern = build_muxp_pattern(sel_width, i, lsb_first)
-          lines << "#{ind(level + 2)}#{sel_width}'b#{pattern}: #{lhs_name} = #{emit_expr(dat_entries[i])};"
+          lines << "#{ind(level + 1)}#{sel_width}'b#{pattern}: #{lhs_name} = #{emit_expr(dat_entries[i])};"
         end
 
-        lines << "#{ind(level + 2)}default: #{lhs_name} = #{emit_expr(dat_entries[lowest_priority_idx])};"
+        lines << "#{ind(level + 1)}default: #{lhs_name} = #{emit_expr(dat_entries[lowest_priority_idx])};"
       else
         (0...sel_width).each do |i|
           pattern = build_mux1h_pattern(sel_width, i)
-          lines << "#{ind(level + 2)}#{sel_width}'b#{pattern}: #{lhs_name} = #{emit_expr(dat_entries[i])};"
+          lines << "#{ind(level + 1)}#{sel_width}'b#{pattern}: #{lhs_name} = #{emit_expr(dat_entries[i])};"
         end
 
         zero_width = RSV.infer_expr_width(stmt.lhs)
         zero_lit = zero_width ? "#{zero_width}'d0" : "'0"
-        lines << "#{ind(level + 2)}default: #{lhs_name} = #{zero_lit};"
+        lines << "#{ind(level + 1)}default: #{lhs_name} = #{zero_lit};"
       end
 
-      lines << "#{ind(level + 1)}endcase"
-      lines << "#{ind(level)}end"
+      lines << "#{ind(level)}endcase"
       lines
     end
 
@@ -346,6 +343,10 @@ module RSV
         b_str = emit_expr(expr.b, 6)
         rendered = "#{sel_str} ? #{a_str} : #{b_str}"
         parent_precedence > 5 ? "(#{rendered})" : rendered
+      when CatExpr
+        "{#{expr.parts.map { |p| emit_expr(p) }.join(", ")}}"
+      when FillExpr
+        "{#{emit_expr(expr.count)}{#{emit_expr(expr.part)}}}"
       else
         expr.to_s
       end

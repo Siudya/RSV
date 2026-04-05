@@ -168,20 +168,20 @@ module RSV
       MuxExpr.new(sel, a, b)
     end
 
-    def mux1h(sel1h, dats, result:)
-      raise ArgumentError, "mux1h sel must be a wire(uint) handler" unless sel1h.is_a?(SignalHandler)
-      raise ArgumentError, "mux1h result must be assignable" unless result.is_a?(SignalHandler)
-
-      @stmts << MuxCaseStmt.new(result, sel1h, dats, case_type: :unique)
-      result
+    def cat(*parts)
+      CatExpr.new(parts)
     end
 
-    def muxp(sel, dats, result:, lsb_first: true)
-      raise ArgumentError, "muxp sel must be a wire(uint) handler" unless sel.is_a?(SignalHandler)
-      raise ArgumentError, "muxp result must be assignable" unless result.is_a?(SignalHandler)
+    def fill(n, part)
+      FillExpr.new(n, part)
+    end
 
-      @stmts << MuxCaseStmt.new(result, sel, dats, case_type: :priority, lsb_first: lsb_first)
-      result
+    def mux1h(_sel1h, _dats, result: nil)
+      raise ArgumentError, "mux1h must be used inside an always_ff, always_comb, or always_latch block"
+    end
+
+    def muxp(_sel, _dats, result: nil, lsb_first: true)
+      raise ArgumentError, "muxp must be used inside an always_ff, always_comb, or always_latch block"
     end
 
     # ── Statements ───────────────────────────────────────────────────────────

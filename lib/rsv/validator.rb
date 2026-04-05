@@ -25,8 +25,6 @@ module RSV
         validate_proc_stmts(stmt.body, context: :always_latch, driver_context: driver_context)
       when AlwaysComb
         validate_proc_stmts(stmt.body, context: :always_comb, driver_context: driver_context)
-      when MuxCaseStmt
-        validate_assignment_target(stmt.lhs, context: :always_comb, driver_context: driver_context)
       end
     end
 
@@ -44,6 +42,8 @@ module RSV
           validate_proc_stmts(clause[:stmts], context: context, driver_context: driver_context)
         end
         validate_proc_stmts(stmt.else_stmts, context: context, driver_context: driver_context) if stmt.else_stmts
+      when MuxCaseStmt
+        validate_assignment_target(stmt.lhs, context: context, driver_context: driver_context)
       end
     end
 
