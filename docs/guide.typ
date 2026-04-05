@@ -283,23 +283,22 @@ Bundles support:
 
 == Interface usage
 
-Subclass `RSV::InterfaceDef` and use `field` and `modport` inside `build`.
-Use `interface_port` in a module to connect it.
+Subclass `RSV::InterfaceDef` and declare signals with `input` and `output`
+(from the master's perspective). Modports `mst` and `slv` are auto-generated.
+Use `intf` in a module to connect it, and `.slv` to select the slave modport.
 
 ```ruby
 class MyBus < RSV::InterfaceDef
   def build
-    data  = field("data",  uint(32))
-    valid = field("valid", bit)
-    ready = field("ready", bit)
-    modport "master", inputs: [ready], outputs: [data, valid]
-    modport "slave",  inputs: [data, valid], outputs: [ready]
+    data  = output("data",  uint(32))
+    valid = output("valid", bit)
+    ready = input("ready",  bit)
   end
 end
 
 class Slave < RSV::ModuleDef
   def build
-    bus = interface_port("bus", MyBus.new, modport: "slave")
+    bus = intf("bus", MyBus.new.slv)
     o = output("dout", uint(32))
     o <= bus.data
   end
@@ -307,8 +306,10 @@ end
 ```
 
 Interfaces support:
-- Struct fields: `field "payload", Pixel.new`
-- Modport views: `modport "name", inputs: [...], outputs: [...]`
-- Module integration: `interface_port("name", IntfClass.new, modport: "slave")`
-- Field access on interface ports: `bus.data`, `bus.valid`
+- Struct fields: `output "payload", Pixel.new`
+- Auto modports: `mst` (as-declared) and `slv` (reversed)
+- Module integration: `intf("name", IntfClass.new.slv)`
+- Whole-interface interconnect: `mst <= slv` or `slv >= mst` expands to
+  per-field assign statements
+- Individual field assignment: `bus.data <= signal`
 - Meta parameters in `build(addr_w:, data_w:)`

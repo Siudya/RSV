@@ -34,28 +34,25 @@ end
 
 # ── Interface Definitions ────────────────────────────────────────────────────
 
-# Stream interface with sv_param payload width
+# Stream interface — directions are from master's perspective.
+# mst/slv modports are auto-generated.
 class StreamIntf < RSV::InterfaceDef
   def build(payload_t:)
-    payload = field("payload", payload_t)
-    valid   = field("valid",   bit)
-    ready   = field("ready",   bit)
-    modport "src",  inputs: [ready], outputs: [payload, valid]
-    modport "sink", inputs: [payload, valid], outputs: [ready]
+    payload = output("payload", payload_t)
+    valid   = output("valid",   bit)
+    ready   = input("ready",    bit)
   end
 end
 
 # AXI-like interface with meta-param widths
 class SimpleBus < RSV::InterfaceDef
   def build(addr_w: 32, data_w: 32)
-    addr  = field("addr",   uint(addr_w))
-    wdata = field("wdata",  uint(data_w))
-    rdata = field("rdata",  uint(data_w))
-    wen   = field("wen",    bit)
-    ren   = field("ren",    bit)
-    ready = field("ready",  bit)
-    modport "master", inputs: [rdata, ready], outputs: [addr, wdata, wen, ren]
-    modport "slave",  inputs: [addr, wdata, wen, ren], outputs: [rdata, ready]
+    addr  = output("addr",   uint(addr_w))
+    wdata = output("wdata",  uint(data_w))
+    rdata = input("rdata",   uint(data_w))
+    wen   = output("wen",    bit)
+    ren   = output("ren",    bit)
+    ready = input("ready",   bit)
   end
 end
 
@@ -106,8 +103,8 @@ class StreamSink < RSV::ModuleDef
   def build
     clk = input("clk", clock)
     rst = input("rst", reset)
-    # StreamIntf parameterized with Pixel bundle as payload
-    stream = interface_port("stream", StreamIntf.new(payload_t: Pixel.new), modport: "sink")
+    # StreamIntf parameterized with Pixel bundle as payload — .slv for slave modport
+    stream = intf("stream", StreamIntf.new(payload_t: Pixel.new).slv)
     pix = output("pixel_out", Pixel.new)
     rdy = output("ready_out", bit)
 
@@ -121,10 +118,37 @@ class BusSlave < RSV::ModuleDef
   def build
     clk  = input("clk", clock)
     rst  = input("rst", reset)
-    bus  = interface_port("bus", SimpleBus.new(addr_w: 16, data_w: 32), modport: "slave")
+    bus  = intf("bus", SimpleBus.new(addr_w: 16, data_w: 32).slv)
     data = output("reg_data", uint(32))
 
     data <= bus.rdata
+  end
+end
+
+# ── Interface Interconnect ───────────────────────────────────────────────────
+
+# Whole-interface interconnect: mst <= slv expands to per-field assign
+class StreamBridge < RSV::ModuleDef
+  def build
+    m = intf("m_stream", StreamIntf.new(payload_t: Pixel.new))
+    s = intf("s_stream", StreamIntf.new(payload_t: Pixel.new).slv)
+    m <= s
+  end
+end
+
+# Individual field assignment on interface ports
+class StreamAdapter < RSV::ModuleDef
+  def build
+    clk = input("clk", clock)
+    rst = input("rst", reset)
+    s = intf("stream", StreamIntf.new(payload_t: Pixel.new).slv)
+    px_out   = output("px_out",   Pixel.new)
+    v_out    = output("v_out",    bit)
+    rdy_in   = input("rdy_in",   bit)
+
+    px_out <= s.payload
+    v_out  <= s.valid
+    s.ready <= rdy_in
   end
 end
 
@@ -184,7 +208,7 @@ bus_def = bus_intf.instance_variable_get(:@_intf_def)
 File.write(File.join(outdir, "simple_bus.sv"), bus_def.to_sv)
 
 # Emit modules
-[PixelProcessor, StreamSink, BusSlave].each do |klass|
+[PixelProcessor, StreamSink, BusSlave, StreamBridge, StreamAdapter].each do |klass|
   mod = klass.new
   name = mod.module_name.gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase
   File.write(File.join(outdir, "#{name}.sv"), mod.to_sv)

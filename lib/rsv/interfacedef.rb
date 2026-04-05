@@ -42,17 +42,21 @@ module RSV
 
   # Base class for defining SV interfaces.
   #
+  # Declare signals with input/output (from the master's perspective).
+  # Modports "mst" and "slv" are auto-generated.
+  #
   # Example:
   #   class AXILite < RSV::InterfaceDef
   #     def build(addr_w: 32, data_w: 32)
-  #       awaddr  = field("awaddr",  :input,  uint(addr_w))
-  #       awvalid = field("awvalid", :input,  bit)
-  #       awready = field("awready", :output, bit)
-  #       wdata   = field("wdata",   :input,  uint(data_w))
-  #       modport "master", inputs: [awaddr, awvalid, wdata], outputs: [awready]
-  #       modport "slave",  inputs: [awready], outputs: [awaddr, awvalid, wdata]
+  #       awaddr  = output("awaddr",  uint(addr_w))
+  #       awvalid = output("awvalid", bit)
+  #       awready = input("awready",  bit)
+  #       wdata   = output("wdata",   uint(data_w))
   #     end
   #   end
+  #
+  #   # In a module:
+  #   bus = intf("bus", AXILite.new(addr_w: 16).slv)
   class InterfaceDef
     attr_reader :fields, :params, :modports, :type_name
 
@@ -104,7 +108,6 @@ module RSV
     def initialize(*args, **kwargs)
       @fields = []
       @params = []
-      @modports = []
       @type_name = nil
       @type_name_finalized = false
 
@@ -115,6 +118,7 @@ module RSV
       build(*args, **kwargs) if auto_build
 
       resolve_sv_param_refs!
+      synthesize_modports!
     end
 
     def build(*args, **kwargs)
@@ -144,26 +148,18 @@ module RSV
       DataType.new(width: width, signed: true, init: init)
     end
 
-    # Declare an interface signal with optional direction.
-    # dir can be nil (for logic without direction), :input, or :output.
-    # Returns the field hash for use as a handle.
-    def field(name, dir_or_type = nil, data_type = nil)
-      if data_type.nil?
-        dt = RSV.normalize_data_type(dir_or_type)
-        @fields << { name: name.to_s, dir: nil, data_type: dt }
-      else
-        dt = RSV.normalize_data_type(data_type)
-        @fields << { name: name.to_s, dir: dir_or_type.to_s, data_type: dt }
-      end
+    # Declare an output signal (from the master's perspective).
+    def output(name, data_type)
+      dt = RSV.normalize_data_type(data_type)
+      @fields << { name: name.to_s, dir: "output", data_type: dt }
       @fields.last
     end
 
-    # Define a modport.
-    # Accepts field handles or strings for inputs/outputs.
-    def modport(name, inputs: [], outputs: [])
-      ports = inputs.map { |n| { name: field_name_of(n), dir: "input" } } +
-              outputs.map { |n| { name: field_name_of(n), dir: "output" } }
-      @modports << { name: name.to_s, ports: ports }
+    # Declare an input signal (from the master's perspective).
+    def input(name, data_type)
+      dt = RSV.normalize_data_type(data_type)
+      @fields << { name: name.to_s, dir: "input", data_type: dt }
+      @fields.last
     end
 
     def to_sv(output = nil)
@@ -179,12 +175,16 @@ module RSV
 
     private
 
-    def field_name_of(ref)
-      case ref
-      when Hash then ref[:name]
-      when RSV::BundleFieldDef then ref.name
-      else ref.to_s
-      end
+    def synthesize_modports!
+      @modports = []
+      mst_ports = @fields.map { |f| { name: f[:name], dir: f[:dir] } }
+      slv_ports = @fields.map { |f| { name: f[:name], dir: flip_dir(f[:dir]) } }
+      @modports << { name: "mst", ports: mst_ports }
+      @modports << { name: "slv", ports: slv_ports }
+    end
+
+    def flip_dir(dir)
+      dir == "output" ? "input" : "output"
     end
 
     def apply_sv_param_defs
@@ -268,6 +268,7 @@ module RSV
     def to_data_type
       dt = DataType.new(width: 1, signed: false)
       dt.instance_variable_set(:@_intf_def, self)
+      dt.instance_variable_set(:@_intf_modport, "mst")
       dt
     end
   end

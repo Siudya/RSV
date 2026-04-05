@@ -87,8 +87,7 @@ module RSV
       lines << ""
 
       intf.fields.each do |f|
-        dir_str = f[:dir] ? "#{f[:dir]} " : ""
-        lines << "  #{dir_str}#{self.class.format_intf_field(f)};"
+        lines << "  #{self.class.format_intf_field(f)};"
       end
 
       lines << "" if intf.fields.any?

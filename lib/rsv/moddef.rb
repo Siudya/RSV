@@ -328,18 +328,31 @@ module RSV
       declare_port(:inout, build_signal_spec(name, data_type, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
     end
 
+    # New API: `bus = intf("bus", MyIntf.new.slv)`
+    # Modport is read from the DataType (default "mst", call .slv for "slv").
+    def intf(name, intf_type)
+      raise ArgumentError, "intf expects an InterfaceDef DataType" unless intf_type.is_a?(DataType) && intf_type.instance_variable_get(:@_intf_def)
+
+      intf_def = intf_type.instance_variable_get(:@_intf_def)
+      modport = intf_type.instance_variable_get(:@_intf_modport) || "mst"
+      spec = SignalSpec.new(name, width: 1, signed: false)
+      intf_info = { klass: intf_def, modport: modport, type_name: intf_def.type_name }
+      @ports << PortDecl.new(:intf, spec, intf_type: intf_info)
+
+      InterfacePortHandler.new(name, intf_def, modport: modport)
+    end
+
+    # Deprecated: use intf() instead.
     def interface_port(name, intf_type, modport: nil)
       raise ArgumentError, "interface_port expects an InterfaceDef DataType" unless intf_type.is_a?(DataType) && intf_type.instance_variable_get(:@_intf_def)
 
       intf_def = intf_type.instance_variable_get(:@_intf_def)
+      modport_str = modport&.to_s || intf_type.instance_variable_get(:@_intf_modport) || "mst"
       spec = SignalSpec.new(name, width: 1, signed: false)
-      intf_info = { klass: intf_def, modport: modport&.to_s, type_name: intf_def.type_name }
+      intf_info = { klass: intf_def, modport: modport_str, type_name: intf_def.type_name }
       @ports << PortDecl.new(:intf, spec, intf_type: intf_info)
-      handler = SignalHandler.new(name, width: 1, kind: :intf)
 
-      # return a handler that supports field access via method_missing
-      intf_handler = InterfacePortHandler.new(name, intf_def)
-      intf_handler
+      InterfacePortHandler.new(name, intf_def, modport: modport_str)
     end
 
     # ── Internal signal declarations ────────────────────────────────────────
@@ -732,6 +745,11 @@ module RSV
     end
 
     def append_assignment(lhs, rhs)
+      # Interface interconnect: mst <= slv or slv >= mst
+      if lhs.is_a?(InterfacePortHandler) && rhs.is_a?(InterfacePortHandler)
+        return connect_interfaces(lhs, rhs)
+      end
+
       lhs_port = instance_port_endpoint(lhs)
       rhs_port = instance_port_endpoint(rhs)
 
@@ -746,6 +764,34 @@ module RSV
       stmt = AssignStmt.new(RSV.normalize_expr(lhs), RSV.normalize_expr(rhs))
       @stmts << stmt
       stmt
+    end
+
+    def connect_interfaces(lhs, rhs)
+      lhs_is_mst = lhs.modport == "mst"
+      rhs_is_mst = rhs.modport == "mst"
+      lhs_is_slv = lhs.modport == "slv"
+      rhs_is_slv = rhs.modport == "slv"
+
+      unless (lhs_is_mst && rhs_is_slv) || (lhs_is_slv && rhs_is_mst)
+        raise ArgumentError, "interface interconnect requires one mst and one slv (got #{lhs.modport} and #{rhs.modport})"
+      end
+
+      mst_h = lhs_is_mst ? lhs : rhs
+      slv_h = lhs_is_mst ? rhs : lhs
+
+      # mst output → module drives mst field, reads slv field
+      # mst input  → module drives slv field, reads mst field
+      mst_h.intf_def.fields.each do |f|
+        fname = f[:name]
+        mst_field = FieldAccessExpr.new(mst_h, fname)
+        slv_field = FieldAccessExpr.new(slv_h, fname)
+        if f[:dir] == "output"
+          stmt = AssignStmt.new(mst_field, slv_field)
+        else
+          stmt = AssignStmt.new(slv_field, mst_field)
+        end
+        @stmts << stmt
+      end
     end
 
     def instance_port_endpoint(operand)

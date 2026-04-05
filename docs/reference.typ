@@ -280,19 +280,24 @@ inferred width and computed init value:
 == Interface
 
 - Subclass `RSV::InterfaceDef` to define a SystemVerilog interface.
-- `field(name, type)`: declares a plain logic signal (no direction).
-  Returns a field handle. The handle can be used in `modport` lists.
-- `field(name, :input, type)` / `field(name, :output, type)`: declares a
-  directional signal. Returns a field handle.
-- `modport(name, inputs: [...], outputs: [...])`: declares a modport view.
-  Accepts field handles or plain strings.
-- Struct (bundle) fields are supported: `field "payload", MyBundle.new`.
+- `output(name, type)`: declares an output signal (from the master's
+  perspective). Returns a field handle.
+- `input(name, type)`: declares an input signal (from the master's
+  perspective). Returns a field handle.
+- Modports `mst` and `slv` are auto-generated: `mst` keeps declared
+  directions, `slv` reverses them.
+- Struct (bundle) fields are supported: `output "payload", MyBundle.new`.
 - Interface types emit as `interface ... endinterface` with the struct typedefs
-  included.
+  included and both modports auto-synthesized.
 - Parameterized interfaces: meta parameters in `build(addr_w: 32, data_w: 32)`.
   `sv_param` at class level also supported.
-- `intf.to_sv(path)`: emits the interface SV text.
-- Module IO integration: `interface_port(name, IntfClass.new, modport: "slave")`
-  declares an interface port emitting `IntfName.slave port_name`.
+- `intf_def.to_sv(path)`: emits the interface SV text.
+- Module IO integration: `intf(name, IntfClass.new)` declares a master modport
+  port; `intf(name, IntfClass.new.slv)` declares a slave modport port.
+  Emits `IntfName.mst port_name` or `IntfName.slv port_name`.
 - The returned handler supports field access: `bus.data`, `bus.ready`.
+- Whole-interface interconnect: `mst <= slv` or `slv >= mst` expands to
+  per-field `assign` statements with correct direction based on modport.
+  Both sides must have opposite modports (one mst, one slv).
+- Individual field assignment: `bus.data <= signal` or `signal <= bus.data`.
 - Example: see `examples/bundle_and_interface.rb` file.

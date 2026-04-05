@@ -221,6 +221,13 @@ module RSV
       AsSintExpr.new(self)
     end
 
+    # Mark this interface DataType as slave modport.
+    def slv
+      raise ArgumentError, ".slv is only valid on InterfaceDef types" unless instance_variable_get(:@_intf_def)
+      @_intf_modport = "slv"
+      self
+    end
+
     def scalar?
       @packed_dims.empty? && @unpacked_dims.empty? && @width.is_a?(Integer) && !@init.nil? && @init.is_a?(Integer)
     end
@@ -937,11 +944,12 @@ module RSV
     include ExprOps
     include AssignableExpr
 
-    attr_reader :name, :intf_def
+    attr_reader :name, :intf_def, :modport
 
-    def initialize(name, intf_def)
+    def initialize(name, intf_def, modport: "mst")
       @name = name
       @intf_def = intf_def
+      @modport = modport
     end
 
     def to_s

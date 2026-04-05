@@ -260,13 +260,15 @@ Bundle (struct) 与 Interface 综合演示。
 - Bundle 字段访问: `handler.field_name` 读写
 - Bundle 与 mem 组合: `mem(N, BundleType.new)` → unpacked struct 数组
 - Bundle 去重: 不同 sv\_param 值产生不同 typedef 名
-- Interface 定义: `RSV::InterfaceDef` 子类，`field`、`modport` 声明
-- Interface 含 struct 字段: `field "payload", DataPacket.new.(W: 32)`
-- Interface modport 视图: `modport "master"`, `modport "slave"`
-- Interface 端口: `interface_port("bus", StreamIntf.new, modport: "slave")`
-- Interface 字段访问: `bus.payload`, `bus.valid`, `bus.ready`
-- 元参数 Interface: `build(addr_w:, data_w:)`
-- 输出: `to_sv(path)`, `intf.to_sv(path)`
+- Interface 定义: `RSV::InterfaceDef` 子类，`input`/`output` 声明信号方向（从 master 视角）
+- Interface 自动 modport: 自动生成 `mst`（按声明方向）和 `slv`（反转方向）
+- Interface 含 struct 字段: `output "payload", DataPacket.new.(W: 32)`
+- Interface 端口: `intf("bus", StreamIntf.new.slv)` 声明 slave modport 端口
+- Interface 整体互联: `mst <= slv` 或 `slv >= mst` 展开为每个字段的 assign
+- Interface 字段单独赋值: `bus.data <= signal`
+- 元参数 Interface: `build(payload_t:)`, `build(addr_w:, data_w:)`
+- 模板化模块: Bundle 类型作为模块元参数传递
+- 输出: `to_sv(path)`, `intf_def.to_sv(path)`
 
 == 特性覆盖矩阵
 
@@ -312,7 +314,9 @@ Bundle (struct) 与 Interface 综合演示。
   [Bundle 字段访问], [bundle\_and\_interface],
   [Bundle + `mem`/`arr`], [bundle\_and\_interface],
   [`InterfaceDef` 定义], [bundle\_and\_interface],
-  [Interface modport], [bundle\_and\_interface],
+  [Interface 自动 modport (`mst`/`slv`)], [bundle\_and\_interface],
   [Interface 含 struct], [bundle\_and\_interface],
-  [`interface_port`], [bundle\_and\_interface],
+  [`intf()` 端口声明与 `.slv`], [bundle\_and\_interface],
+  [Interface 整体互联 (`<=`/`>=`)], [bundle\_and\_interface],
+  [Interface 字段单独赋值], [bundle\_and\_interface],
 )

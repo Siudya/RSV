@@ -39,31 +39,25 @@ end
 
 class TestStreamIntf < RSV::InterfaceDef
   def build
-    data  = field("data",  uint(8))
-    valid = field("valid", bit)
-    ready = field("ready", bit)
-    modport "src",  inputs: [ready], outputs: [data, valid]
-    modport "sink", inputs: [data, valid], outputs: [ready]
+    data  = output("data",  uint(8))
+    valid = output("valid", bit)
+    ready = input("ready",  bit)
   end
 end
 
 class TestBundleStreamIntf < RSV::InterfaceDef
   def build
-    payload = field("payload", TestPixel.new)
-    valid   = field("valid",   bit)
-    ready   = field("ready",   bit)
-    modport "src",  inputs: [ready], outputs: [payload, valid]
-    modport "sink", inputs: [payload, valid], outputs: [ready]
+    payload = output("payload", TestPixel.new)
+    valid   = output("valid",   bit)
+    ready   = input("ready",    bit)
   end
 end
 
 # Interface with meta-param — different widths produce different SV
 class TestParamIntf < RSV::InterfaceDef
   def build(data_w: 8)
-    data  = field("data",  uint(data_w))
-    valid = field("valid", bit)
-    modport "src",  inputs: [], outputs: [data, valid]
-    modport "sink", inputs: [data, valid], outputs: []
+    data  = output("data",  uint(data_w))
+    valid = output("valid", bit)
   end
 end
 
@@ -94,11 +88,9 @@ end
 # Interface accepting bundle type as meta parameter
 class TestTemplatedIntf < RSV::InterfaceDef
   def build(payload_t:)
-    payload = field("payload", payload_t)
-    valid   = field("valid", bit)
-    ready   = field("ready", bit)
-    modport "src",  inputs: [ready], outputs: [payload, valid]
-    modport "sink", inputs: [payload, valid], outputs: [ready]
+    payload = output("payload", payload_t)
+    valid   = output("valid", bit)
+    ready   = input("ready", bit)
   end
 end
 
@@ -124,7 +116,7 @@ end
 # Module using template interface
 class TemplatedIntfMod < RSV::ModuleDef
   def build(intf_dt:, payload_t:)
-    s = interface_port("stream", intf_dt, modport: "sink")
+    s = intf("stream", intf_dt.slv)
     o = output("payload_out", payload_t)
     o <= s.payload
   end
@@ -193,7 +185,7 @@ end
 class IntfPortMod < RSV::ModuleDef
   def build
     clk = input("clk", clock)
-    s = interface_port("stream", TestStreamIntf.new, modport: "sink")
+    s = intf("stream", TestStreamIntf.new.slv)
     o = output("data_out", uint(8))
     o <= s.data
   end
@@ -201,9 +193,52 @@ end
 
 class BundleIntfPortMod < RSV::ModuleDef
   def build
-    s = interface_port("stream", TestBundleStreamIntf.new, modport: "sink")
+    s = intf("stream", TestBundleStreamIntf.new.slv)
     o = output("pixel_out", TestPixel.new)
     o <= s.payload
+  end
+end
+
+# ── Interface interconnect test classes ──────────────────────────────────────
+
+# Whole interface: mst <= slv (mst on left, slv on right)
+class IntfConnectMstSlvMod < RSV::ModuleDef
+  def build
+    m = intf("m_bus", TestStreamIntf.new)          # mst
+    s = intf("s_bus", TestStreamIntf.new.slv)      # slv
+    m <= s
+  end
+end
+
+# Whole interface: slv >= mst (slv on left, mst on right via >=)
+class IntfConnectSlvGeMstMod < RSV::ModuleDef
+  def build
+    m = intf("m_bus", TestStreamIntf.new)
+    s = intf("s_bus", TestStreamIntf.new.slv)
+    s >= m
+  end
+end
+
+# Individual field assignments on interface ports
+class IntfFieldAssignMod < RSV::ModuleDef
+  def build
+    s = intf("stream", TestStreamIntf.new.slv)
+    d_out = output("d_out", uint(8))
+    v_out = output("v_out", bit)
+    r_in  = input("r_in",  bit)
+
+    d_out <= s.data
+    v_out <= s.valid
+    s.ready <= r_in
+  end
+end
+
+# Bad: mst <= mst should fail
+class IntfConnectBadMod < RSV::ModuleDef
+  def build
+    a = intf("a", TestStreamIntf.new)
+    b = intf("b", TestStreamIntf.new)
+    a <= b
   end
 end
 
@@ -288,14 +323,14 @@ class BundleAndInterfaceTest < Minitest::Test
     assert_match(/interface test_stream_intf/, sv)
     assert_match(/logic \[7:0\] data;/, sv)
     assert_match(/logic valid;/, sv)
-    assert_match(/modport src/, sv)
-    assert_match(/modport sink/, sv)
+    assert_match(/modport mst/, sv)
+    assert_match(/modport slv/, sv)
     assert_match(/endinterface/, sv)
   end
 
   def test_interface_port_in_module
     sv = IntfPortMod.new.to_sv
-    assert_match(/test_stream_intf\.sink\s+stream/, sv)
+    assert_match(/test_stream_intf\.slv\s+stream/, sv)
     assert_match(/stream\.data/, sv)
   end
 
@@ -309,7 +344,7 @@ class BundleAndInterfaceTest < Minitest::Test
 
   def test_interface_port_with_bundle
     sv = BundleIntfPortMod.new.to_sv
-    assert_match(/test_bundle_stream_intf\.sink\s+stream/, sv)
+    assert_match(/test_bundle_stream_intf\.slv\s+stream/, sv)
     assert_match(/stream\.payload/, sv)
   end
 
@@ -402,14 +437,51 @@ class BundleAndInterfaceTest < Minitest::Test
     sv = intf_def.to_sv
     assert_match(/typedef struct packed/, sv)
     assert_match(/test_pixel_t payload;/, sv)
-    assert_match(/modport src/, sv)
+    assert_match(/modport mst/, sv)
   end
 
   def test_module_with_templated_interface_port
     px_t = TestPixel.new
     intf_dt = TestTemplatedIntf.new(payload_t: px_t)
     sv = TemplatedIntfMod.new(intf_dt: intf_dt, payload_t: px_t).to_sv
-    assert_match(/test_templated_intf\.sink\s+stream/, sv)
+    assert_match(/test_templated_intf\.slv\s+stream/, sv)
     assert_match(/stream\.payload/, sv)
+  end
+
+  # --- Interface interconnect ---
+
+  def test_intf_connect_mst_slv
+    sv = IntfConnectMstSlvMod.new.to_sv
+    # mst output fields: module drives mst, reads slv
+    assert_match(/assign\s+m_bus\.data\s*=\s*s_bus\.data;/, sv)
+    assert_match(/assign\s+m_bus\.valid\s*=\s*s_bus\.valid;/, sv)
+    # mst input field: module drives slv, reads mst
+    assert_match(/assign\s+s_bus\.ready\s*=\s*m_bus\.ready;/, sv)
+  end
+
+  def test_intf_connect_slv_ge_mst
+    sv = IntfConnectSlvGeMstMod.new.to_sv
+    assert_match(/assign\s+m_bus\.data\s*=\s*s_bus\.data;/, sv)
+    assert_match(/assign\s+m_bus\.valid\s*=\s*s_bus\.valid;/, sv)
+    assert_match(/assign\s+s_bus\.ready\s*=\s*m_bus\.ready;/, sv)
+  end
+
+  def test_intf_connect_rejects_same_modport
+    assert_raises(ArgumentError) do
+      IntfConnectBadMod.new
+    end
+  end
+
+  def test_intf_field_assign
+    sv = IntfFieldAssignMod.new.to_sv
+    assert_match(/assign\s+d_out\s*=\s*stream\.data;/, sv)
+    assert_match(/assign\s+v_out\s*=\s*stream\.valid;/, sv)
+    assert_match(/assign\s+stream\.ready\s*=\s*r_in;/, sv)
+  end
+
+  def test_intf_ports_modport_in_sv
+    sv = IntfConnectMstSlvMod.new.to_sv
+    assert_match(/test_stream_intf\.mst\s+m_bus/, sv)
+    assert_match(/test_stream_intf\.slv\s+s_bus/, sv)
   end
 end
