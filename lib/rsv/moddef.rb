@@ -3,6 +3,26 @@
 require "fileutils"
 
 module RSV
+  # Builder for chaining sv_elif_def / sv_else_def onto an sv_ifdef/sv_ifndef.
+  class MacroCondBuilder
+    def initialize(node, mod)
+      @node = node
+      @mod = mod
+    end
+
+    def sv_elif_def(name, &block)
+      body = @mod.send(:capture_macro_body, &block)
+      @node.elsif_clauses << { macro_name: name.to_s, body: body }
+      self
+    end
+
+    def sv_else_def(&block)
+      body = @mod.send(:capture_macro_body, &block)
+      @node.else_body = body
+      self
+    end
+  end
+
   # Base class for class-based module definitions.
   #
   # Example:
@@ -260,6 +280,34 @@ module RSV
       raise ArgumentError, "muxp must be used inside an always_ff, always_comb, or always_latch block"
     end
 
+    # ── Preprocessor macros ──────────────────────────────────────────────────
+
+    def sv_def(name, value = nil)
+      @stmts << SvDefine.new(name.to_s, value&.to_s)
+    end
+
+    def sv_undef(name)
+      @stmts << SvUndef.new(name.to_s)
+    end
+
+    def sv_ifdef(name, &block)
+      body = capture_macro_body(&block)
+      node = SvIfdef.new(name.to_s, body, [], nil)
+      @stmts << node
+      MacroCondBuilder.new(node, self)
+    end
+
+    def sv_ifndef(name, &block)
+      body = capture_macro_body(&block)
+      node = SvIfndef.new(name.to_s, body, [], nil)
+      @stmts << node
+      MacroCondBuilder.new(node, self)
+    end
+
+    def sv_dref(name)
+      MacroRef.new(name.to_s)
+    end
+
     # ── Statements ───────────────────────────────────────────────────────────
 
     def with_clk_and_rst(clock, reset)
@@ -295,6 +343,15 @@ module RSV
     end
 
     private
+
+    def capture_macro_body(&block)
+      saved_stmts = @stmts
+      @stmts = []
+      instance_eval(&block)
+      body = @stmts
+      @stmts = saved_stmts
+      body
+    end
 
     def compose_data_type(*dims_and_target, storage:)
       dims, data_type = extract_dims_and_data_type(dims_and_target, storage)

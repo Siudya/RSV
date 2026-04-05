@@ -111,6 +111,19 @@
 / `to_sv(path = nil)`: returns the generated SV text. Use `to_sv("-")` to write
   to stdout, or `to_sv("build/rtl/foo.sv")` to write to a file.
 
+== Preprocessor macros
+
+/ `sv_def(name, value = nil)`: emits `` `define NAME VALUE ``. Omitting `value`
+  emits a bare `` `define NAME ``.
+/ `sv_undef(name)`: emits `` `undef NAME ``.
+/ `sv_ifdef(name) { ... }`: opens an `` `ifdef NAME `` conditional block.
+  Returns a builder that supports `.sv_elif_def(name) { ... }` and
+  `.sv_else_def { ... }` chaining.
+/ `sv_ifndef(name) { ... }`: same as `sv_ifdef` but emits `` `ifndef ``.
+/ `sv_dref(name)`: returns an expression referencing `` `NAME ``. Usable
+  wherever a normal RSV expression is expected. Available in both module-level
+  and procedural contexts.
+
 - Both assignment forms emit continuous `assign` outside procedural blocks and
   emit `<=` inside `always_ff`.
 - Inside `always_comb` and `always_latch`, assignments emit blocking `=`.

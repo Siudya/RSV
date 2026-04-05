@@ -40,6 +40,10 @@ class ExamplesSuiteTest < Minitest::Test
     "const_demo.rb" => {
       outputs: ["const_demo.sv"],
       lint_files: ["build/rtl/const_demo.sv"]
+    },
+    "macro_demo.rb" => {
+      outputs: ["macro_demo.sv"],
+      lint_files: ["-DSIM", "build/rtl/macro_demo.sv"]
     }
   }.freeze
 

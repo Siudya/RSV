@@ -221,6 +221,99 @@ class HandlerDslTest < Minitest::Test
     assert_includes sv, "(* synthesis = \"off\" *) localparam"
   end
 
+  def test_sv_def_emits_define
+    mod = module_class("DefTest") do
+      sv_def "MY_MACRO", "42"
+      sv_def "FLAG"
+      output("dout", uint(8))
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "`define MY_MACRO 42"
+    assert_includes sv, "`define FLAG"
+    refute_includes sv, "`define FLAG "
+  end
+
+  def test_sv_undef_emits_undef
+    mod = module_class("UndefTest") do
+      sv_def "TMP", "1"
+      sv_undef "TMP"
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "`undef TMP"
+  end
+
+  def test_sv_ifdef_endif
+    mod = module_class("IfdefTest") do
+      out = output("out", uint(8))
+      w = wire("w", uint(8))
+      sv_ifdef("SIM") do
+        out <= w
+      end
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "`ifdef SIM"
+    assert_includes sv, "assign out = w;"
+    assert_includes sv, "`endif"
+  end
+
+  def test_sv_ifdef_else
+    mod = module_class("IfdefElseTest") do
+      out = output("out", uint(8))
+      a = wire("a", uint(8))
+      b = wire("b", uint(8))
+      sv_ifdef("SIM") do
+        out <= a
+      end.sv_else_def do
+        out <= b
+      end
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "`ifdef SIM"
+    assert_includes sv, "assign out = a;"
+    assert_includes sv, "`else"
+    assert_includes sv, "assign out = b;"
+    assert_includes sv, "`endif"
+  end
+
+  def test_sv_ifndef_with_elif
+    mod = module_class("IfndefElifTest") do
+      out = output("out", uint(8))
+      a = wire("a", uint(8))
+      b = wire("b", uint(8))
+      c = wire("c", uint(8))
+      sv_ifndef("SYNTHESIS") do
+        out <= a
+      end.sv_elif_def("FPGA") do
+        out <= b
+      end.sv_else_def do
+        out <= c
+      end
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "`ifndef SYNTHESIS"
+    assert_includes sv, "`elsif FPGA"
+    assert_includes sv, "`else"
+    assert_includes sv, "`endif"
+  end
+
+  def test_sv_dref_macro_reference
+    mod = module_class("DrefTest") do
+      sv_def "WIDTH", "8"
+      out = output("out", uint(8))
+      w = wire("w", uint(8))
+      out <= w + sv_dref("WIDTH")
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "`define WIDTH 8"
+    assert_includes sv, "`WIDTH"
+  end
+
   private
 
   def module_class(name, &build_block)

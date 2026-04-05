@@ -175,6 +175,15 @@ module RSV
         emit_always_comb(stmt, level)
       when Instance
         emit_instance(stmt, level)
+      when SvDefine
+        value_part = stmt.value ? " #{stmt.value}" : ""
+        ["`define #{stmt.macro_name}#{value_part}"]
+      when SvUndef
+        ["`undef #{stmt.macro_name}"]
+      when SvIfdef
+        emit_macro_cond("`ifdef", stmt, level)
+      when SvIfndef
+        emit_macro_cond("`ifndef", stmt, level)
       else
         ["#{ind(level)}// unknown statement: #{stmt.class}"]
       end
@@ -200,6 +209,24 @@ module RSV
 
     def blank_line_between?(stmt, next_stmt)
       !(stmt.is_a?(AssignStmt) && next_stmt.is_a?(AssignStmt))
+    end
+
+    def emit_macro_cond(directive, stmt, level)
+      lines = ["#{directive} #{stmt.macro_name}"]
+      stmt.body.each { |s| lines.concat(emit_stmt(s, level)) }
+
+      stmt.elsif_clauses.each do |clause|
+        lines << "`elsif #{clause[:macro_name]}"
+        clause[:body].each { |s| lines.concat(emit_stmt(s, level)) }
+      end
+
+      if stmt.else_body
+        lines << "`else"
+        stmt.else_body.each { |s| lines.concat(emit_stmt(s, level)) }
+      end
+
+      lines << "`endif"
+      lines
     end
 
     def emit_proc_stmt(stmt, level)
@@ -383,6 +410,8 @@ module RSV
         "{#{emit_expr(expr.count)}{#{emit_expr(expr.part)}}}"
       when PackedCollectionExpr
         "{#{expr.parts_low_to_high.reverse.map { |p| emit_expr(p) }.join(", ")}}"
+      when MacroRef
+        "`#{expr.macro_name}"
       else
         expr.to_s
       end

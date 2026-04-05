@@ -46,6 +46,8 @@ module RSV
         [AlwaysComb.new(stmt.body.map { |proc_stmt| elaborate_proc_stmt(proc_stmt) })]
       when Instance
         [Instance.new(stmt.module_name, stmt.inst_name, params: stmt.params, connections: elaborate_connections(stmt.connections))]
+      when SvIfdef, SvIfndef
+        [elaborate_macro_cond(stmt)]
       else
         [stmt]
       end
@@ -53,6 +55,16 @@ module RSV
 
     def elaborate_connections(connections)
       connections.transform_values { |signal| elaborate_expr(signal) }
+    end
+
+    def elaborate_macro_cond(stmt)
+      klass = stmt.is_a?(SvIfdef) ? SvIfdef : SvIfndef
+      elaborated_body = stmt.body.flat_map { |s| elaborate_stmt(s) }
+      elaborated_elsifs = stmt.elsif_clauses.map do |clause|
+        { macro_name: clause[:macro_name], body: clause[:body].flat_map { |s| elaborate_stmt(s) } }
+      end
+      elaborated_else = stmt.else_body&.flat_map { |s| elaborate_stmt(s) }
+      klass.new(stmt.macro_name, elaborated_body, elaborated_elsifs, elaborated_else)
     end
 
     def elaborate_always_ff(stmt)

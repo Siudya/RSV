@@ -1134,6 +1134,26 @@ module RSV
     end
   end
 
+  # Preprocessor directive nodes
+  SvDefine     = Struct.new(:macro_name, :value)
+  SvUndef      = Struct.new(:macro_name)
+  SvIfdef      = Struct.new(:macro_name, :body, :elsif_clauses, :else_body)
+  SvIfndef     = Struct.new(:macro_name, :body, :elsif_clauses, :else_body)
+
+  # Expression that references a macro value: `MACRO_NAME
+  class MacroRef
+    include ExprOps
+    attr_reader :macro_name
+
+    def initialize(macro_name)
+      @macro_name = macro_name
+    end
+
+    def width
+      nil
+    end
+  end
+
   def self.normalize_signal_spec(signal)
     return signal if signal.is_a?(SignalSpec)
 
@@ -1151,7 +1171,7 @@ module RSV
     when SignalHandler, InstancePortHandler, RawExpr, LiteralExpr, BinaryExpr, UnaryExpr, IndexExpr,
          RangeSelectExpr, IndexedPartSelectExpr, AsSintExpr, ClockSignal, ResetSignal,
          ParenExpr,
-         MuxExpr, CatExpr, FillExpr, PackedCollectionExpr
+         MuxExpr, CatExpr, FillExpr, PackedCollectionExpr, MacroRef
       operand
     when String
       RawExpr.new(operand)

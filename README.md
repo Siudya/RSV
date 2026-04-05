@@ -41,6 +41,7 @@ ruby examples/storage_streams.rb
 ruby examples/mux_cases.rb
 ruby examples/import_demo.rb
 ruby examples/const_demo.rb
+ruby examples/macro_demo.rb
 ```
 
 These examples print generated SystemVerilog with `to_sv("-")` and write the
@@ -55,6 +56,7 @@ of one module class, it also writes the deduplicated dependency modules there.
 - `mux_cases.rb`: ternary, one-hot, and priority mux helpers
 - `import_demo.rb`: `RSV.import_sv` with an imported SV module under `examples/`
 - `const_demo.rb`: `const` declarations emitted as SV `localparam`
+- `macro_demo.rb`: SV preprocessor macros (`define, `ifdef, `ifndef, etc.)
 
 Use xmake automation:
 

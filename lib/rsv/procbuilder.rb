@@ -81,6 +81,14 @@ module RSV
       result
     end
 
+    def mux(sel, a, b)
+      MuxExpr.new(sel, a, b)
+    end
+
+    def sv_dref(name)
+      MacroRef.new(name.to_s)
+    end
+
     private
 
     def append_assignment(lhs, rhs)

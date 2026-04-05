@@ -25,6 +25,8 @@ module RSV
         validate_proc_stmts(stmt.body, context: :always_latch, driver_context: driver_context)
       when AlwaysComb
         validate_proc_stmts(stmt.body, context: :always_comb, driver_context: driver_context)
+      when SvIfdef, SvIfndef
+        validate_macro_cond(stmt, driver_context: driver_context)
       end
     end
 
@@ -107,6 +109,12 @@ module RSV
 
     def driver_context_for(stmt, idx)
       "#{stmt.class.name}:#{idx}"
+    end
+
+    def validate_macro_cond(stmt, driver_context:)
+      stmt.body.each_with_index { |s, idx| validate_stmt(s, driver_context: driver_context_for(s, idx)) }
+      stmt.elsif_clauses.each { |clause| clause[:body].each_with_index { |s, idx| validate_stmt(s, driver_context: driver_context_for(s, idx)) } }
+      stmt.else_body&.each_with_index { |s, idx| validate_stmt(s, driver_context: driver_context_for(s, idx)) }
     end
   end
 end
