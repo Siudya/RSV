@@ -446,7 +446,7 @@ class NewTypesDslTest < Minitest::Test
     end.new
 
     sv = mod.to_sv
-    assert_includes sv, "logic [3][7:0] x[2][4]"
+    assert_includes sv, "logic [2:0][7:0] x[1:0][3:0]"
   end
 
   private

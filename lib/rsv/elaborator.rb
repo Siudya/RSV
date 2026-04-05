@@ -184,6 +184,8 @@ module RSV
         target_width ? expr.with_width(target_width) : expr
       when UnaryExpr
         elaborate_unary_expr(expr, target_width: target_width)
+      when ParenExpr
+        ParenExpr.new(elaborate_expr(expr.inner, target_width: target_width))
       when IndexExpr
         IndexExpr.new(elaborate_expr(expr.base), elaborate_expr(expr.index))
       when RangeSelectExpr
@@ -200,6 +202,14 @@ module RSV
         CatExpr.new(expr.parts.map { |p| elaborate_expr(p) })
       when FillExpr
         FillExpr.new(elaborate_expr(expr.count), elaborate_expr(expr.part))
+      when PackedCollectionExpr
+        PackedCollectionExpr.new(
+          expr.parts_low_to_high.map { |part| elaborate_expr(part) },
+          width: expr.width,
+          signed: expr.signed,
+          packed_dims: expr.packed_dims,
+          unpacked_dims: expr.unpacked_dims
+        )
       else
         expr
       end

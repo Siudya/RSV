@@ -19,11 +19,11 @@ class ArrayMemoryDslTest < Minitest::Test
       module StorageShapes (
       );
 
-        logic [2][3][4][7:0] cnt_arr_0;
-        logic [2][7:0]       cnt_arr_1;
-        logic [7:0]          cnt_mem_0[2][3][4];
-        logic [7:0]          cnt_mem_1[2];
-        logic [4][5][6][7:0] cnt_dat[1][2][3];
+        logic [1:0][2:0][3:0][7:0] cnt_arr_0;
+        logic [1:0][7:0]           cnt_arr_1;
+        logic [7:0]                cnt_mem_0[1:0][2:0][3:0];
+        logic [7:0]                cnt_mem_1[1:0];
+        logic [3:0][4:0][5:0][7:0] cnt_dat[0:0][1:0][2:0];
 
       endmodule
     SV
@@ -63,8 +63,8 @@ class ArrayMemoryDslTest < Minitest::Test
         output logic [7:0] mem_out
       );
 
-        logic [4][7:0] arr_reg;
-        logic [7:0]    mem_reg[4];
+        logic [3:0][7:0] arr_reg;
+        logic [7:0]      mem_reg[3:0];
 
         assign arr_out = arr_reg[idx];
         assign mem_out = mem_reg[idx];

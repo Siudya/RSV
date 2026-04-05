@@ -139,15 +139,41 @@ filled = reg("cnt_init", mem(16, uint(16)), init: mem.fill(16, uint(16, 0x75)))
 ```
 
 ```systemverilog
-logic [k][j][i][7:0] cnt_arr_0;
-logic [7:0]          cnt_mem_0[k][j][i];
-logic [f][e][d][7:0] cnt_dat[c][b][a];
-logic [15:0]         cnt_init[16];
+logic [i-1:0][j-1:0][k-1:0][7:0] cnt_arr_0;
+logic [7:0]                      cnt_mem_0[i-1:0][j-1:0][k-1:0];
+logic [d-1:0][e-1:0][f-1:0][7:0] cnt_dat[a-1:0][b-1:0][c-1:0];
+logic [15:0]                     cnt_init[15:0];
 ```
 
 As long as a shaped signal still has `arr(...)` / `mem(...)` dimensions left,
 `[]` means index selection only. After those dimensions are consumed, plain
 vector indexing and slicing behave the same as before.
+
+== Stream views
+
+Packed scalar `uint(...)` values and packed `arr(...)` values can be treated as
+enumerable views with `sv_take`, `sv_select`, `sv_foreach`, `sv_reduce`, and
+`sv_map`.
+
+```ruby
+always_comb do
+  parity <= mask.sv_take(4).sv_reduce { |a, b| a ^ b }
+  result <= mask
+    .sv_take(8)
+    .sv_select { |_, i| i.even? }
+    .sv_map { |v, _i| v }
+end
+```
+
+This emits a left-associated reduction and a packed concatenation whose first
+selected element lands in the lowest-position slot of the result:
+
+```systemverilog
+always_comb begin
+  parity = ((mask[0] ^ mask[1]) ^ mask[2]) ^ mask[3];
+  result = {mask[6], mask[4], mask[2], mask[0]};
+end
+```
 
 == Example scripts
 

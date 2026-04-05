@@ -35,11 +35,13 @@
   `logic` in SystemVerilog and uses `init` for reset injection in
   domain-driven `always_ff`.
 / `arr(dims..., type)` / `arr([dims...], type)`: creates an anonymous packed
-  array type. Packed dimensions emit before the scalar width. Nested calls
-  flatten: `arr([i], arr([j], arr([k], t)))` ≡ `arr([i, j, k], t)`.
+  array type. Packed dimensions emit before the scalar width as standard SV
+  ranges like `[n-1:0]`. Nested calls flatten:
+  `arr([i], arr([j], arr([k], t)))` ≡ `arr([i, j, k], t)`.
 / `mem(dims..., type)` / `mem([dims...], type)`: creates an anonymous unpacked
-  memory type. Unpacked dimensions emit after the variable name. Nested calls
-  flatten: `mem([i], mem([j], mem([k], t)))` ≡ `mem([i, j, k], t)`.
+  memory type. Unpacked dimensions emit after the variable name as standard SV
+  ranges like `[n-1:0]`. Nested calls flatten:
+  `mem([i], mem([j], mem([k], t)))` ≡ `mem([i, j, k], t)`.
 - `arr` and `mem` may be interleaved, but two `arr` calls or two `mem` calls
   cannot swap their relative order.
 / `arr.fill(...)` / `mem.fill(...)`: convenience helpers for building shaped
@@ -60,6 +62,18 @@
   zero.
 / `muxp(sel, dats, result:)`: priority mux. Same signature as `mux1h`. Emits
   `priority casez` with the default branch outputting zero.
+/ `expr.sv_take(n)`: starts a stream view and keeps the first `n` elements.
+/ `expr.sv_select { |elem, i| ... }`: filters a stream view with a Ruby boolean
+  predicate. The index `i` is the original element index and is not renumbered
+  after filtering.
+/ `expr.sv_foreach { |elem, i| ... }`: eagerly expands one block invocation per
+  selected element. In the current implementation, stream sources are limited to
+  `uint` and packed `arr(...)`.
+/ `expr.sv_reduce { |a, b| ... }`: left-folds the selected elements and keeps
+  the emitted fold order explicit in SV.
+/ `expr.sv_map { |elem, i| ... }`: maps selected elements into a packed result.
+  The first mapped element becomes the lowest-position element in the packed
+  result, so emitted concatenations appear in reverse order.
 
 == Statements and blocks
 

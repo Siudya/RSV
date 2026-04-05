@@ -32,10 +32,10 @@ class AnonymousTypeDslTest < Minitest::Test
         output logic [15:0] out
       );
 
-        logic           wire_a;
-        logic [15:0]    wire_b;
-        logic [8][15:0] reg_c;
-        logic [15:0]    reg_d[16];
+        logic             wire_a;
+        logic [15:0]      wire_b;
+        logic [7:0][15:0] reg_c;
+        logic [15:0]      reg_d[15:0];
 
         assign out = wire_b;
 
@@ -70,8 +70,8 @@ class AnonymousTypeDslTest < Minitest::Test
         input logic rst
       );
 
-        logic [8][15:0] reg_p;
-        logic [15:0]    reg_m[16];
+        logic [7:0][15:0] reg_p;
+        logic [15:0]      reg_m[15:0];
 
         always_ff @(posedge clk or posedge rst) begin
           if (rst) begin

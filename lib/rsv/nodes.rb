@@ -90,6 +90,30 @@ module RSV
       UnaryExpr.new(:reduce_and, self)
     end
 
+    def sv_stream
+      SvStream.from(self)
+    end
+
+    def sv_take(count)
+      sv_stream.sv_take(count)
+    end
+
+    def sv_select(&block)
+      sv_stream.sv_select(&block)
+    end
+
+    def sv_foreach(&block)
+      sv_stream.sv_foreach(&block)
+    end
+
+    def sv_reduce(&block)
+      sv_stream.sv_reduce(&block)
+    end
+
+    def sv_map(&block)
+      sv_stream.sv_map(&block)
+    end
+
     def [](*args)
       if RSV.index_only_expr?(self)
         unless args.length == 1 && !args[0].is_a?(Range)
@@ -551,6 +575,20 @@ module RSV
     end
   end
 
+  class ParenExpr
+    include ExprOps
+
+    attr_reader :inner
+
+    def initialize(inner)
+      @inner = RSV.normalize_expr(inner)
+    end
+
+    def width
+      RSV.infer_expr_width(@inner)
+    end
+  end
+
   class IndexExpr
     include ExprOps
     include AssignableExpr
@@ -637,6 +675,136 @@ module RSV
 
     def base_name
       @base.base_name if @base.respond_to?(:base_name)
+    end
+  end
+
+  StreamEntry = Struct.new(:expr, :index)
+
+  class PackedCollectionExpr
+    include ExprOps
+
+    attr_reader :parts_low_to_high, :width, :signed, :packed_dims, :unpacked_dims
+
+    def initialize(parts_low_to_high, width:, signed: false, packed_dims: [], unpacked_dims: [])
+      @parts_low_to_high = parts_low_to_high.map { |part| RSV.normalize_expr(part) }
+      @width = width
+      @signed = signed
+      @packed_dims = packed_dims.dup
+      @unpacked_dims = unpacked_dims.dup
+    end
+
+    def element_width
+      @width
+    end
+  end
+
+  class SvStream
+    def self.from(expr)
+      expr = RSV.normalize_expr(expr)
+      unpacked_dims = RSV.expr_unpacked_dims(expr)
+      packed_dims = RSV.expr_packed_dims(expr)
+
+      unless unpacked_dims.empty?
+        raise ArgumentError, "sv_stream phase 1 only supports uint and packed arr sources"
+      end
+
+      entries = if packed_dims.empty?
+        build_scalar_entries(expr)
+      else
+        build_packed_entries(expr, packed_dims.first)
+      end
+
+      new(entries)
+    end
+
+    def self.build_scalar_entries(expr)
+      width = RSV.infer_expr_width(expr)
+      raise ArgumentError, "sv_stream requires a statically known width" unless width.is_a?(Integer) && width.positive?
+
+      if expr.respond_to?(:signed) && expr.signed
+        raise ArgumentError, "sv_stream phase 1 only supports unsigned scalar sources"
+      end
+
+      return [StreamEntry.new(expr, 0)] if width == 1
+
+      (0...width).map { |i| StreamEntry.new(IndexExpr.new(expr, LiteralExpr.new(i)), i) }
+    end
+
+    def self.build_packed_entries(expr, dim)
+      length = RSV.dimension_value(dim)
+      raise ArgumentError, "sv_stream requires statically known packed dimensions" unless length.is_a?(Integer) && length.positive?
+
+      (0...length).map { |i| StreamEntry.new(IndexExpr.new(expr, LiteralExpr.new(i)), i) }
+    end
+
+    attr_reader :entries
+
+    def initialize(entries)
+      @entries = entries.dup
+    end
+
+    def sv_take(count)
+      raise ArgumentError, "sv_take expects a positive Integer" unless count.is_a?(Integer) && count.positive?
+      raise ArgumentError, "sv_take count #{count} exceeds stream length #{@entries.length}" if count > @entries.length
+
+      SvStream.new(@entries.first(count))
+    end
+
+    def sv_select
+      raise ArgumentError, "sv_select requires a block" unless block_given?
+
+      filtered = @entries.select do |entry|
+        keep = yield(entry.expr, entry.index)
+        unless keep == true || keep == false
+          raise ArgumentError, "sv_select block must return true or false"
+        end
+
+        keep
+      end
+      SvStream.new(filtered)
+    end
+
+    def sv_foreach
+      raise ArgumentError, "sv_foreach requires a block" unless block_given?
+
+      @entries.each { |entry| yield(entry.expr, entry.index) }
+      self
+    end
+
+    def sv_reduce
+      raise ArgumentError, "sv_reduce requires a block" unless block_given?
+      raise ArgumentError, "sv_reduce cannot operate on an empty stream" if @entries.empty?
+
+      acc = @entries.first.expr
+      @entries.drop(1).each_with_index do |entry, idx|
+        lhs = idx.zero? ? acc : ParenExpr.new(acc)
+        acc = RSV.normalize_expr(yield(lhs, entry.expr))
+      end
+      acc
+    end
+
+    def sv_map
+      raise ArgumentError, "sv_map requires a block" unless block_given?
+      raise ArgumentError, "sv_map cannot materialize an empty stream" if @entries.empty?
+
+      mapped = @entries.map { |entry| RSV.normalize_expr(yield(entry.expr, entry.index)) }
+      first = mapped.first
+      expected_shape = RSV.expr_shape_signature(first)
+      unless mapped.all? { |expr| RSV.expr_shape_signature(expr) == expected_shape }
+        raise ArgumentError, "sv_map results must all have the same packed shape"
+      end
+
+      unpacked_dims = RSV.expr_unpacked_dims(first)
+      unless unpacked_dims.empty?
+        raise ArgumentError, "sv_map phase 1 only supports packed result shapes"
+      end
+
+      PackedCollectionExpr.new(
+        mapped,
+        width: RSV.element_width(first),
+        signed: RSV.expr_signed(first),
+        packed_dims: [mapped.length] + RSV.expr_packed_dims(first)
+      )
     end
   end
 
@@ -903,7 +1071,8 @@ module RSV
     case operand
     when SignalHandler, RawExpr, LiteralExpr, BinaryExpr, UnaryExpr, IndexExpr,
          RangeSelectExpr, IndexedPartSelectExpr, AsSintExpr, ClockSignal, ResetSignal,
-         MuxExpr, CatExpr, FillExpr
+         ParenExpr,
+         MuxExpr, CatExpr, FillExpr, PackedCollectionExpr
       operand
     when String
       RawExpr.new(operand)
@@ -945,6 +1114,8 @@ module RSV
       binary_expr_width(expr.op, lhs_width, rhs_width)
     when UnaryExpr
       unary_expr_width(expr)
+    when ParenExpr
+      expr.width
     when IndexExpr
       expr.width
     when RangeSelectExpr, IndexedPartSelectExpr
@@ -957,6 +1128,8 @@ module RSV
       expr.width
     when FillExpr
       expr.width
+    when PackedCollectionExpr
+      flatten_packed_width(expr.width, expr.packed_dims)
     else
       nil
     end
@@ -1054,9 +1227,24 @@ module RSV
     expr.respond_to?(:packed_dims) ? expr.packed_dims : []
   end
 
+  def self.expr_signed(expr)
+    expr = normalize_expr(expr)
+    expr.respond_to?(:signed) ? expr.signed : false
+  end
+
   def self.expr_unpacked_dims(expr)
     expr = normalize_expr(expr)
     expr.respond_to?(:unpacked_dims) ? expr.unpacked_dims : []
+  end
+
+  def self.expr_shape_signature(expr)
+    expr = normalize_expr(expr)
+    [
+      element_width(expr),
+      expr_signed(expr),
+      expr_packed_dims(expr).map { |dim| dimension_key(dim) },
+      expr_unpacked_dims(expr).map { |dim| dimension_key(dim) }
+    ]
   end
 
   def self.index_only_expr?(expr)

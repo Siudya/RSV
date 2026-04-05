@@ -46,22 +46,38 @@ module RSV
     def packed_dim(width)
       return nil if width == 1 || width == "1"
 
-      if width.is_a?(Integer)
-        "[#{width - 1}:0]"
-      else
-        "[#{width}-1:0]"
-      end
+      decl_range(width)
     end
 
     def packed_decl_dims(width, packed_dims)
-      dims = packed_dims.map { |dim| "[#{emit_expr(dim)}]" }
+      dims = packed_dims.map { |dim| decl_range(dim) }
       scalar = packed_dim(width)
       dims << scalar if scalar
       dims.join
     end
 
     def unpacked_decl_dims(unpacked_dims)
-      unpacked_dims.map { |dim| "[#{emit_expr(dim)}]" }.join
+      unpacked_dims.map { |dim| decl_range(dim) }.join
+    end
+
+    def decl_range(length)
+      length = RSV.normalize_expr(length)
+
+      case length
+      when LiteralExpr
+        "[#{length.value - 1}:0]"
+      when RawExpr
+        text = length.source
+        "[#{simple_decl_expr?(text) ? text : "(#{text})"}-1:0]"
+      when SignalHandler
+        "[#{length.name}-1:0]"
+      else
+        "[(" + emit_expr(length) + ")-1:0]"
+      end
+    end
+
+    def simple_decl_expr?(text)
+      text.match?(/\A[A-Za-z_][A-Za-z0-9_]*\z/)
     end
 
     def emit_params_list(params)
@@ -333,6 +349,8 @@ module RSV
         "#{emit_expr(expr.base, precedence_for(:index))}[#{emit_expr(expr.start)} #{emit_indexed_direction(expr.direction)} #{emit_expr(expr.part_width)}]"
       when UnaryExpr
         emit_unary_expr(expr, parent_precedence)
+      when ParenExpr
+        "(#{emit_expr(expr.inner)})"
       when BinaryExpr
         emit_binary_expr(expr, parent_precedence)
       when AsSintExpr
@@ -347,6 +365,8 @@ module RSV
         "{#{expr.parts.map { |p| emit_expr(p) }.join(", ")}}"
       when FillExpr
         "{#{emit_expr(expr.count)}{#{emit_expr(expr.part)}}}"
+      when PackedCollectionExpr
+        "{#{expr.parts_low_to_high.reverse.map { |p| emit_expr(p) }.join(", ")}}"
       else
         expr.to_s
       end
