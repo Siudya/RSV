@@ -43,6 +43,10 @@
 / `reg(name, type, init:)`: declares a resettable register-like signal. It emits
   `logic` in SystemVerilog and uses `init` for reset injection in
   domain-driven `always_ff`.
+/ `const(name, type)`: declares a constant. The data type must carry an init
+  value (e.g. `sint(16, 0x57)`). Emits as SV `localparam`. The returned handler
+  can be used in expressions but cannot appear on the left side of an
+  assignment.
 / `arr(dims..., type)` / `arr([dims...], type)`: creates an anonymous packed
   array type. Packed dimensions emit before the scalar width as standard SV
   ranges like `[n-1:0]`. Nested calls flatten:

@@ -29,6 +29,8 @@ module RSV
         packed_dims: local.packed_dims,
         unpacked_dims: local.unpacked_dims
       )
+      return ConstDecl.new(spec, init: local.init) if local.is_a?(ConstDecl)
+
       LocalDecl.new(local.sv_kind, spec, init: local.init, reset_init: local.reset_init)
     end
 

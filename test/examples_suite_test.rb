@@ -36,6 +36,10 @@ class ExamplesSuiteTest < Minitest::Test
     "import_demo.rb" => {
       outputs: ["import_demo.sv"],
       lint_files: ["examples/imported_counter.sv", "build/rtl/import_demo.sv"]
+    },
+    "const_demo.rb" => {
+      outputs: ["const_demo.sv"],
+      lint_files: ["build/rtl/const_demo.sv"]
     }
   }.freeze
 

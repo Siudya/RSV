@@ -13,6 +13,8 @@ SystemVerilog.
   `bit(...)`, `uint(...)`, `arr(...)`, and `mem(...)`.
 + Create named ports and locals with `input("name", type)`,
   `output("name", type)`, `wire("name", type)`, and `reg("name", type)`.
++ Declare constants with `const("name", type)` where the data type carries an
+  init value (emits as SV `localparam`).
 + Use `arr.fill(...)` and `mem.fill(...)` to build shaped reset initializers.
 + Materialize named intermediate wires with `expr(...)`.
 + Describe sequential or combinational behavior with `always_ff`,

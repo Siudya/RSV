@@ -150,6 +150,46 @@ class HandlerDslTest < Minitest::Test
     assert_equal expected, mod.to_sv
   end
 
+  def test_const_emits_localparam
+    mod = module_class("ConstTest") do
+      a = const("MAGIC", sint(16, 0x57))
+      b = const("THRESHOLD", uint(8, 42))
+      out = output("out", sint(16))
+      out <= a
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "localparam signed [15:0] MAGIC"
+    assert_includes sv, "16'h57"
+    assert_includes sv, "localparam"
+    assert_includes sv, "THRESHOLD"
+    assert_includes sv, "8'h2a"
+    assert_includes sv, "assign out = MAGIC;"
+  end
+
+  def test_const_requires_init_value
+    error = assert_raises(ArgumentError) do
+      module_class("ConstNoInit") do
+        const("BAD", uint(8))
+      end.new
+    end
+
+    assert_includes error.message, "const requires an init value"
+  end
+
+  def test_const_cannot_be_assigned
+    error = assert_raises(ArgumentError) do
+      module_class("ConstAssign") do
+        a = const("RO", uint(8, 1))
+        b = wire("w", uint(8))
+        b <= a
+        a <= b
+      end.new.to_sv
+    end
+
+    assert_includes error.message, "const signal RO cannot be assigned"
+  end
+
   private
 
   def module_class(name, &build_block)

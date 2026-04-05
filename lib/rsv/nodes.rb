@@ -1015,6 +1015,24 @@ module RSV
     end
   end
 
+  # Represents a localparam constant declaration.
+  class ConstDecl
+    attr_reader :name, :width, :signed, :init, :packed_dims, :unpacked_dims
+
+    def initialize(signal, init:)
+      @name         = signal.name
+      @width        = signal.width
+      @signed       = signal.signed
+      @init         = init
+      @packed_dims   = signal.packed_dims.dup
+      @unpacked_dims = signal.unpacked_dims.dup
+    end
+
+    def sv_kind
+      :localparam
+    end
+  end
+
   # Represents a local wire / logic / reg signal declaration.
   class LocalDecl
     attr_reader :kind, :name, :width, :signed, :init, :reset_init, :packed_dims, :unpacked_dims

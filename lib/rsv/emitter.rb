@@ -117,11 +117,13 @@ module RSV
         decl_dims = packed_decl_dims(sig.width, sig.packed_dims)
         packed_field << decl_dims unless decl_dims.empty?
         init_value = sig.init.nil? ? nil : emit_literal_init(sig.init, sig.width)
+        is_const = sig.is_a?(ConstDecl)
         {
           kind: sig.sv_kind.to_s,
           packed: packed_field.join(" "),
           name: "#{sig.name}#{unpacked_decl_dims(sig.unpacked_dims)}",
-          init: init_value
+          init: init_value,
+          force_init: is_const
         }
       end
 

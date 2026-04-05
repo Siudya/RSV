@@ -51,6 +51,7 @@ module RSV
       signal = resolve_assigned_signal(lhs)
       return unless signal
 
+      raise ArgumentError, "const signal #{signal.name} cannot be assigned" if signal.is_a?(ConstDecl)
       validate_local_assignment_context(signal, context) if signal.is_a?(LocalDecl)
       validate_driver_context(signal.name, driver_context)
     end

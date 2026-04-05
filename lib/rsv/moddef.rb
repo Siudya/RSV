@@ -210,6 +210,14 @@ module RSV
       declare_local(:reg, build_signal_spec(name, data_type, init: init), clock_type: clock_type, reset_type: reset_type)
     end
 
+    def const(name, data_type)
+      spec = build_signal_spec(name, data_type, init: data_type.init)
+      raise ArgumentError, "const requires an init value" if spec.init.nil?
+
+      @locals << ConstDecl.new(spec, init: spec.init)
+      build_handler(spec, :wire)
+    end
+
     def expr(name, rhs, width: nil, signed: false)
       rhs_expr = RSV.normalize_expr(rhs)
       inferred_width = width || RSV.infer_expr_width(rhs_expr)
