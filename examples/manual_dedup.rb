@@ -19,13 +19,8 @@ require "rsv"
 
 class ManualDedupCounter < RSV::ModuleDef
   def build(width: 8)
-    # The caller may request different widths, but this example intentionally
-    # elaborates one shared 8-bit template so `definition(...)` reuses the same
-    # cached handle.
-    parameter "WIDTH", 8
-
-    din = input("din", uint("WIDTH"))
-    dout = output("dout", uint("WIDTH"))
+    din = input("din", uint(width))
+    dout = output("dout", uint(width))
 
     dout <= din
   end
@@ -51,7 +46,7 @@ def rtl_output_path(module_name)
 end
 
 stage_a_def = ManualDedupCounter.definition(width: 8)
-stage_b_def = ManualDedupCounter.definition(width: 16)
+stage_b_def = ManualDedupCounter.definition(width: 8)
 top = ManualDedupTop.new(stage_a_def: stage_a_def, stage_b_def: stage_b_def)
 top_output_path = rtl_output_path(top.module_name)
 

@@ -9,10 +9,10 @@ SystemVerilog.
 + Define a Ruby class that inherits from `RSV::ModuleDef`.
 + Implement hardware construction in `build(...)` or `initialize(...)`.
 + If you override `initialize(...)`, call `super()` before using the DSL.
-+ Declare parameters with `parameter(...)` and anonymous RSV data types with
++ Declare anonymous RSV data types with
   `bit(...)`, `uint(...)`, `arr(...)`, and `mem(...)`.
-+ Use class-level `sv_param("NAME", default)` to declare SV parameters and
-  enable curried construction: `MyMod.new("name").(WIDTH: 16).(meta: val)`.
++ Use `build(**kwargs)` keyword arguments as meta parameters to control
+  module elaboration: `MyMod.new("name", width: 16, meta: val)`.
 + Create named ports and locals with `input("name", type)`,
   `output("name", type)`, `wire("name", type)`, and `reg("name", type)`.
 + Declare constants with `const("name", type)` where the data type carries an
@@ -67,22 +67,20 @@ require "rsv"
 
 class Counter < RSV::ModuleDef
   def build(width: 8)
-    parameter "WIDTH", width
-
     clk = input("clk", bit)
     rst = input("rst", bit)
     en = input("en", bit)
-    count = output("count", uint("WIDTH"))
+    count = output("count", uint(width))
 
-    countR = reg("count_r", uint("WIDTH"), init: "'0")
-    countNext = expr("count_next", countR + 1)
+    count_r = reg("count_r", uint(width), init: 0)
+    count_next = expr("count_next", count_r + 1)
 
-    countR >= count
+    count_r >= count
 
     with_clk_and_rst(clk, rst)
     always_ff do
       svif(en) do
-        countR <= countNext
+        count_r <= count_next
       end
     end
   end
@@ -95,24 +93,22 @@ counter.to_sv("build/rtl/counter.sv")
 == Generated SystemVerilog
 
 ```systemverilog
-module Counter #(
-  parameter int WIDTH = 8
-) (
-  input  logic             clk,
-  input  logic             rst,
-  input  logic             en,
-  output logic [WIDTH-1:0] count
+module Counter (
+  input  logic       clk,
+  input  logic       rst,
+  input  logic       en,
+  output logic [7:0] count
 );
 
-  logic [WIDTH-1:0] count_r;
-  logic [WIDTH-1:0] count_next;
+  logic [7:0] count_r;
+  logic [7:0] count_next;
 
-  assign count_next = count_r + 1;
+  assign count_next = count_r + 8'd1;
   assign count      = count_r;
 
   always_ff @(posedge clk or posedge rst) begin
     if (rst) begin
-      count_r <= '0;
+      count_r <= 8'h0;
     end else if (en) begin
       count_r <= count_next;
     end
@@ -290,7 +286,7 @@ A `reg("px", Pixel.new)` declaration generates three separate signals:
 Bundles support:
 - Nested bundles: `field "inner", OtherBundle.new` (recursively flattened)
 - `arr`/`mem`: `mem(4, Pixel.new)` → separate signals with unpacked dim
-- `sv_param`: `W = sv_param "W", 8` with curried `Pixel.new.(W: 16)`
+- Meta parameters: `def build(w: 8)` with `Pixel.new(w: 16)`
 - Partial reset: only listed fields get reset in `always_ff`
 - Field access: `handler.field_name` for reads and writes
 - Field handles: `r = field("r", type)` — Ruby name may differ from SV name

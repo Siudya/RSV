@@ -68,51 +68,20 @@ module RSV
     end
   end
 
-  # Curried builder for modules with sv_param declarations.
-  # Chains: ModuleClass.new("name").(sv_params).(meta_params)
-  class CurriedModuleBuilder < CurriedBuilderBase
-    def initialize(klass, *args, **kwargs, &block)
-      super(klass, *args, **kwargs)
-      @block = block
-    end
-
-    def to_sv(output = nil)
-      finalize.to_sv(output)
-    end
-
-    private
-
-    def finalize(**meta_params)
-      return @result if @result
-
-      @sv_param_overrides ||= {}
-      merged_kwargs = @kwargs.merge(meta_params)
-      current_module = RSV.current_module_def
-      if current_module
-        @result = current_module.send(:instantiate_module_curried,
-          @klass, *@args, sv_params: @sv_param_overrides, **merged_kwargs)
-      else
-        @result = @klass.build_definition(*@args, sv_params: @sv_param_overrides, **merged_kwargs, &@block)
-      end
-      @result
-    end
-  end
-
   # Base class for class-based module definitions.
   #
   # Example:
   #   class Counter < RSV::ModuleDef
   #     def build(width: 8)
-  #       parameter "WIDTH", width
   #       clk = input("clk", bit)
   #       rst = input("rst", bit)
-  #       out = output("count", uint("WIDTH"))
-  #       countR = reg("count_r", uint("WIDTH"), init: "'0")
-  #       out <= countR
+  #       out = output("count", uint(width))
+  #       count_r = reg("count_r", uint(width), init: 0)
+  #       out <= count_r
   #       with_clk_and_rst(clk, rst)
   #       always_ff do
   #         svif(1) do
-  #           countR <= countR + 1
+  #           count_r <= count_r + 1
   #         end
   #       end
   #     end
@@ -146,19 +115,14 @@ module RSV
       def new(*args, **kwargs, &block)
         raise ArgumentError, "ModuleDef must be subclassed" if self == RSV::ModuleDef
 
-        if sv_param_defs.any?
-          return CurriedModuleBuilder.new(self, *args, **kwargs, &block)
-        end
-
         current_module = RSV.current_module_def
         return current_module.send(:instantiate_module, self, *args, **kwargs) if current_module
 
         build_definition(*args, **kwargs, &block)
       end
 
-      def build_definition(*args, sv_params: {}, **kwargs, &block)
+      def build_definition(*args, **kwargs, &block)
         mod = allocate
-        mod.instance_variable_set(:@_sv_param_overrides, sv_params)
         RSV.with_module_def(mod) do
           mod.send(:initialize, *args, **kwargs, &block)
         end
@@ -166,8 +130,8 @@ module RSV
         mod
       end
 
-      def definition(*args, sv_params: {}, **kwargs, &block)
-        definition = build_definition(*args, sv_params: sv_params, **kwargs, &block)
+      def definition(*args, **kwargs, &block)
+        definition = build_definition(*args, **kwargs, &block)
         definition_handle_registry[definition.module_name] ||= ModuleDefinitionHandle.new(definition)
       end
 
@@ -205,8 +169,6 @@ module RSV
       @auto_connection_wires = {}
       @instance_port_base_wires = {}
 
-      apply_sv_param_defs
-
       auto_build = self.class.instance_method(:initialize).owner == ModuleDef &&
         self.class.instance_method(:build).owner != ModuleDef
       build(*args, **kwargs) if auto_build
@@ -237,14 +199,9 @@ module RSV
       )
     end
 
-    # ── Parameter & port declarations ───────────────────────────────────────
-
-    def parameter(name, value, type: "int")
-      @params << ParamDecl.new(name, value, type)
-    end
+    # ── Port declarations ───────────────────────────────────────────────────
 
     include TypeConstructors
-    include SvParamSupport
 
     def clock(init = nil, **kwargs)
       init = kwargs[:init] if kwargs.key?(:init)
@@ -669,13 +626,6 @@ module RSV
       definition_handle = build_definition_handle(module_class, *args, **kwargs)
       inst_name ||= next_instance_name(definition_handle)
       instantiate_definition_handle(definition_handle, inst_name: inst_name)
-    end
-
-    def instantiate_module_curried(module_class, *args, sv_params: {}, **kwargs)
-      inst_name = kwargs.delete(:inst_name)
-      definition_handle = build_definition_handle(module_class, *args, sv_params: {}, **kwargs)
-      inst_name ||= next_instance_name(definition_handle)
-      instantiate_definition_handle(definition_handle, inst_name: inst_name, param_overrides: sv_params)
     end
 
     def build_definition_handle(source, *args, **kwargs, &block)

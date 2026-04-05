@@ -1541,8 +1541,6 @@ module RSV
 
   def self.normalize_data_type(data_type)
     return data_type if data_type.is_a?(DataType)
-    # Auto-finalize curried bundle builders
-    return data_type.send(:finalize) if data_type.is_a?(CurriedBundleBuilder)
 
     raise TypeError, "data type declaration expects RSV::DataType, got #{data_type.class}"
   end

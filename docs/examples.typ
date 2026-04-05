@@ -22,8 +22,8 @@ xmake rtl -f syn
   [`auto_dedup`], [`aut`], [自动去重与子模块自动布线],
   [`bundle_and_interface`], [`bdi`], [Bundle 类型展开为扁平信号],
   [`const_demo`], [`cst`], [`const` / `localparam` 常量声明],
-  [`counter`], [`ctr`], [基础参数化顺序计数器],
-  [`curried_params`], [`cur`], [`sv_param` 与柯里化参数],
+  [`counter`], [`ctr`], [基础顺序计数器（meta_param 参数化）],
+  [`curried_params`], [`cur`], [`meta_param` 参数化模块],
   [`generate_demo`], [`gen`], [generate 块、属性与多级流水],
   [`import_demo`], [`imp`], [导入外部 SystemVerilog 模块签名],
   [`macro_demo`], [`mac`], [宏定义、条件编译与宏引用],
@@ -39,11 +39,11 @@ xmake rtl -f syn
 
 == counter.rb
 
-基础的参数化顺序计数器。
+基础的顺序计数器，通过 meta_param 参数化宽度。
 
 - 端口声明: `input`, `output`
 - 类型构造: `bit`, `uint`
-- 参数: `parameter`
+- meta 参数: `build(width: 8)`
 - 局部声明: `reg`(含初始值), `expr`
 - 赋值: `<=`
 - 时序逻辑: `always_ff`, `with_clk_and_rst`
@@ -204,34 +204,27 @@ SystemVerilog 预处理宏指令。
 
 == generate_demo.rb
 
-综合的 generate 块演示，结合 sv\_param、const、attr、definition/instance 等特性。
+综合的 generate 块演示，结合 meta\_param、const、attr、definition/instance 等特性。
 
 - 端口声明: `input`, `output`
 - 类型构造: `clock`, `reset`, `uint`, `arr`
 - 局部声明: `reg`, `wire`, `const`
 - 硬件属性: `attr: { "keep" => nil }` 用于端口标注
-- sv\_param: `DEPTH`, `DATA_W`, `MODE` 用作 generate 循环上界和条件判断
-- 柯里化调用: `.new("name").().(meta_params)` 构造顶层
+- meta 参数: `depth`, `data_w`, `mode`, `n_ch` 用作 generate 循环上界和 Ruby 条件判断
 - generate for + 内联逻辑: `generate_for` 内声明局部 reg，搭配 `always_ff`
 - generate for + definition/instance: 使用元参数子模块 `PipeStage.definition(width:)`
   在循环内 `instance()` 例化多个流水级
-- generate for + sv\_param 子模块: 使用柯里化 `SvPipeStage.new().(W: DATA_W).()`
-  在循环内例化带 SV parameter 的子模块，参数透传
 - genvar 索引连接: `chain[i]`, `chain[i + 1]` 组成流水链
-- generate if/elif/else: `sv_param MODE` 控制条件生成
-- generate if + 局部 const: 在条件块内声明 `localparam`
-- 比较运算: `.eq`, `.lt`
-- 位运算: `~`（取反）
+- Ruby 条件控制: `if mode == 0` 在 elaboration 时选择硬件逻辑
 - 赋值: `<=`, `>=`
 - 时序逻辑: `always_ff`, `with_clk_and_rst`
 
 == curried_params.rb
 
-SystemVerilog parameter 与柯里化参数。
+meta\_param 参数化模块。
 
-- SV 参数声明: `sv_param("WIDTH", 8)`（类级别宏）
-- 柯里化调用: `.new("name").(sv_params).(meta_params)`
-- SvParamRef: 参数引用作为类型宽度 `uint(WIDTH)`
+- meta 参数: `build(width: 8, enable_wrap: true)`
+- 构造调用: `ClassName.new("name", width: 16, enable_wrap: true)`
 - 端口声明: `input`, `output`
 - 类型构造: `clock`, `reset`, `uint`
 - 局部声明: `reg`(含初始值)
@@ -241,7 +234,7 @@ SystemVerilog parameter 与柯里化参数。
 - 条件控制: `svif`, `svelse`
 - Ruby 元编程: 运行时 `if/else` 条件模板裁剪
 - 定义注册表: `.definition_handle_registry`
-- 模块实例化: 含参数覆盖的子模块实例化
+- 模块实例化: 含不同 meta 参数的子模块实例化
 - 输出: `to_sv(path)`
 
 == verilog_wrapper.rb
@@ -287,7 +280,7 @@ Verilog 兼容 wrapper 产生器，展示所有端口类型的展开。
 Bundle 类型展开为扁平信号的综合演示。
 
 - Bundle 定义: `RSV::BundleDef` 子类，`field` 声明字段
-- Bundle 参数化: `sv_param("W", 8)` 与柯里化 `.new.(W: 16)`
+- Bundle 参数化: `build(w: 8)` 与 `DataPacket.new(w: 16)`
 - Bundle 嵌套: 在另一个 Bundle 的字段中引用其他 Bundle（递归展开）
 - Bundle 作为端口类型: `input("px_in", Pixel.new)`, `output("px_out", Pixel.new)`
 - Bundle 作为 reg 类型: `reg("px_r", Pixel.new, init: { ... })`
@@ -333,16 +326,15 @@ Bundle 类型展开为扁平信号的综合演示。
   [`sv_dref` 宏引用], [macro\_demo],
   [`generate_for`/`generate_if`], [generate\_demo],
   [generate-for + definition/instance], [generate\_demo],
-  [generate-for + sv\_param 子模块], [generate\_demo],
-  [generate-if + 局部 const], [generate\_demo],
-  [`sv_param` 柯里化参数], [curried\_params],
+  [Ruby 条件控制 (mode 选择)], [generate\_demo],
+  [`meta_param` 参数化], [curried\_params, counter, generate\_demo],
   [`v_wrapper` Verilog wrapper], [verilog\_wrapper],
   [`v_wrapper` Bundle 端口展开], [verilog\_wrapper],
   [`sv_plugin` 内嵌 SV 代码], [sv\_plugin\_demo],
   [流式 API (`sv_map` 等)], [storage\_streams],
   [`attr:` 硬件属性], [（见 test/handler\_dsl\_test.rb 中的单元测试）],
   [`BundleDef` 定义], [bundle\_and\_interface],
-  [Bundle 参数化 (`sv_param`)], [bundle\_and\_interface],
+  [Bundle 参数化 (`meta_param`)], [bundle\_and\_interface],
   [Bundle 嵌套], [bundle\_and\_interface],
   [Bundle 部分初始化], [bundle\_and\_interface],
   [Bundle 字段访问], [bundle\_and\_interface],

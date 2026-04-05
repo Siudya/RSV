@@ -14,32 +14,19 @@ class WrapTestPixel < RSV::BundleDef
   end
 end
 
-# Test helper classes for sv_param tests (constants can't be set inside Class.new blocks)
-class SvParamTestModule < RSV::ModuleDef
-  WIDTH = sv_param("WIDTH", 8)
-  def build
-    input("d", uint(WIDTH))
-    output("q", uint(WIDTH))
+# Test helper classes for meta-param module tests
+class MetaParamTestModule < RSV::ModuleDef
+  def build(width: 8)
+    input("d", uint(width))
+    output("q", uint(width))
   end
 end
 
-class SvParamExprModule < RSV::ModuleDef
-  N = sv_param("N", 4)
-  def build
-    a = input("a", uint(N))
-    y = output("y", uint(N))
-    y <= a + N
-  end
-end
-
-class CurriedMetaModule < RSV::ModuleDef
-  W = sv_param("W", 8)
-  def build(signed_mode: false)
-    if signed_mode
-      output("y", sint(W))
-    else
-      output("y", uint(W))
-    end
+class MetaParamExprModule < RSV::ModuleDef
+  def build(n: 4)
+    a = input("a", uint(n))
+    y = output("y", uint(n))
+    y <= a + n
   end
 end
 
@@ -459,36 +446,36 @@ class HandlerDslTest < Minitest::Test
     refute_includes sv, "else"
   end
 
-  # ── Curried parameter tests ─────────────────────────────────────────────
+  # ── Meta parameter tests ─────────────────────────────────────────────
 
-  def test_sv_param_declares_parameter
-    mod = SvParamTestModule.new("sv_param_test").().()
+  def test_meta_param_declares_no_parameter
+    mod = MetaParamTestModule.new("meta_param_test", width: 8)
     sv = mod.to_sv
-    assert_includes sv, "parameter int WIDTH = 8"
-    assert_includes sv, "[WIDTH-1:0]"
+    refute_includes sv, "parameter"
+    assert_includes sv, "[7:0]"
   end
 
-  def test_sv_param_override_via_curried_call
-    mod = SvParamTestModule.new("sv_param_override").(WIDTH: 32).()
+  def test_meta_param_override
+    mod = MetaParamTestModule.new("meta_param_override", width: 32)
     sv = mod.to_sv
-    assert_includes sv, "parameter int WIDTH = 32"
+    assert_includes sv, "[31:0]"
+    refute_includes sv, "parameter"
   end
 
-  def test_sv_param_ref_in_expression
-    mod = SvParamExprModule.new("sv_param_expr").().()
+  def test_meta_param_in_expression
+    mod = MetaParamExprModule.new("meta_param_expr", n: 4)
     sv = mod.to_sv
-    assert_includes sv, "assign y = a + N;"
+    assert_includes sv, "assign y = a + 4'd4;"
   end
 
-  def test_curried_meta_params
-    unsigned_mod = CurriedMetaModule.new("curried_meta_u").(W: 8).(signed_mode: false)
+  def test_meta_params_different_widths
+    unsigned_mod = MetaParamTestModule.new("meta_u", width: 8)
     sv = unsigned_mod.to_sv
-    refute_includes sv, "signed"
+    assert_includes sv, "[7:0]"
 
-    signed_mod = CurriedMetaModule.new("curried_meta_s").(W: 16).(signed_mode: true)
-    sv = signed_mod.to_sv
-    assert_includes sv, "signed"
-    assert_includes sv, "parameter int W = 16"
+    wide_mod = MetaParamTestModule.new("meta_w", width: 16)
+    sv = wide_mod.to_sv
+    assert_includes sv, "[15:0]"
   end
 
   # --- Task 6: Verilog wrapper ---

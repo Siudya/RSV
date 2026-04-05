@@ -28,55 +28,6 @@ module RSV
     end
   end
 
-  # ── Shared sv_param support ──────────────────────────────────────────────
-  # Class-level and instance-level helpers for SV parameter handling.
-  # Include in BundleDef, ModuleDef.
-  module SvParamSupport
-    def self.included(base)
-      base.extend(ClassMethods)
-    end
-
-    module ClassMethods
-      def sv_param(name, default_value)
-        sv_param_defs << { name: name.to_s, default: default_value }
-        SvParamRef.new(name.to_s)
-      end
-
-      def sv_param_defs
-        @sv_param_defs ||= []
-      end
-    end
-
-    private
-
-    # Apply sv_param defaults / overrides into @params.
-    def apply_sv_param_defs
-      overrides = @_sv_param_overrides || {}
-      self.class.sv_param_defs.each do |pd|
-        key_sym = pd[:name].to_sym
-        key_str = pd[:name].to_s
-        value = overrides.fetch(key_sym, overrides.fetch(key_str, pd[:default]))
-        type = infer_sv_param_type(value)
-        @params << ParamDecl.new(pd[:name], value, type)
-      end
-    end
-
-    def infer_sv_param_type(value)
-      case value
-      when Integer then "int"
-      when String then "string"
-      else "int"
-      end
-    end
-
-    def resolve_param_value(val, param_map)
-      case val
-      when SvParamRef then param_map.fetch(val.name, val)
-      else val
-      end
-    end
-  end
-
   # ── Shared type variant dedup registry ───────────────────────────────────
   # Class-level helper that tracks generated type names per SV signature,
   # ensuring unique names when meta_params produce different SV output.
@@ -101,41 +52,6 @@ module RSV
       def type_variant_registry
         @type_variant_registry ||= Hash.new { |hash, key| hash[key] = [] }
       end
-    end
-  end
-
-  # ── Shared curried builder base ──────────────────────────────────────────
-  # Subclass and implement #finalize(**meta_params) to produce a result.
-  class CurriedBuilderBase
-    def initialize(klass, *args, **kwargs)
-      @klass = klass
-      @args = args
-      @kwargs = kwargs
-      @sv_param_overrides = nil
-      @result = nil
-    end
-
-    def call(**kwargs)
-      if @sv_param_overrides.nil?
-        @sv_param_overrides = kwargs
-        self
-      else
-        finalize(**kwargs)
-      end
-    end
-
-    def method_missing(name, *args, **kwargs, &block)
-      finalize.send(name, *args, **kwargs, &block)
-    end
-
-    def respond_to_missing?(name, include_private = false)
-      true
-    end
-
-    private
-
-    def finalize(**meta_params)
-      raise NotImplementedError, "subclass must implement #finalize"
     end
   end
 

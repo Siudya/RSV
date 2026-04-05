@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 # examples/counter.rb
 #
-# Generates a parameterized synchronous counter with auto-generated reset logic.
+# Generates a synchronous counter with meta-parameter width.
 #
 # Covered syntax:
-# - parameter declarations
+# - meta_param (build keyword arguments)
 # - input/output ports
 # - uint data types
 # - expr(...) inferred wires
@@ -20,14 +20,12 @@ require "rsv"
 
 class Counter < RSV::ModuleDef
   def build(width: 8)
-    parameter "WIDTH", 8
-
     clk = input("clk", bit)
     rst = input("rst", bit)
     en = input("en", bit)
-    count = output("count", uint("WIDTH"))
+    count = output("count", uint(width))
 
-    count_r = reg("count_r", uint("WIDTH"), init: "'0")
+    count_r = reg("count_r", uint(width), init: 0)
     count_next = expr("count_next", count_r + 1)
 
     count <= count_r

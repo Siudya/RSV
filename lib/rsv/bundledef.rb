@@ -1,21 +1,7 @@
 # frozen_string_literal: true
 
 module RSV
-  # Curried builder for bundles with sv_param declarations.
-  class CurriedBundleBuilder < CurriedBuilderBase
-    private
-
-    def finalize(**meta_params)
-      return @result if @result
-
-      @sv_param_overrides ||= {}
-      merged_kwargs = @kwargs.merge(meta_params)
-      @result = @klass.build_type(*@args, sv_params: @sv_param_overrides, **merged_kwargs)
-      @result
-    end
-  end
-
-  # Base class for defining SV struct (typedef struct packed).
+  # Base class for defining bundle types.
   #
   # Example:
   #   class MyBundle < RSV::BundleDef
@@ -29,25 +15,19 @@ module RSV
   #   r = reg("my_reg", dat_t)
   class BundleDef
     include TypeConstructors
-    include SvParamSupport
     include TypeVariantRegistry
 
-    attr_reader :fields, :params, :type_name
+    attr_reader :fields, :type_name
 
     class << self
       def new(*args, **kwargs)
         raise ArgumentError, "BundleDef must be subclassed" if self == RSV::BundleDef
 
-        if sv_param_defs.any?
-          return CurriedBundleBuilder.new(self, *args, **kwargs)
-        end
-
         build_type(*args, **kwargs)
       end
 
-      def build_type(*args, sv_params: {}, **kwargs)
+      def build_type(*args, **kwargs)
         bundle = allocate
-        bundle.instance_variable_set(:@_sv_param_overrides, sv_params)
         bundle.send(:initialize, *args, **kwargs)
         bundle.send(:finalize_type_name!)
         bundle.send(:to_data_type)
@@ -60,17 +40,12 @@ module RSV
 
     def initialize(*args, **kwargs)
       @fields = []
-      @params = []
       @type_name = nil
       @type_name_finalized = false
-
-      apply_sv_param_defs
 
       auto_build = self.class.instance_method(:initialize).owner == BundleDef &&
         self.class.instance_method(:build).owner != BundleDef
       build(*args, **kwargs) if auto_build
-
-      resolve_sv_param_refs!
     end
 
     def build(*args, **kwargs)
@@ -91,31 +66,6 @@ module RSV
     end
 
     private
-
-    # Resolve SvParamRef values in field widths/dims after build.
-    def resolve_sv_param_refs!
-      return if @params.empty?
-
-      param_map = {}
-      @params.each { |p| param_map[p.name] = p.value }
-
-      @fields.map! do |f|
-        dt = f.data_type
-        new_width = resolve_param_value(dt.width, param_map)
-        new_packed = dt.packed_dims.map { |d| resolve_param_value(d, param_map) }
-        new_unpacked = dt.unpacked_dims.map { |d| resolve_param_value(d, param_map) }
-        if new_width != dt.width || new_packed != dt.packed_dims || new_unpacked != dt.unpacked_dims
-          new_dt = DataType.new(
-            width: new_width, signed: dt.signed, init: dt.init,
-            packed_dims: new_packed, unpacked_dims: new_unpacked,
-            bundle_type: dt.bundle_type
-          )
-          BundleFieldDef.new(name: f.name, data_type: new_dt)
-        else
-          f
-        end
-      end
-    end
 
     def finalize_type_name!
       return @type_name if @type_name_finalized

@@ -1,14 +1,12 @@
 # frozen_string_literal: true
 # examples/curried_params.rb
 #
-# Demonstrates sv_param and curried parameter application.
+# Demonstrates meta_param usage for parameterized modules.
 #
 # Covered syntax:
-# - class-level sv_param declarations
-# - curried call: ClassName.new("name").(sv_params).(meta_params)
-# - SvParamRef used as width in uint()/sint()
-# - parameter override at instantiation
+# - meta_param as build() keyword arguments
 # - different meta_params produce different module templates
+# - Ruby-level parameterization (width baked into SV output)
 #
 # Run:
 #   xmake rtl -f cur
@@ -18,13 +16,11 @@ require "rsv"
 include RSV
 
 class ParamCounter < ModuleDef
-  WIDTH = sv_param("WIDTH", 8)
-
-  def build(enable_wrap: true)
+  def build(width: 8, enable_wrap: true)
     clk = input("clk", clock)
     rst = input("rst", reset)
-    out = output("count", uint(WIDTH))
-    count_r = reg("count_r", uint(WIDTH), init: 0)
+    out = output("count", uint(width))
+    count_r = reg("count_r", uint(width), init: 0)
     out <= count_r
 
     with_clk_and_rst(clk, rst)
@@ -50,14 +46,14 @@ class TopCurried < ModuleDef
     count_a = output("count_a", uint(16))
     count_b = output("count_b", uint(32))
 
-    # Instance with WIDTH=16, wrapping enabled
-    a = ParamCounter.new("param_counter").(WIDTH: 16).(enable_wrap: true)
+    # Instance with width=16, wrapping enabled
+    a = ParamCounter.new("param_counter", width: 16, enable_wrap: true)
     a.clk <= clk
     a.rst <= rst
     count_a <= a.count
 
-    # Instance with WIDTH=32, wrapping disabled (different meta_params → different template)
-    b = ParamCounter.new("param_counter").(WIDTH: 32).(enable_wrap: false)
+    # Instance with width=32, wrapping disabled (different meta_params → different template)
+    b = ParamCounter.new("param_counter", width: 32, enable_wrap: false)
     b.clk <= clk
     b.rst <= rst
     count_b <= b.count

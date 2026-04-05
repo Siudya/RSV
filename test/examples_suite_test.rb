@@ -46,8 +46,8 @@ class ExamplesSuiteTest < Minitest::Test
       lint_files: ["-DSIM", "build/rtl/macro_demo.sv"]
     },
     "generate_demo.rb" => {
-      outputs: ["generate_demo.sv", "PipeStage.sv", "sv_pipe_stage.sv"],
-      lint_files: ["build/rtl/PipeStage.sv", "build/rtl/sv_pipe_stage.sv", "build/rtl/generate_demo.sv"]
+      outputs: ["generate_demo.sv", "PipeStage.sv"],
+      lint_files: ["build/rtl/PipeStage.sv", "build/rtl/generate_demo.sv"]
     },
     "curried_params.rb" => {
       outputs: ["curried_top.sv", "curried_param_counter.sv", "curried_param_counter_1.sv"],

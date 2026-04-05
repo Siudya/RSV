@@ -20,13 +20,6 @@
 
 == Declarations
 
-/ `parameter(name, value, type:)`: emits a SystemVerilog parameter declaration.
-/ `sv_param(name, default_value)`: class-level macro that declares an SV
-  parameter and returns an `SvParamRef` expression node. The ref can be used as
-  a width specifier (`uint(WIDTH)`) or in any expression. Enables curried module
-  construction: `MyMod.new("name").(WIDTH: 16).(meta: true)`.
-  - First `.()` overrides SV parameter defaults.
-  - Second `.()` supplies meta parameters passed to `build(**kwargs)`.
 / `bit(init = nil)`: creates an anonymous 1-bit RSV data type.
 / `bits(width = 1, init = nil)`: creates an anonymous unsigned data type. Same as
   `uint`.
@@ -283,8 +276,8 @@ inferred width and computed init value:
 - Bundle fields are flattened to individual signals at declaration time.
   E.g. `reg("px", Pixel.new)` produces `px_r`, `px_g`, `px_b`.
 - Nested bundles are recursively flattened: `outer_inner_field`.
-- Parameterized bundles support `sv_param` at class level. Curried call:
-  `MyBundle.new.(W: 16)`. Different parameter values produce different
+- Parameterized bundles use `build(**kwargs)` meta parameters. Call:
+  `MyBundle.new(w: 16)`. Different parameter values produce different
   type names via automatic dedup.
 - Partial reset: `reg("r", bundle_t, init: { "field" => 0 })` only generates
   reset assignments for the listed fields in `always_ff`.

@@ -78,13 +78,13 @@ This generates `build/rsv_doc.pdf`.
 
 | Area | Support |
 | --- | --- |
-| Module structure | parameters, ports, locals, continuous `assign`, readable alignment |
+| Module structure | ports, locals, continuous `assign`, readable alignment |
 | Procedural RTL | `always_ff`, `always_comb`, `always_latch`, reset injection, chained `svif`/`svelif`/`svelse` |
 | Case statements | `svcase`, `svcasez`, `svcasex` with `unique`/`priority` qualifiers and `?` wildcards |
 | Data shapes | packed `arr`, unpacked `mem`, mixed shapes, indexing and slices |
 | Expressions | arithmetic, compare, logical, reduction, shifts, `mux`, `cat`, `fill`, `$signed` |
 | Utilities | `log2ceil`, `pop_count`, `mux1h`, `muxp` |
-| Elaboration-time features | `generate_for`, `generate_if`, `definition` / `instance`, curried `sv_param` |
+| Elaboration-time features | `generate_for`, `generate_if`, `definition` / `instance`, `meta_param` |
 | Bundle types | `BundleDef` (flattened to individual signals at declaration time) |
 | SV integration | macro directives, imported SV module signatures, inline `sv_plugin`, Verilog wrapper |
 | Examples | `xmake rtl -l` lists runnable examples with aliases and feature summaries |

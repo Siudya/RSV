@@ -19,13 +19,8 @@ require "rsv"
 
 class AutoDedupCounter < RSV::ModuleDef
   def build(width: 8)
-    # The caller may request different widths, but this example intentionally
-    # elaborates one shared 8-bit template so automatic dedup can collapse the
-    # repeated module objects.
-    parameter "WIDTH", 8
-
-    din = input("din", uint("WIDTH"))
-    dout = output("dout", uint("WIDTH"))
+    din = input("din", uint(width))
+    dout = output("dout", uint(width))
 
     dout <= din
   end
@@ -37,7 +32,7 @@ class AutoDedupTop < RSV::ModuleDef
     output_z = output("output_z", uint(8))
 
     stage_a = AutoDedupCounter.new(inst_name: "u_stage_a", width: 8)
-    stage_b = AutoDedupCounter.new(inst_name: "u_stage_b", width: 16)
+    stage_b = AutoDedupCounter.new(inst_name: "u_stage_b", width: 8)
 
     stage_a.din <= input_a
     stage_a.dout <= stage_b.din
@@ -51,8 +46,7 @@ def rtl_output_path(module_name)
 end
 
 counter_defs = [
-  AutoDedupCounter.new(width: 8),
-  AutoDedupCounter.new(width: 16)
+  AutoDedupCounter.new(width: 8)
 ].uniq { |definition| definition.module_name }
 
 top = AutoDedupTop.new

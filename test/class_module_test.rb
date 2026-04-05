@@ -10,12 +10,10 @@ module ClassModuleTestFixtures
     def initialize(width: 8)
       super()
 
-      parameter "WIDTH", width
-
       clk = input("clk", bit)
       rst = input("rst", bit)
-      count = output("count", uint("WIDTH"))
-      count_r = reg("count_r", uint("WIDTH"), init: "'0")
+      count = output("count", uint(width))
+      count_r = reg("count_r", uint(width), init: 0)
 
       count <= count_r
 
@@ -55,23 +53,21 @@ class ClassModuleTest < Minitest::Test
   def test_to_sv_can_write_to_stdout_with_dash
     mod = ClassModuleTestFixtures::Counter.new(width: 8)
     expected = <<~SV.chomp
-      module Counter #(
-        parameter int WIDTH = 8
-      ) (
-        input  logic             clk,
-        input  logic             rst,
-        output logic [WIDTH-1:0] count
+      module Counter (
+        input  logic       clk,
+        input  logic       rst,
+        output logic [7:0] count
       );
 
-        logic [WIDTH-1:0] count_r;
+        logic [7:0] count_r;
 
         assign count = count_r;
 
         always_ff @(posedge clk or posedge rst) begin
           if (rst) begin
-            count_r <= '0;
+            count_r <= 8'h0;
           end else if (1) begin
-            count_r <= count_r + 1;
+            count_r <= count_r + 8'd1;
           end
         end
 
@@ -94,9 +90,7 @@ class ClassModuleTest < Minitest::Test
         output logic [7:0] count
       );
 
-        Counter #(
-          .WIDTH(8)
-        ) u_counter (
+        Counter u_counter (
           .clk(clk),
           .rst(rst),
           .count(count)
@@ -117,12 +111,11 @@ class ClassModuleTest < Minitest::Test
 
       define_method(:build) do |width: 8|
         self.module_name = "NamedCounterW#{width}"
-        parameter "WIDTH", width
 
         clk = input("clk", bit)
         rst = input("rst", bit)
-        count = output("count", uint("WIDTH"))
-        count_r = reg("count_r", uint("WIDTH"), init: "'0")
+        count = output("count", uint(width))
+        count_r = reg("count_r", uint(width), init: 0)
 
         count <= count_r
 
@@ -138,7 +131,7 @@ class ClassModuleTest < Minitest::Test
     mod = named_counter_class.new(width: 16)
 
     assert_equal "NamedCounterW16", mod.module_name
-    assert_match(/\Amodule NamedCounterW16 #\(/, mod.to_sv)
+    assert_match(/\Amodule NamedCounterW16 \(/, mod.to_sv)
   end
 
   def test_identical_variants_reuse_base_name_and_distinct_variants_get_suffix
@@ -146,8 +139,6 @@ class ClassModuleTest < Minitest::Test
       define_singleton_method(:name) { "VariantCounter" }
 
       define_method(:build) do |width: 8|
-        parameter "WIDTH", width
-
         clk = input("clk", bit)
         rst = input("rst", bit)
         count = output("count", uint(width))
@@ -202,12 +193,9 @@ class ClassModuleTest < Minitest::Test
 
     top_sv = top_class.new.to_sv
 
-    assert_includes top_sv, "VariantCounter #("
-    assert_includes top_sv, ") u_counter_a ("
-    assert_includes top_sv, ") u_counter_b ("
-    assert_includes top_sv, "VariantCounter_1 #("
-    assert_includes top_sv, ") u_counter_c ("
-    assert_match(/\Amodule VariantCounter_1 #\(/, counter_16.to_sv)
+    assert_includes top_sv, "VariantCounter u_counter_a ("
+    assert_includes top_sv, "VariantCounter u_counter_b ("
+    assert_includes top_sv, "VariantCounter_1 u_counter_c ("
   end
 
   def test_manual_definition_handle_reuses_template_without_rebuilding
@@ -227,12 +215,11 @@ class ClassModuleTest < Minitest::Test
 
       define_method(:build) do |width: 8|
         self.class.increment_build_count
-        parameter "WIDTH", width
 
         clk = input("clk", bit)
         rst = input("rst", bit)
-        count = output("count", uint("WIDTH"))
-        count_r = reg("count_r", uint("WIDTH"), init: "'0")
+        count = output("count", uint(width))
+        count_r = reg("count_r", uint(width), init: 0)
 
         count <= count_r
 
@@ -273,8 +260,8 @@ class ClassModuleTest < Minitest::Test
 
     assert_equal 1, counter_class.build_count
     assert_equal "ManualCounter", counter_def.module_name
-    assert_match(/\Amodule ManualCounter #\(/, counter_def.to_sv)
-    assert_equal 2, top_sv.scan("ManualCounter #(").length
+    assert_match(/\Amodule ManualCounter \(/, counter_def.to_sv)
+    assert_equal 2, top_sv.scan("ManualCounter u_counter").length
   end
 
   def test_definition_can_wrap_a_prebuilt_module_template
@@ -294,11 +281,10 @@ class ClassModuleTest < Minitest::Test
 
       define_method(:build) do |width: 8|
         self.class.increment_build_count
-        parameter "WIDTH", width
         clk = input("clk", bit)
         rst = input("rst", bit)
-        count = output("count", uint("WIDTH"))
-        count_r = reg("count_r", uint("WIDTH"), init: "'0")
+        count = output("count", uint(width))
+        count_r = reg("count_r", uint(width), init: 0)
 
         count <= count_r
 
@@ -332,8 +318,7 @@ class ClassModuleTest < Minitest::Test
     top_sv = top_class.new(counter_template: counter_template).to_sv
 
     assert_equal 1, counter_class.build_count
-    assert_includes top_sv, "WrappedCounter #("
-    assert_includes top_sv, ") u_counter ("
+    assert_includes top_sv, "WrappedCounter u_counter ("
   end
 
   def test_definition_reuses_the_same_handle_for_identical_templates
@@ -341,12 +326,10 @@ class ClassModuleTest < Minitest::Test
       define_singleton_method(:name) { "DuplicateCounter" }
 
       define_method(:build) do |width: 8|
-        parameter "WIDTH", 8
-
         clk = input("clk", bit)
         rst = input("rst", bit)
-        count = output("count", uint("WIDTH"))
-        count_r = reg("count_r", uint("WIDTH"), init: "'0")
+        count = output("count", uint(width))
+        count_r = reg("count_r", uint(width), init: 0)
 
         count <= count_r
 
@@ -362,8 +345,8 @@ class ClassModuleTest < Minitest::Test
     counter_8_def = counter_class.definition(width: 8)
     counter_16_def = counter_class.definition(width: 16)
 
-    assert_same counter_8_def, counter_16_def
-    assert_equal "DuplicateCounter", counter_8_def.module_name
+    # Different widths produce different SV → different definitions
+    refute_equal counter_8_def.module_name, counter_16_def.module_name
   end
 
   def test_submodules_can_be_connected_through_parent_local_wire

@@ -14,10 +14,9 @@ class TestPixel < RSV::BundleDef
 end
 
 class TestParamPkt < RSV::BundleDef
-  W = sv_param "W", 8
-  def build
+  def build(w: 8)
     valid = field("valid", bit)
-    data  = field("data",  uint(W))
+    data  = field("data",  uint(w))
   end
 end
 
@@ -129,8 +128,8 @@ end
 
 class BundleParamMod < RSV::ModuleDef
   def build
-    d8 = TestParamPkt.new
-    d16 = TestParamPkt.new.(W: 16)
+    d8 = TestParamPkt.new(w: 8)
+    d16 = TestParamPkt.new(w: 16)
     w8 = wire("w8", d8)
     w16 = wire("w16", d16)
     o = output("out8", d8)
@@ -201,7 +200,7 @@ class BundleTest < Minitest::Test
     assert_match(/buf_r\[0\]/, sv)
   end
 
-  def test_bundle_sv_param_dedup
+  def test_bundle_meta_param_dedup
     sv = BundleParamMod.new.to_sv
     # Two different widths → two distinct sets of flat signals
     assert_match(/logic\s+w8_valid;/, sv)
@@ -259,7 +258,7 @@ class BundleTest < Minitest::Test
 
   def test_module_templated_different_bundles_produce_different_sv
     sv_px  = TemplatedMod.new(dat_t: TestPixel.new).to_sv
-    sv_pkt = TemplatedMod.new(dat_t: TestParamPkt.new).to_sv
+    sv_pkt = TemplatedMod.new(dat_t: TestParamPkt.new(w: 8)).to_sv
     # Pixel has r,g,b fields
     assert_match(/d_in_r/, sv_px)
     assert_match(/d_in_g/, sv_px)

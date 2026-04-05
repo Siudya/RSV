@@ -13,12 +13,11 @@ class Pixel < RSV::BundleDef
   end
 end
 
-# Bundle with sv_param — width is an SV parameter
+# Bundle with meta_param — width is a Ruby argument
 class DataPacket < RSV::BundleDef
-  W = sv_param "W", 8
-  def build
+  def build(w: 8)
     valid = field("valid", bit)
-    data  = field("data",  uint(W))
+    data  = field("data",  uint(w))
   end
 end
 
@@ -34,7 +33,7 @@ end
 
 # ── Modules Using Bundles ───────────────────────────────────────────
 
-# Demonstrates bundle basics, partial reset, nested bundle, mem, and sv_param
+# Demonstrates bundle basics, partial reset, nested bundle, mem, and meta_param
 class PixelProcessor < RSV::ModuleDef
   def build
     clk = input("clk", clock)
@@ -55,9 +54,9 @@ class PixelProcessor < RSV::ModuleDef
     # Bundle array (mem of structs)
     fifo = wire("fifo", mem(4, Pixel.new))
 
-    # Parameterized bundle: W=8 (default) vs W=16 — produces two typedefs
-    pkt8  = wire("pkt8",  DataPacket.new)
-    pkt16 = wire("pkt16", DataPacket.new.(W: 16))
+    # Parameterized bundle: w=8 (default) vs w=16
+    pkt8  = wire("pkt8",  DataPacket.new(w: 8))
+    pkt16 = wire("pkt16", DataPacket.new(w: 16))
 
     with_clk_and_rst(clk, rst)
 
@@ -74,15 +73,14 @@ class PixelProcessor < RSV::ModuleDef
   end
 end
 
-# Module-level sv_param + bundle with meta-param selected width
+# Module with meta_param for packet width
 class PacketRouter < RSV::ModuleDef
-  PKT_W = sv_param "PKT_W", 8
   def build(pkt_w: 8)
     clk = input("clk", clock)
     rst = input("rst", reset)
 
     # Bundle width matches the meta-param (concrete at elaboration time)
-    pkt_t = DataPacket.new.(W: pkt_w)
+    pkt_t = DataPacket.new(w: pkt_w)
     pkt_in  = input("pkt_in",  pkt_t)
     pkt_out = output("pkt_out", pkt_t)
 
@@ -127,15 +125,15 @@ FileUtils.mkdir_p(outdir)
   File.write(File.join(outdir, "#{name}.sv"), mod.to_sv)
 end
 
-# PacketRouter with meta-param pkt_w=32 → uses data_packet_t with W=32
-router = PacketRouter.new("PacketRouter").(PKT_W: 32).(pkt_w: 32)
+# PacketRouter with meta-param pkt_w=32
+router = PacketRouter.new("PacketRouter", pkt_w: 32)
 File.write(File.join(outdir, "packet_router.sv"), router.to_sv)
 
 # Template module instantiated with different bundle types
 pipe_px = PipeReg.new(dat_t: Pixel.new, init_fields: { "r" => 0 })
 File.write(File.join(outdir, "pipe_reg_pixel.sv"), pipe_px.to_sv)
 
-pipe_pkt = PipeReg.new(dat_t: DataPacket.new.(W: 32), init_fields: { "valid" => 0 })
+pipe_pkt = PipeReg.new(dat_t: DataPacket.new(w: 32), init_fields: { "valid" => 0 })
 File.write(File.join(outdir, "pipe_reg_pkt.sv"), pipe_pkt.to_sv)
 
 puts "Generated:"
