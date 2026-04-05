@@ -248,28 +248,3 @@ end
 
 This flow relies on `python3` + `pyslang` and currently imports module
 signatures only; it does not translate the imported module body into RSV.
-
-== Editor setup
-
-For VS Code, use `Ruby LSP` for syntax highlighting, completion, hover, and
-go-to-definition, then add `RuboCop` for diagnostics and formatting support.
-Keep these gems in Bundler so the editor and the project resolve the same Ruby
-environment:
-
-```sh
-gem install bundler
-bundle add ruby-lsp
-bundle add rubocop --group development
-bundle install
-```
-
-Recommended VS Code setting:
-
-```json
-{
-  "[ruby]": {
-    "editor.defaultFormatter": "Shopify.ruby-lsp",
-    "editor.formatOnSave": true
-  }
-}
-```

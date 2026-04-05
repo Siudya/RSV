@@ -18,6 +18,7 @@ SystemVerilog escape hatches.
 ## Installation
 
 ```sh
+sudo apt install ruby # Ubuntu
 pip install pyslang
 git clone https://github.com/Siudya/RSV.git
 cd RSV
@@ -30,6 +31,28 @@ xmake rtl -l
 xmake rtl -f ctr
 xmake rtl -f syn
 xmake doc
+```
+
+For VS Code, use `Ruby LSP` for syntax highlighting, completion, hover, and
+go-to-definition, then add `RuboCop` for diagnostics and formatting support.
+Keep these gems in Bundler so the editor and the project resolve the same Ruby
+environment:
+
+```sh
+sudo gem install bundler ruby-lsp
+bundle config set --local path vendor/bundle
+bundle install
+```
+
+Recommended VS Code setting:
+
+```json
+{
+  "[ruby]": {
+    "editor.defaultFormatter": "Shopify.ruby-lsp",
+    "editor.formatOnSave": true
+  }
+}
 ```
 
 `xmake rtl -l` lists all built-in examples, their 3-4 character aliases, and a
