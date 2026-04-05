@@ -138,19 +138,25 @@ SystemVerilog 预处理宏指令。
 
 == generate_demo.rb
 
-generate 循环与条件生成，以及在 generate-for 内例化子模块。
+综合的 generate 块演示，结合 sv\_param、const、attr、definition/instance 等特性。
 
 - 端口声明: `input`, `output`
 - 类型构造: `clock`, `reset`, `uint`, `arr`
 - 局部声明: `reg`, `wire`, `const`
-- generate for: `generate_for("i", start, count, label:)`，生成循环体内声明局部变量
-- generate for 例化子模块: `definition()` 创建共享定义，`instance()` 在循环体内例化
-- genvar 索引连接: `chain[k]`, `chain[k + 1]` 用 genvar 索引组成流水链
-- generate if: `generate_if()`，条件生成块
-- generate 链式: `.generate_elif()`, `.generate_else(label:)`
+- 硬件属性: `attr: { "keep" => nil }` 用于端口标注
+- sv\_param: `DEPTH`, `DATA_W`, `MODE` 用作 generate 循环上界和条件判断
+- 柯里化调用: `.new("name").().(meta_params)` 构造顶层
+- generate for + 内联逻辑: `generate_for` 内声明局部 reg，搭配 `always_ff`
+- generate for + definition/instance: 使用元参数子模块 `PipeStage.definition(width:)`
+  在循环内 `instance()` 例化多个流水级
+- generate for + sv\_param 子模块: 使用柯里化 `SvPipeStage.new().(W: DATA_W).()`
+  在循环内例化带 SV parameter 的子模块，参数透传
+- genvar 索引连接: `chain[i]`, `chain[i + 1]` 组成流水链
+- generate if/elif/else: `sv_param MODE` 控制条件生成
+- generate if + 局部 const: 在条件块内声明 `localparam`
+- 比较运算: `.eq`, `.lt`
+- 位运算: `~`（取反）
 - 赋值: `<=`, `>=`
-- 数组索引: `[]`（使用 genvar 索引）
-- 比较运算: `.eq`
 - 时序逻辑: `always_ff`, `with_clk_and_rst`
 
 == curried_params.rb
@@ -224,7 +230,9 @@ Verilog 兼容 wrapper 产生器。
   [`sv_def`/`sv_ifdef` 等宏指令], [macro\_demo],
   [`sv_dref` 宏引用], [macro\_demo],
   [`generate_for`/`generate_if`], [generate\_demo],
-  [generate-for 内例化子模块], [generate\_demo],
+  [generate-for + definition/instance], [generate\_demo],
+  [generate-for + sv\_param 子模块], [generate\_demo],
+  [generate-if + 局部 const], [generate\_demo],
   [`sv_param` 柯里化参数], [curried\_params],
   [`v_wrapper` Verilog wrapper], [verilog\_wrapper],
   [流式 API (`sv_map` 等)], [storage\_streams],
