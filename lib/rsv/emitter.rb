@@ -502,6 +502,8 @@ module RSV
         ["#{ind(level)}#{emit_expr(stmt.lhs)} = #{emit_expr(stmt.rhs)};"]
       when IfStmt
         emit_if_stmt(stmt, level)
+      when CaseStmt
+        emit_case_stmt(stmt, level)
       when ForStmt
         emit_for_stmt(stmt, level)
       when MuxCaseStmt
@@ -514,7 +516,8 @@ module RSV
     end
 
     def emit_if_stmt(stmt, level)
-      lines = ["#{ind(level)}if (#{emit_expr(stmt.cond)}) begin"]
+      prefix = stmt.qualifier ? "#{stmt.qualifier} " : ""
+      lines = ["#{ind(level)}#{prefix}if (#{emit_expr(stmt.cond)}) begin"]
       stmt.then_stmts.each { |proc_stmt| lines.concat(emit_proc_stmt(proc_stmt, level + 1)) }
 
       stmt.elsif_clauses.each do |clause|
@@ -528,6 +531,26 @@ module RSV
       end
 
       lines << "#{ind(level)}end"
+    end
+
+    def emit_case_stmt(stmt, level)
+      prefix = stmt.qualifier ? "#{stmt.qualifier} " : ""
+      lines = ["#{ind(level)}#{prefix}#{stmt.case_kind} (#{emit_expr(stmt.expr)})"]
+
+      stmt.branches.each do |branch|
+        val_strs = branch[:vals].map { |v| emit_expr(v) }.join(", ")
+        lines << "#{ind(level + 1)}#{val_strs}: begin"
+        branch[:stmts].each { |s| lines.concat(emit_proc_stmt(s, level + 2)) }
+        lines << "#{ind(level + 1)}end"
+      end
+
+      if stmt.default_stmts
+        lines << "#{ind(level + 1)}default: begin"
+        stmt.default_stmts.each { |s| lines.concat(emit_proc_stmt(s, level + 2)) }
+        lines << "#{ind(level + 1)}end"
+      end
+
+      lines << "#{ind(level)}endcase"
     end
 
     def emit_for_stmt(stmt, level)

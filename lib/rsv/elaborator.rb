@@ -208,6 +208,11 @@ module RSV
           clause[:stmts].each { |nested| collect_assigned_names_from_stmt(nested, names) }
         end
         stmt.else_stmts&.each { |nested| collect_assigned_names_from_stmt(nested, names) }
+      when CaseStmt
+        stmt.branches.each do |branch|
+          branch[:stmts].each { |nested| collect_assigned_names_from_stmt(nested, names) }
+        end
+        stmt.default_stmts&.each { |nested| collect_assigned_names_from_stmt(nested, names) }
       end
     end
 
@@ -220,11 +225,21 @@ module RSV
         lhs = elaborate_expr(stmt.lhs)
         BlockingAssign.new(lhs, elaborate_expr(stmt.rhs, target_width: RSV.infer_expr_width(lhs)))
       when IfStmt
-        lowered = IfStmt.new(elaborate_expr(stmt.cond), stmt.then_stmts.map { |nested| elaborate_proc_stmt(nested) })
+        lowered = IfStmt.new(elaborate_expr(stmt.cond), stmt.then_stmts.map { |nested| elaborate_proc_stmt(nested) }, qualifier: stmt.qualifier)
         stmt.elsif_clauses.each do |clause|
           lowered.add_elsif(elaborate_expr(clause[:cond]), clause[:stmts].map { |nested| elaborate_proc_stmt(nested) })
         end
         lowered.set_else(stmt.else_stmts.map { |nested| elaborate_proc_stmt(nested) }) if stmt.else_stmts
+        lowered
+      when CaseStmt
+        lowered = CaseStmt.new(elaborate_expr(stmt.expr), case_kind: stmt.case_kind, qualifier: stmt.qualifier)
+        stmt.branches.each do |branch|
+          lowered.add_branch(
+            branch[:vals].map { |v| elaborate_expr(v) },
+            branch[:stmts].map { |nested| elaborate_proc_stmt(nested) }
+          )
+        end
+        lowered.set_default(stmt.default_stmts.map { |nested| elaborate_proc_stmt(nested) }) if stmt.default_stmts
         lowered
       else
         stmt

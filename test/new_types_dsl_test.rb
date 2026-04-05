@@ -449,6 +449,185 @@ class NewTypesDslTest < Minitest::Test
     assert_includes sv, "logic [2:0][7:0] x[1:0][3:0]"
   end
 
+  # ── svcase ─────────────────────────────────────────────────────────────────
+
+  def test_svcase_emits_case
+    mod = module_class("CaseTest") do
+      sel = input("sel", uint(2))
+      out = wire("out", uint(8))
+
+      always_comb do
+        svcase(sel) do
+          when_(0) { out <= 0x10 }
+          when_(1) { out <= 0x20 }
+          when_(2) { out <= 0x30 }
+          default_ { out <= 0xFF }
+        end
+      end
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "case (sel)"
+    assert_includes sv, "0: begin"
+    assert_includes sv, "out = 8'd16;"
+    assert_includes sv, "1: begin"
+    assert_includes sv, "2: begin"
+    assert_includes sv, "default: begin"
+    assert_includes sv, "out = 8'd255;"
+    assert_includes sv, "endcase"
+  end
+
+  def test_svcasez_emits_casez
+    mod = module_class("CasezTest") do
+      sel = input("sel", uint(4))
+      out = wire("out", uint(8))
+
+      always_comb do
+        svcasez(sel) do
+          when_(0b0001) { out <= 0xA }
+          when_(0b0010) { out <= 0xB }
+          default_ { out <= 0 }
+        end
+      end
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "casez (sel)"
+    assert_includes sv, "endcase"
+  end
+
+  def test_svcase_unique
+    mod = module_class("UniqueCase") do
+      sel = input("sel", uint(2))
+      out = wire("out", uint(8))
+
+      always_comb do
+        svcase(sel, unique: true) do
+          when_(0) { out <= 1 }
+          when_(1) { out <= 2 }
+          default_ { out <= 0 }
+        end
+      end
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "unique case (sel)"
+    assert_includes sv, "endcase"
+  end
+
+  def test_svcase_priority
+    mod = module_class("PriorityCase") do
+      sel = input("sel", uint(2))
+      out = wire("out", uint(8))
+
+      always_comb do
+        svcase(sel, priority: true) do
+          when_(0) { out <= 1 }
+          default_ { out <= 0 }
+        end
+      end
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "priority case (sel)"
+  end
+
+  def test_svcasez_unique
+    mod = module_class("UniqueCasez") do
+      sel = input("sel", uint(4))
+      out = wire("out", uint(8))
+
+      always_comb do
+        svcasez(sel, unique: true) do
+          when_(0b0001) { out <= 1 }
+          default_ { out <= 0 }
+        end
+      end
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "unique casez (sel)"
+  end
+
+  def test_svcase_multi_val_branch
+    mod = module_class("MultiVal") do
+      sel = input("sel", uint(3))
+      out = wire("out", uint(8))
+
+      always_comb do
+        svcase(sel) do
+          when_(0, 1) { out <= 0xAA }
+          when_(2, 3) { out <= 0xBB }
+          default_ { out <= 0 }
+        end
+      end
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "case (sel)"
+    assert_includes sv, "0, 1: begin"
+    assert_includes sv, "2, 3: begin"
+  end
+
+  def test_svcase_in_always_ff
+    mod = module_class("CaseFF") do
+      clk = input("clk", clock)
+      rst = input("rst", reset)
+      sel = input("sel", uint(2))
+      r = reg("r", uint(8), init: 0)
+
+      with_clk_and_rst(clk, rst)
+      always_ff do
+        svcase(sel) do
+          when_(0) { r <= 0x10 }
+          when_(1) { r <= 0x20 }
+          default_ { r <= 0 }
+        end
+      end
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "always_ff @(posedge clk"
+    assert_includes sv, "case (sel)"
+    assert_includes sv, "r <= 8'd16;"
+    assert_includes sv, "endcase"
+  end
+
+  # ── svif unique/priority ─────────────────────────────────────────────────
+
+  def test_svif_unique
+    mod = module_class("UniqueIf") do
+      a = input("a", uint(2))
+      out = wire("out", uint(8))
+
+      always_comb do
+        svif(a.eq(0), unique: true) { out <= 1 }
+        svelif(a.eq(1)) { out <= 2 }
+        svelse { out <= 0 }
+      end
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "unique if (a == 2'd0) begin"
+    assert_includes sv, "end else if (a == 2'd1) begin"
+    assert_includes sv, "end else begin"
+  end
+
+  def test_svif_priority
+    mod = module_class("PriorityIf") do
+      a = input("a", uint(2))
+      out = wire("out", uint(8))
+
+      always_comb do
+        svif(a.eq(0), priority: true) { out <= 1 }
+        svelse { out <= 0 }
+      end
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "priority if (a == 2'd0) begin"
+  end
+
   private
 
   def module_class(name, &build_block)

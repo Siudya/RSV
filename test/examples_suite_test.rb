@@ -69,6 +69,10 @@ class ExamplesSuiteTest < Minitest::Test
         "build/rtl/stream_intf.sv", "build/rtl/stream_sink.sv",
         "build/rtl/simple_bus.sv", "build/rtl/bus_slave.sv"
       ]
+    },
+    "case_demo.rb" => {
+      outputs: ["case_demo.sv"],
+      lint_files: ["build/rtl/case_demo.sv"]
     }
   }.freeze
 

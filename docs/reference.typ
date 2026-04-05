@@ -108,9 +108,15 @@
 / `always_ff(clk, rst) { ... }`: emits an `always_ff` with an explicit domain.
 / `always_latch { ... }`: emits `always_latch begin ... end`.
 / `always_comb { ... }`: emits `always_comb begin ... end`.
-/ `svif(cond) { ... }`: convenience wrapper for `if_stmt`.
-/ `svelif(cond) { ... }`: convenience wrapper for `elsif_stmt`.
-/ `svelse { ... }`: convenience wrapper for `else_stmt`.
+/ `svif(cond, unique: false, priority: false) { ... }`: procedural if statement.
+  Set `unique: true` or `priority: true` to emit `unique if` or `priority if`.
+/ `svelif(cond) { ... }`: else-if branch (appends to preceding `svif`).
+/ `svelse { ... }`: else branch.
+/ `svcase(expr, unique: false, priority: false) { ... }`: procedural case statement.
+  Inside the block, use `when_(val, ...) { ... }` for branches and `default_ { ... }`
+  for the default branch. Multiple values in `when_` emit comma-separated match.
+/ `svcasez(expr, unique: false, priority: false) { ... }`: casez statement.
+/ `svcasex(expr, unique: false, priority: false) { ... }`: casex statement.
 / `lhs <= rhs`: left assignment.
 / `rhs >= lhs`: right assignment.
 / `if_stmt / elsif_stmt / else_stmt`: lower-level procedural control helpers.

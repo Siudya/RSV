@@ -22,16 +22,17 @@ module RSV
     end
 
     # if (<cond>) begin ... end
-    def if_stmt(cond, &block)
+    def if_stmt(cond, qualifier: nil, &block)
       builder = ProceduralBuilder.new(assign_context: @assign_context)
       builder.build(&block)
-      stmt    = IfStmt.new(RSV.normalize_expr(cond), builder.stmts)
+      stmt    = IfStmt.new(RSV.normalize_expr(cond), builder.stmts, qualifier: qualifier)
       @stmts << stmt
       @last_if = stmt
     end
 
-    def svif(cond, &block)
-      if_stmt(cond, &block)
+    def svif(cond, unique: false, priority: false, &block)
+      qual = unique ? :unique : (priority ? :priority : nil)
+      if_stmt(cond, qualifier: qual, &block)
     end
 
     # else if (<cond>) begin ... end  — must follow if_stmt or elsif_stmt
@@ -54,6 +55,33 @@ module RSV
       @last_if = nil
     end
     alias svelse else_stmt
+
+    # case (expr) ... endcase
+    def svcase(expr, unique: false, priority: false, &block)
+      qual = unique ? :unique : (priority ? :priority : nil)
+      case_builder = CaseBuilder.new(@assign_context, RSV.normalize_expr(expr), case_kind: :case, qualifier: qual)
+      case_builder.build(&block)
+      @stmts << case_builder.to_stmt
+      @last_if = nil
+    end
+
+    # casez (expr) ... endcase
+    def svcasez(expr, unique: false, priority: false, &block)
+      qual = unique ? :unique : (priority ? :priority : nil)
+      case_builder = CaseBuilder.new(@assign_context, RSV.normalize_expr(expr), case_kind: :casez, qualifier: qual)
+      case_builder.build(&block)
+      @stmts << case_builder.to_stmt
+      @last_if = nil
+    end
+
+    # casex (expr) ... endcase
+    def svcasex(expr, unique: false, priority: false, &block)
+      qual = unique ? :unique : (priority ? :priority : nil)
+      case_builder = CaseBuilder.new(@assign_context, RSV.normalize_expr(expr), case_kind: :casex, qualifier: qual)
+      case_builder.build(&block)
+      @stmts << case_builder.to_stmt
+      @last_if = nil
+    end
 
     def cat(*parts)
       CatExpr.new(parts)
@@ -118,6 +146,37 @@ module RSV
       @stmts << stmt
       @last_if = nil
       stmt
+    end
+  end
+
+  # Builder for case/casez/casex blocks — used inside svcase/svcasez/svcasex.
+  class CaseBuilder
+    def initialize(assign_context, expr, case_kind:, qualifier: nil)
+      @assign_context = assign_context
+      @stmt = CaseStmt.new(expr, case_kind: case_kind, qualifier: qualifier)
+    end
+
+    def build(&block)
+      instance_eval(&block) if block_given?
+    end
+
+    def to_stmt
+      @stmt
+    end
+
+    # when(val1, val2, ...) { ... }
+    def when_(*vals, &block)
+      builder = ProceduralBuilder.new(assign_context: @assign_context)
+      builder.build(&block)
+      normalized_vals = vals.map { |v| RSV.normalize_expr(v) }
+      @stmt.add_branch(normalized_vals, builder.stmts)
+    end
+
+    # default { ... }
+    def default_(&block)
+      builder = ProceduralBuilder.new(assign_context: @assign_context)
+      builder.build(&block)
+      @stmt.set_default(builder.stmts)
     end
   end
 end

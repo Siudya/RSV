@@ -29,6 +29,7 @@ xmake rtl -f syn
   [`macro_demo`], [`mac`], [宏定义、条件编译与宏引用],
   [`manual_dedup`], [`man`], [手动 `definition` / `instance` 去重],
   [`mux_cases`], [`mux`], [`mux` / `mux1h` / `muxp`],
+  [`case_demo`], [`cas`], [`svcase` / `svcasez` / `unique` / `priority`],
   [`storage_streams`], [`str`], [arr/mem 形态、fill 与流式 API],
   [`sv_plugin_demo`], [`svp`], [内嵌原始 SystemVerilog 代码],
   [`syntax_showcase`], [`syn`], [操作符、切片、类型转换与过程块],
@@ -126,6 +127,24 @@ xmake rtl -f syn
 - 选择器表达式: `mux()`（三元选择）, `mux1h()`（独热选择）, `muxp()`（优先级选择）
 - `mux1h`/`muxp` 使用赋值语法: `out <= mux1h(sel, dats)`, `lsb_first:`
 - 组合逻辑: `always_comb`
+
+== case_demo.rb
+
+case/casez 语句及 unique/priority 限定符。
+
+- 端口声明: `input`, `output`
+- 类型构造: `clock`, `reset`, `uint`, `bit`
+- 局部声明: `wire`, `reg`(含初始值)
+- `svcase(expr) { when\_(val) { ... } default\_ { ... } }`: case 语句
+- `svcasez(expr, unique: true)`: unique casez 语句
+- 多值匹配: `when\_(val1, val2) { ... }`
+- `svif(cond, unique: true)`: unique if 限定符
+- `svif(cond, priority: true)`: priority if 限定符
+- case 在 `always_ff` 内使用非阻塞赋值
+- 赋值: `<=`
+- 时序逻辑: `always_ff`, `with_clk_and_rst`
+- 组合逻辑: `always_comb`
+- 输出: `to_sv(path)`
 
 == import_demo.rb
 
@@ -297,7 +316,9 @@ Bundle (struct) 与 Interface 综合演示。
   [`expr()`], [counter, syntax\_showcase],
   [`.as_sint` 类型转换], [syntax\_showcase],
   [`always_ff`/`always_comb`/`always_latch`], [syntax\_showcase 覆盖全部三种],
-  [`svif`/`svelif`/`svelse`], [counter, syntax\_showcase, macro\_demo 等],
+  [`svif`/`svelif`/`svelse`], [counter, syntax\_showcase, macro\_demo, case\_demo],
+  [`svcase`/`svcasez` case 语句], [case\_demo],
+  [`unique`/`priority` 限定符], [case\_demo],
   [模块实例化与端口连接], [auto\_dedup, manual\_dedup, import\_demo, curried\_params],
   [子模块间自动布线], [auto\_dedup, manual\_dedup],
   [`definition`/`instance` 手动去重], [manual\_dedup],

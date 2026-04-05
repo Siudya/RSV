@@ -1272,14 +1272,16 @@ module RSV
   ForStmt = Struct.new(:index_name, :limit, :body)
 
   # Procedural if / else-if / else statement.
+  # qualifier: nil, :unique, or :priority
   class IfStmt
-    attr_reader :cond, :then_stmts, :elsif_clauses, :else_stmts
+    attr_reader :cond, :then_stmts, :elsif_clauses, :else_stmts, :qualifier
 
-    def initialize(cond, then_stmts)
+    def initialize(cond, then_stmts, qualifier: nil)
       @cond         = cond
       @then_stmts    = then_stmts
       @elsif_clauses = []   # Array of { cond:, stmts: }
       @else_stmts    = nil
+      @qualifier     = qualifier
     end
 
     def add_elsif(cond, stmts)
@@ -1288,6 +1290,31 @@ module RSV
 
     def set_else(stmts)
       @else_stmts = stmts
+    end
+  end
+
+  # Procedural case/casez/casex statement.
+  # case_kind: :case, :casez, :casex
+  # qualifier: nil, :unique, :priority
+  # branches: Array of { vals: [expr, ...], stmts: [...] }
+  # default_stmts: nil or [...]
+  class CaseStmt
+    attr_reader :expr, :case_kind, :qualifier, :branches, :default_stmts
+
+    def initialize(expr, case_kind:, qualifier: nil)
+      @expr          = expr
+      @case_kind     = case_kind
+      @qualifier     = qualifier
+      @branches      = []
+      @default_stmts = nil
+    end
+
+    def add_branch(vals, stmts)
+      @branches << { vals: vals, stmts: stmts }
+    end
+
+    def set_default(stmts)
+      @default_stmts = stmts
     end
   end
 
