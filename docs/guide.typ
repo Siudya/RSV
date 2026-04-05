@@ -30,7 +30,9 @@ SystemVerilog.
   and `fallin` default. Pass string patterns like `is("4'b1??0")` for casez
   wildcards.
 + Use `log2ceil(n)` to compute bit widths at Ruby time, and
-  `cnt <= pop_count(vec)` inside `always_comb` for population count.
+  `cnt <= pop_count(vec)` for population count. `mux1h`, `muxp`, and
+  `pop_count` auto-create temp wires and work at module level, inside
+  `always_comb`, `always_ff`, or `always_latch`.
 + Adjust `module_name` inside `build(...)` if one Ruby class needs to emit a
   non-default SV module name.
 + Use `Counter.definition(...)` plus `instance(...)` when one elaborated module

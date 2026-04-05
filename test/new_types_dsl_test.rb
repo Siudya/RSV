@@ -218,25 +218,29 @@ class NewTypesDslTest < Minitest::Test
     end.new
 
     sv = mod.to_sv
+    assert_includes sv, "logic [7:0] sel_mux1h_dats"
     assert_includes sv, "always_comb begin"
     assert_includes sv, "unique casez (sel)"
-    assert_includes sv, "3'b001: out = dats[0];"
-    assert_includes sv, "3'b010: out = dats[1];"
-    assert_includes sv, "3'b100: out = dats[2];"
-    assert_includes sv, "default: out = 8'd0;"
+    assert_includes sv, "3'b001: sel_mux1h_dats = dats[0];"
+    assert_includes sv, "3'b010: sel_mux1h_dats = dats[1];"
+    assert_includes sv, "3'b100: sel_mux1h_dats = dats[2];"
+    assert_includes sv, "default: sel_mux1h_dats = 8'd0;"
     assert_includes sv, "endcase"
-    refute_includes sv, "?"
+    assert_includes sv, "out = sel_mux1h_dats;"
   end
 
-  def test_mux1h_outside_always_raises
-    assert_raises(ArgumentError) do
-      module_class("Mux1hBad") do
-        sel = input("sel", uint(3))
-        dats = input("dats", mem([3], uint(8)))
-        out = wire("out", uint(8))
-        out <= mux1h(sel, dats)
-      end.new
-    end
+  def test_mux1h_module_level
+    mod = module_class("Mux1hMod") do
+      sel = input("sel", uint(3))
+      dats = input("dats", mem([3], uint(8)))
+      out = output("out", uint(8))
+      out <= mux1h(sel, dats)
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "logic [7:0] sel_mux1h_dats"
+    assert_includes sv, "unique casez (sel)"
+    assert_includes sv, "assign out = sel_mux1h_dats;"
   end
 
   # ── muxp ─────────────────────────────────────────────────────────────────
@@ -253,15 +257,15 @@ class NewTypesDslTest < Minitest::Test
     end.new
 
     sv = mod.to_sv
+    assert_includes sv, "logic [7:0] sel_muxp_lo_dats"
     assert_includes sv, "always_comb begin"
     assert_includes sv, "priority casez (sel)"
-    # lsb_first (default): sel[0] highest priority, checked first
-    assert_includes sv, "3'b??1: out = dats[0];"
-    assert_includes sv, "3'b?10: out = dats[1];"
-    assert_includes sv, "3'b100: out = dats[2];"
-    # default = lowest priority data
-    assert_includes sv, "default: out = dats[2];"
+    assert_includes sv, "3'b??1: sel_muxp_lo_dats = dats[0];"
+    assert_includes sv, "3'b?10: sel_muxp_lo_dats = dats[1];"
+    assert_includes sv, "3'b100: sel_muxp_lo_dats = dats[2];"
+    assert_includes sv, "default: sel_muxp_lo_dats = dats[2];"
     assert_includes sv, "endcase"
+    assert_includes sv, "out = sel_muxp_lo_dats;"
   end
 
   def test_muxp_msb_first
@@ -277,23 +281,24 @@ class NewTypesDslTest < Minitest::Test
 
     sv = mod.to_sv
     assert_includes sv, "priority casez (sel)"
-    # msb_first: sel[2] highest priority, checked first
-    assert_includes sv, "3'b1??: out = dats[2];"
-    assert_includes sv, "3'b01?: out = dats[1];"
-    assert_includes sv, "3'b001: out = dats[0];"
-    # default = lowest priority data
-    assert_includes sv, "default: out = dats[0];"
+    assert_includes sv, "3'b1??: sel_muxp_hi_dats = dats[2];"
+    assert_includes sv, "3'b01?: sel_muxp_hi_dats = dats[1];"
+    assert_includes sv, "3'b001: sel_muxp_hi_dats = dats[0];"
+    assert_includes sv, "default: sel_muxp_hi_dats = dats[0];"
   end
 
-  def test_muxp_outside_always_raises
-    assert_raises(ArgumentError) do
-      module_class("MuxpBad") do
-        sel = input("sel", uint(3))
-        dats = input("dats", mem([3], uint(8)))
-        out = wire("out", uint(8))
-        out <= muxp(sel, dats)
-      end.new
-    end
+  def test_muxp_module_level
+    mod = module_class("MuxpMod") do
+      sel = input("sel", uint(3))
+      dats = input("dats", mem([3], uint(8)))
+      out = output("out", uint(8))
+      out <= muxp(sel, dats)
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "logic [7:0] sel_muxp_lo_dats"
+    assert_includes sv, "priority casez (sel)"
+    assert_includes sv, "assign out = sel_muxp_lo_dats;"
   end
 
   # ── cat ───────────────────────────────────────────────────────────────────
@@ -687,10 +692,11 @@ class NewTypesDslTest < Minitest::Test
 
     sv = mod.to_sv
     assert_includes sv, "logic [3:0] cnt"
-    assert_includes sv, "cnt = 4'd0;"
+    assert_includes sv, "logic [3:0] vec_pop_count"
+    assert_includes sv, "vec_pop_count = 4'd0;"
     assert_includes sv, "for (int _pc_i = 0; _pc_i < 8; _pc_i = _pc_i + 1) begin"
-    assert_includes sv, "cnt = cnt + {{3{1'b0}}, vec[_pc_i]};"
-    assert_includes sv, "end"
+    assert_includes sv, "vec_pop_count = vec_pop_count + {{3{1'b0}}, vec[_pc_i]};"
+    assert_includes sv, "cnt = vec_pop_count;"
   end
 
   def test_pop_count_4bit
@@ -705,35 +711,42 @@ class NewTypesDslTest < Minitest::Test
 
     sv = mod.to_sv
     assert_includes sv, "logic [2:0] cnt"
-    assert_includes sv, "cnt = 3'd0;"
+    assert_includes sv, "logic [2:0] vec_pop_count"
+    assert_includes sv, "vec_pop_count = 3'd0;"
     assert_includes sv, "for (int _pc_i = 0; _pc_i < 4; _pc_i = _pc_i + 1) begin"
-    assert_includes sv, "cnt = cnt + {{2{1'b0}}, vec[_pc_i]};"
+    assert_includes sv, "vec_pop_count = vec_pop_count + {{2{1'b0}}, vec[_pc_i]};"
   end
 
-  def test_pop_count_rejects_always_ff
-    assert_raises(ArgumentError) do
-      module_class("PopCntFF") do
-        clk = input("clk", clock)
-        rst = input("rst", reset)
-        vec = input("vec", uint(4))
-        cnt = reg("cnt", uint(3), init: 0)
+  def test_pop_count_always_ff
+    mod = module_class("PopCntFF") do
+      clk = input("clk", clock)
+      rst = input("rst", reset)
+      vec = input("vec", uint(4))
+      cnt = reg("cnt", uint(3), init: 0)
 
-        with_clk_and_rst(clk, rst)
-        always_ff do
-          cnt <= pop_count(vec)
-        end
-      end.new
-    end
-  end
-
-  def test_pop_count_rejects_module_level
-    assert_raises(ArgumentError) do
-      module_class("PopCntTop") do
-        vec = input("vec", uint(4))
-        cnt = wire("cnt", uint(3))
+      with_clk_and_rst(clk, rst)
+      always_ff do
         cnt <= pop_count(vec)
-      end.new
-    end
+      end
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "logic [2:0] vec_pop_count"
+    assert_includes sv, "vec_pop_count = 3'd0;"
+    assert_includes sv, "cnt <= vec_pop_count;"
+  end
+
+  def test_pop_count_module_level
+    mod = module_class("PopCntTop") do
+      vec = input("vec", uint(4))
+      cnt = output("cnt", uint(3))
+      cnt <= pop_count(vec)
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "logic [2:0] vec_pop_count"
+    assert_includes sv, "vec_pop_count = 3'd0;"
+    assert_includes sv, "assign cnt = vec_pop_count;"
   end
 
   private

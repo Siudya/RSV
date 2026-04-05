@@ -692,7 +692,8 @@ module RSV
       end
 
       if rhs.is_a?(Mux1hExpr) || rhs.is_a?(MuxpExpr) || rhs.is_a?(PopCountExpr)
-        raise ArgumentError, "mux1h/muxp/pop_count must be used inside an always_comb block"
+        wire_handler = expand_complex_rhs(rhs)
+        rhs = wire_handler
       end
 
       stmt = AssignStmt.new(RSV.normalize_expr(lhs), RSV.normalize_expr(rhs))
@@ -883,6 +884,72 @@ module RSV
 
       sanitized = raw.gsub(/[^A-Za-z0-9]+/, "_").gsub(/\A_+|_+\z/, "")
       sanitized.empty? ? "expr" : sanitized
+    end
+
+    # Auto-expand mux1h/muxp/pop_count into a temp wire + always_comb block.
+    # Returns the wire handler to be used as a normal expression.
+    def expand_complex_rhs(rhs)
+      case rhs
+      when PopCountExpr
+        base = wire_name_part(rhs.vec)
+        name = unique_auto_wire_name("#{base}_pop_count")
+        w = wire(name, uint(rhs.out_width))
+        stmt = PopCountStmt.new(RSV.normalize_expr(w), rhs.vec,
+                                in_width: rhs.in_width, out_width: rhs.out_width)
+        @stmts << AlwaysComb.new([stmt])
+        w
+      when Mux1hExpr
+        sel_part = wire_name_part(rhs.sel)
+        dat_part = mux_dats_name_part(rhs.dats)
+        name = unique_auto_wire_name("#{sel_part}_mux1h_#{dat_part}")
+        dt = infer_mux_data_type(rhs.dats)
+        w = wire(name, dt)
+        stmt = MuxCaseStmt.new(RSV.normalize_expr(w), rhs.sel, rhs.dats, case_type: :unique)
+        @stmts << AlwaysComb.new([stmt])
+        w
+      when MuxpExpr
+        sel_part = wire_name_part(rhs.sel)
+        dat_part = mux_dats_name_part(rhs.dats)
+        suffix = rhs.lsb_first ? "lo" : "hi"
+        name = unique_auto_wire_name("#{sel_part}_muxp_#{suffix}_#{dat_part}")
+        dt = infer_mux_data_type(rhs.dats)
+        w = wire(name, dt)
+        stmt = MuxCaseStmt.new(RSV.normalize_expr(w), rhs.sel, rhs.dats,
+                               case_type: :priority, lsb_first: rhs.lsb_first)
+        @stmts << AlwaysComb.new([stmt])
+        w
+      end
+    end
+
+    def mux_dats_name_part(dats)
+      if dats.is_a?(SignalHandler)
+        dats.name
+      elsif dats.is_a?(Array) && !dats.empty?
+        wire_name_part(dats.first)
+      else
+        "dats"
+      end
+    end
+
+    def unique_auto_wire_name(base)
+      @auto_wire_counters ||= Hash.new(0)
+      count = @auto_wire_counters[base]
+      @auto_wire_counters[base] += 1
+      count == 0 ? base : "#{base}_#{count}"
+    end
+
+    def infer_mux_data_type(dats)
+      if dats.is_a?(SignalHandler) && (!dats.unpacked_dims.empty? || !dats.packed_dims.empty?)
+        w = dats.width
+        s = dats.signed
+      elsif dats.is_a?(Array) && !dats.empty?
+        first = RSV.normalize_expr(dats.first)
+        w = RSV.infer_expr_width(first)
+        s = first.respond_to?(:signed) ? first.signed : false
+      else
+        raise ArgumentError, "cannot infer mux data type from #{dats.inspect}"
+      end
+      s ? sint(w) : uint(w)
     end
 
     def resolved_instance_port_signal_spec(port_handler)

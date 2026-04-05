@@ -134,11 +134,12 @@ xmake rtl -f syn
 population count 与 log2ceil 位宽计算。
 
 - 端口声明: `input`, `output`
-- 类型构造: `uint`
-- 局部声明: `wire`
+- 类型构造: `clock`, `reset`, `uint`
+- 局部声明: `reg`（含初始值）
 - `log2ceil(n)`: 编译期位宽计算（ceil(log2(n))）
-- `pop_count(vec)`: 人口计数，展开为 for 循环累加器
-- 组合逻辑: `always_comb`
+- `pop_count(vec)`: 人口计数，自动生成临时线网和 `always_comb` 展开为 for 循环累加器
+- 模块级使用: `cnt <= pop_count(vec)` 自动展开
+- 寄存器锁存: `always_ff` 内 `cnt_r <= pop_count(vec)` 自动展开
 
 == case_demo.rb
 

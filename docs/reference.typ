@@ -75,15 +75,16 @@
   Use to cast an unsigned signal to signed for arithmetic.
 / `mux(sel, a, b)`: ternary mux expression. Emits `sel ? a : b` in SV. When
   `sel` is 1, selects `a`; otherwise selects `b`.
-/ `mux1h(sel1h, dats)`: one-hot mux. Returns an expression that expands to
-  `unique casez` when assigned via `<=`. `dats` must be an `arr` or `mem`
-  whose highest dimension length matches the width of `sel1h`. Usage:
-  `out <= mux1h(sel, dats)` inside `always_comb`/`always_ff`/`always_latch`.
+/ `mux1h(sel1h, dats)`: one-hot mux. Auto-creates a temp wire and `always_comb`
+  with `unique casez`. `dats` must be an `arr` or `mem` whose highest dimension
+  length matches `sel1h` width. Usage: `out <= mux1h(sel, dats)` — works at
+  module level, in `always_comb`, `always_ff`, or `always_latch`.
 / `muxp(sel, dats, lsb_first: true)`: priority mux. Same as `mux1h` but
   emits `priority casez`. The `lsb_first:` option controls priority order.
-/ `pop_count(vec)`: population count. Returns an expression that expands to a
-  for-loop accumulator when assigned via `<=` inside `always_comb`. Counts the
-  number of 1-bits in `vec`. Output width is `log2ceil(vec.width + 1)`.
+/ `pop_count(vec)`: population count. Auto-creates a temp wire and `always_comb`
+  with a for-loop accumulator. Counts 1-bits in `vec`. Output width is
+  `log2ceil(vec.width + 1)`. Usage: `out <= pop_count(vec)` — works at
+  module level, in `always_comb`, `always_ff`, or `always_latch`.
 / `log2ceil(n)`: pure Ruby utility. Returns `ceil(log2(n))` — the minimum number
   of bits to address `n` items. Available in module `build` blocks and as `RSV.log2ceil(n)`.
 / `expr.sv_take(n)`: starts a stream view and keeps the first `n` elements.
