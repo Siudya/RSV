@@ -154,6 +154,22 @@ class PacketRouter < RSV::ModuleDef
   end
 end
 
+# ── Template-style: bundle type as module parameter ──────────────────────────
+
+# Generic pipeline register — bundle type is passed as meta parameter
+class PipeReg < RSV::ModuleDef
+  def build(dat_t:, init_fields: {})
+    clk = input("clk", clock)
+    rst = input("rst", reset)
+    d_in  = input("d_in", dat_t)
+    d_out = output("d_out", dat_t)
+    d_r = reg("d_r", dat_t, init: init_fields.empty? ? nil : init_fields)
+    with_clk_and_rst(clk, rst)
+    d_out <= d_r
+    always_ff { d_r <= d_in }
+  end
+end
+
 # ── Generate Output ──────────────────────────────────────────────────────────
 outdir = File.join(__dir__, "..", "build", "rtl")
 FileUtils.mkdir_p(outdir)
@@ -177,6 +193,13 @@ end
 # PacketRouter with meta-param pkt_w=32 → uses data_packet_t with W=32
 router = PacketRouter.new("PacketRouter").(PKT_W: 32).(pkt_w: 32)
 File.write(File.join(outdir, "packet_router.sv"), router.to_sv)
+
+# Template module instantiated with different bundle types
+pipe_px = PipeReg.new(dat_t: Pixel.new, init_fields: { "r" => 0 })
+File.write(File.join(outdir, "pipe_reg_pixel.sv"), pipe_px.to_sv)
+
+pipe_pkt = PipeReg.new(dat_t: DataPacket.new.(W: 32), init_fields: { "valid" => 0 })
+File.write(File.join(outdir, "pipe_reg_pkt.sv"), pipe_pkt.to_sv)
 
 puts "Generated:"
 Dir.glob(File.join(outdir, "*.sv")).sort.each { |f| puts "  #{f}" }

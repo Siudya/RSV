@@ -57,6 +57,79 @@ class TestBundleStreamIntf < RSV::InterfaceDef
   end
 end
 
+# Interface with meta-param — different widths produce different SV
+class TestParamIntf < RSV::InterfaceDef
+  def build(data_w: 8)
+    data  = field("data",  uint(data_w))
+    valid = field("valid", bit)
+    modport "src",  inputs: [], outputs: [data, valid]
+    modport "sink", inputs: [data, valid], outputs: []
+  end
+end
+
+# ── Bundle-as-parameter test classes ─────────────────────────────────────────
+
+# Bundle meta-param variant (width via meta-param, not sv_param)
+class TestMetaBundle < RSV::BundleDef
+  def build(w: 8)
+    valid = field("valid", bit)
+    data  = field("data",  uint(w))
+  end
+end
+
+# Module accepting bundle type as meta parameter — template-style
+class TemplatedMod < RSV::ModuleDef
+  def build(dat_t:, init_fields: {})
+    clk = input("clk", clock)
+    rst = input("rst", reset)
+    d_in  = input("d_in", dat_t)
+    d_out = output("d_out", dat_t)
+    d_r   = reg("d_r", dat_t, init: init_fields.empty? ? nil : init_fields)
+    with_clk_and_rst(clk, rst)
+    d_out <= d_r
+    always_ff { d_r <= d_in }
+  end
+end
+
+# Interface accepting bundle type as meta parameter
+class TestTemplatedIntf < RSV::InterfaceDef
+  def build(payload_t:)
+    payload = field("payload", payload_t)
+    valid   = field("valid", bit)
+    ready   = field("ready", bit)
+    modport "src",  inputs: [ready], outputs: [payload, valid]
+    modport "sink", inputs: [payload, valid], outputs: [ready]
+  end
+end
+
+# Modules for dedup tests
+class BundleMetaDedupMod < RSV::ModuleDef
+  def build
+    w8  = wire("w8",  TestMetaBundle.new(w: 8))
+    w32 = wire("w32", TestMetaBundle.new(w: 32))
+    o   = output("o", uint(8))
+    o <= w8.data
+  end
+end
+
+class BundleSameParamMod < RSV::ModuleDef
+  def build
+    w1 = wire("w1", TestMetaBundle.new(w: 16))
+    w2 = wire("w2", TestMetaBundle.new(w: 16))
+    o  = output("o", uint(16))
+    o <= w1.data
+  end
+end
+
+# Module using template interface
+class TemplatedIntfMod < RSV::ModuleDef
+  def build(intf_dt:, payload_t:)
+    s = interface_port("stream", intf_dt, modport: "sink")
+    o = output("payload_out", payload_t)
+    o <= s.payload
+  end
+end
+
 # ── Module test classes ──────────────────────────────────────────────────────
 
 class BundleSimpleMod < RSV::ModuleDef
@@ -261,5 +334,82 @@ class BundleAndInterfaceTest < Minitest::Test
     mod = BundleSimpleMod.new
     # Check that the module has a valid locals list
     assert(mod.locals.any? { |l| l.bundle_type })
+  end
+
+  # --- Bundle meta-param dedup ---
+
+  def test_bundle_meta_param_dedup
+    sv = BundleMetaDedupMod.new.to_sv
+    # Two different widths → two distinct typedefs from same base class
+    type_names = sv.scan(/test_meta_bundle_t\w*/).uniq
+    assert_equal 2, type_names.length, "Expected 2 distinct typedefs, got #{type_names}"
+    assert_match(/logic \[7:0\] data;/, sv)
+    assert_match(/logic \[31:0\] data;/, sv)
+  end
+
+  def test_bundle_same_params_reuse_name
+    sv = BundleSameParamMod.new.to_sv
+    type_names = sv.scan(/test_meta_bundle_t\w*/).uniq
+    assert_equal 1, type_names.length, "Same params should reuse one typedef"
+  end
+
+  # --- Interface dedup ---
+
+  def test_interface_meta_param_dedup
+    dt8  = TestParamIntf.new(data_w: 8)
+    dt16 = TestParamIntf.new(data_w: 16)
+    def8  = dt8.instance_variable_get(:@_intf_def)
+    def16 = dt16.instance_variable_get(:@_intf_def)
+    refute_equal def8.type_name, def16.type_name,
+      "Different meta params should produce different type names"
+  end
+
+  def test_interface_same_params_reuse_name
+    dt_a = TestParamIntf.new(data_w: 64)
+    dt_b = TestParamIntf.new(data_w: 64)
+    def_a = dt_a.instance_variable_get(:@_intf_def)
+    def_b = dt_b.instance_variable_get(:@_intf_def)
+    assert_equal def_a.type_name, def_b.type_name,
+      "Same meta params should reuse one type name"
+  end
+
+  # --- Bundle type as Module/Interface parameter (template) ---
+
+  def test_module_templated_with_bundle_param
+    sv = TemplatedMod.new(dat_t: TestPixel.new, init_fields: { "r" => 0 }).to_sv
+    assert_match(/typedef struct packed/, sv)
+    assert_match(/test_pixel_t/, sv)
+    assert_match(/input\s+test_pixel_t\s+d_in/, sv)
+    assert_match(/output\s+test_pixel_t\s+d_out/, sv)
+    assert_match(/test_pixel_t\s+d_r;/, sv)
+    # Partial reset: only r field
+    assert_match(/d_r\.r\s*<=/, sv)
+  end
+
+  def test_module_templated_different_bundles_produce_different_sv
+    sv_px  = TemplatedMod.new(dat_t: TestPixel.new).to_sv
+    sv_pkt = TemplatedMod.new(dat_t: TestParamPkt.new).to_sv
+    assert_match(/test_pixel_t/, sv_px)
+    refute_match(/test_param_pkt_t/, sv_px)
+    assert_match(/test_param_pkt_t/, sv_pkt)
+    refute_match(/test_pixel_t/, sv_pkt)
+  end
+
+  def test_interface_templated_with_bundle_param
+    px_t = TestPixel.new
+    intf_dt = TestTemplatedIntf.new(payload_t: px_t)
+    intf_def = intf_dt.instance_variable_get(:@_intf_def)
+    sv = intf_def.to_sv
+    assert_match(/typedef struct packed/, sv)
+    assert_match(/test_pixel_t payload;/, sv)
+    assert_match(/modport src/, sv)
+  end
+
+  def test_module_with_templated_interface_port
+    px_t = TestPixel.new
+    intf_dt = TestTemplatedIntf.new(payload_t: px_t)
+    sv = TemplatedIntfMod.new(intf_dt: intf_dt, payload_t: px_t).to_sv
+    assert_match(/test_templated_intf\.sink\s+stream/, sv)
+    assert_match(/stream\.payload/, sv)
   end
 end
