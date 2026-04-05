@@ -30,6 +30,29 @@ cd RSV
 
 ## Quick start
 
+For a better Ruby editing experience in VS Code, install the `Ruby LSP`
+extension and keep the project gems in Bundler. `Ruby LSP` provides syntax
+highlighting, completion, hover, and go-to-definition, while `RuboCop` adds
+lint diagnostics and formatting support:
+
+```sh
+gem install bundler
+bundle add ruby-lsp
+bundle add rubocop --group development
+bundle install
+```
+
+Then add this to your VS Code `settings.json`:
+
+```json
+{
+  "[ruby]": {
+    "editor.defaultFormatter": "Shopify.ruby-lsp",
+    "editor.formatOnSave": true
+  }
+}
+```
+
 Run the bundled examples:
 
 ```sh
