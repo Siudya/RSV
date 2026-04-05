@@ -216,3 +216,16 @@ inferred width and computed init value:
   emits `(* keep *) output logic [7:0] dout`.
 - Multiple attributes may be combined: `attr: { "a" => nil, "b" => "1" }`
   emits `(* a, b = 1 *)`.
+
+== Verilog compatibility wrapper
+
+- Call `mod.v_wrapper` on a built module to generate a Verilog-compatible
+  wrapper with flat ports.
+- Packed array ports (e.g. `arr(4, uint(8))`) are flattened to a single
+  `[31:0]` bit vector and connected directly.
+- Unpacked array ports (e.g. `mem(3, uint(16))`) are expanded to individual
+  scalar ports (`port_0`, `port_1`, ...) and reassembled via SV array wires.
+- A custom wrapper name can be specified: `v_wrapper(wrapper_name: "my_top")`.
+- The wrapper output can be written to file: `v_wrapper("path/to/file.sv")`.
+- All port widths must be integer constants (not `SvParamRef`) for flattening.
+- Example: see `examples/verilog_wrapper.rb`.

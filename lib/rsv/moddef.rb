@@ -475,6 +475,14 @@ module RSV
       sv
     end
 
+    def v_wrapper(output = nil, wrapper_name: nil)
+      finalize_module_name!
+      wrapper_name ||= "#{@name}_wrapper"
+      verilog = VerilogWrapperGenerator.new.generate(self, wrapper_name)
+      write_sv_output(verilog, output)
+      verilog
+    end
+
     private
 
     def capture_macro_body(&block)

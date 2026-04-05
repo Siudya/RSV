@@ -52,6 +52,10 @@ class ExamplesSuiteTest < Minitest::Test
     "curried_params.rb" => {
       outputs: ["curried_top.sv", "curried_param_counter.sv", "curried_param_counter_1.sv"],
       lint_files: ["build/rtl/curried_param_counter.sv", "build/rtl/curried_param_counter_1.sv", "build/rtl/curried_top.sv"]
+    },
+    "verilog_wrapper.rb" => {
+      outputs: ["inner_module.sv", "inner_module_wrapper.sv"],
+      lint_files: ["build/rtl/inner_module.sv", "build/rtl/inner_module_wrapper.sv"]
     }
   }.freeze
 

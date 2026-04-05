@@ -219,6 +219,11 @@ end
 - `examples/mux_cases.rb` demonstrates `mux`, `mux1h`, and `muxp`.
 - `examples/import_demo.rb` demonstrates `RSV.import_sv` using
   `examples/imported_counter.sv`.
+- `examples/const_demo.rb` demonstrates `const` localparam declarations.
+- `examples/macro_demo.rb` demonstrates SV preprocessor macros.
+- `examples/generate_demo.rb` demonstrates generate-for and generate-if blocks.
+- `examples/curried_params.rb` demonstrates sv_param and curried parameters.
+- `examples/verilog_wrapper.rb` demonstrates Verilog-compatible wrapper generation.
 - `xmake rtl -f counter` runs `examples/counter.rb`.
 - `xmake rtl -f name -d dir` runs `dir/name.rb`, with `dir` defaulting to
   `examples`.

@@ -451,6 +451,64 @@ class HandlerDslTest < Minitest::Test
     assert_includes sv, "parameter int W = 16"
   end
 
+  # --- Task 6: Verilog wrapper ---
+
+  def test_v_wrapper_scalar_ports
+    klass = module_class("WrapScalar") do
+      a = input("a", uint(8))
+      b = output("b", uint(8))
+      b <= a
+    end
+    mod = klass.new("wrap_scalar")
+    wrapper = mod.v_wrapper
+    assert_includes wrapper, "module wrap_scalar_wrapper"
+    assert_includes wrapper, "input  [   7:0] a"
+    assert_includes wrapper, "output [   7:0] b"
+    assert_includes wrapper, ".a(a)"
+    assert_includes wrapper, ".b(b)"
+    refute_includes wrapper, "_sv"
+  end
+
+  def test_v_wrapper_packed_array
+    klass = module_class("WrapPacked") do
+      data = input("data", arr(4, uint(8)))
+      r = output("result", uint(1))
+      r <= data[0][0]
+    end
+    mod = klass.new("wrap_packed")
+    wrapper = mod.v_wrapper
+    assert_includes wrapper, "[  31:0] data"
+    assert_includes wrapper, ".data(data)"
+    refute_includes wrapper, "data_0"
+  end
+
+  def test_v_wrapper_unpacked_array
+    klass = module_class("WrapUnpacked") do
+      m = input("mem_in", mem(3, uint(16)))
+      r = output("result", uint(16))
+      r <= m[0]
+    end
+    mod = klass.new("wrap_unpacked")
+    wrapper = mod.v_wrapper
+    assert_includes wrapper, "mem_in_0"
+    assert_includes wrapper, "mem_in_1"
+    assert_includes wrapper, "mem_in_2"
+    assert_includes wrapper, "mem_in_sv [0:2]"
+    assert_includes wrapper, "assign mem_in_sv[0] = mem_in_0;"
+    assert_includes wrapper, ".mem_in(mem_in_sv)"
+  end
+
+  def test_v_wrapper_custom_name
+    klass = module_class("WrapCustom") do
+      x = input("x", uint(1))
+      y = output("y", uint(1))
+      y <= x
+    end
+    mod = klass.new("wrap_custom")
+    wrapper = mod.v_wrapper(wrapper_name: "my_top")
+    assert_includes wrapper, "module my_top ("
+  end
+
   private
 
   def module_class(name, &build_block)
