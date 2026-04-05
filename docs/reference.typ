@@ -82,8 +82,6 @@
 / `always_ff { ... }`: emits a domain-driven `always_ff` using the current
   clock/reset.
 / `always_ff(clk, rst) { ... }`: emits an `always_ff` with an explicit domain.
-/ `always_ff("posedge clk or negedge rst_n") { ... }`: explicit sensitivity
-  form.
 / `always_latch { ... }`: emits `always_latch begin ... end`.
 / `always_comb { ... }`: emits `always_comb begin ... end`.
 / `svif(cond) { ... }`: convenience wrapper for `if_stmt`.

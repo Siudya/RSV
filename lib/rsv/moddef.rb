@@ -195,11 +195,6 @@ module RSV
     def always_ff(clock = nil, reset = nil, &block)
       builder = ProceduralBuilder.new(assign_context: :always_ff).build(&block)
 
-      if clock.is_a?(String) && reset.nil?
-        @stmts << AlwaysFF.new(builder.stmts, sensitivity: clock)
-        return
-      end
-
       domain_clock, domain_reset = resolve_always_ff_domain(clock, reset)
       @stmts << AlwaysFF.new(builder.stmts, clock: domain_clock, reset: domain_reset)
     end
@@ -341,7 +336,7 @@ module RSV
         return [@current_clock, @current_reset]
       end
 
-      raise ArgumentError, "always_ff expects no arguments, a sensitivity string, or explicit clock/reset" if clock.nil? || reset.nil?
+      raise ArgumentError, "always_ff expects no arguments or explicit clock/reset" if clock.nil? || reset.nil?
 
       [RSV.normalize_expr(clock), RSV.normalize_expr(reset)]
     end

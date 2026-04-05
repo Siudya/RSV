@@ -43,19 +43,17 @@ class HandlerDslTest < Minitest::Test
 
   def test_handler_signals_emit_wire_and_logic_declarations
     mod = module_class("Counter") do
-      clk = input("clk", bit)
-      rst_n = input("rst_n", bit)
+      clk = input("clk", clock)
+      rst_n = input("rst_n", reset)
       count = output("count", uint(16))
       seed = wire("seed", uint(16), init: 0x7)
-      count_r = reg("count_r", uint(16))
+      count_r = reg("count_r", uint(16), init: 0)
 
       count <= count_r
 
-      always_ff("posedge #{clk} or negedge #{rst_n}") do
-        if_stmt("!#{rst_n}") do
-          count_r <= "'0"
-        end
-        else_stmt do
+      with_clk_and_rst(clk, rst_n.neg)
+      always_ff do
+        svif(1) do
           count_r <= seed
         end
       end
@@ -75,8 +73,8 @@ class HandlerDslTest < Minitest::Test
 
         always_ff @(posedge clk or negedge rst_n) begin
           if (!rst_n) begin
-            count_r <= '0;
-          end else begin
+            count_r <= 16'h0;
+          end else if (1) begin
             count_r <= seed;
           end
         end
@@ -85,6 +83,22 @@ class HandlerDslTest < Minitest::Test
     SV
 
     assert_equal expected, mod.to_sv
+  end
+
+  def test_string_based_always_ff_is_removed
+    error = assert_raises(ArgumentError) do
+      module_class("NoStringAlwaysFf") do
+        clk = input("clk", bit)
+        rst_n = input("rst_n", bit)
+        value = reg("value", uint(8))
+
+        always_ff("posedge #{clk} or negedge #{rst_n}") do
+          value <= 0
+        end
+      end.new
+    end
+
+    assert_equal "always_ff expects no arguments or explicit clock/reset", error.message
   end
 
   def test_handlers_can_be_used_in_instance_connections

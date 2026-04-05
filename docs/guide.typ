@@ -180,6 +180,13 @@ end
 
 - `examples/counter.rb` generates `build/rtl/counter.sv`.
 - `examples/top.rb` instantiates two counters and generates `build/rtl/top.sv`.
+- `examples/syntax_showcase.rb` covers declarations, operators, slices, casts,
+  and control blocks.
+- `examples/storage_streams.rb` covers shaped storage declarations, fill
+  helpers, indexing, and stream-view traversal.
+- `examples/mux_cases.rb` demonstrates `mux`, `mux1h`, and `muxp`.
+- `examples/import_demo.rb` demonstrates `RSV.import_sv` using
+  `examples/imported_counter.sv`.
 - `xmake rtl -f counter` runs `examples/counter.rb`.
 - `xmake rtl -f name -d dir` runs `dir/name.rb`, with `dir` defaulting to
   `examples`.

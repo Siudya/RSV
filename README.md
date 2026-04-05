@@ -30,10 +30,21 @@ Run the bundled examples:
 ```sh
 ruby examples/counter.rb
 ruby examples/top.rb
+ruby examples/syntax_showcase.rb
+ruby examples/storage_streams.rb
+ruby examples/mux_cases.rb
+ruby examples/import_demo.rb
 ```
 
-Both examples print generated SystemVerilog with `to_sv("-")` and write the
+These examples print generated SystemVerilog with `to_sv("-")` and write the
 results to `build/rtl/`.
+
+- `counter.rb`: parameterized sequential counter
+- `top.rb`: submodule instantiation and port connections
+- `syntax_showcase.rb`: declarations, operators, slices, casts, and control blocks
+- `storage_streams.rb`: arr/mem shapes, fill helpers, indexing, and stream views
+- `mux_cases.rb`: ternary, one-hot, and priority mux helpers
+- `import_demo.rb`: `RSV.import_sv` with an imported SV module under `examples/`
 
 Use xmake automation:
 
