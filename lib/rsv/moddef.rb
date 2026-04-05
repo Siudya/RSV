@@ -68,6 +68,57 @@ module RSV
     end
   end
 
+  # Curried builder for modules with sv_param declarations.
+  # Chains: ModuleClass.new("name").(sv_params).(meta_params)
+  class CurriedModuleBuilder
+    def initialize(klass, *args, **kwargs, &block)
+      @klass = klass
+      @args = args
+      @kwargs = kwargs
+      @block = block
+      @sv_param_overrides = nil
+      @result = nil
+    end
+
+    def call(**kwargs)
+      if @sv_param_overrides.nil?
+        @sv_param_overrides = kwargs
+        self
+      else
+        finalize(**kwargs)
+      end
+    end
+
+    def to_sv(output = nil)
+      finalize.to_sv(output)
+    end
+
+    def method_missing(name, *args, **kwargs, &block)
+      finalize.send(name, *args, **kwargs, &block)
+    end
+
+    def respond_to_missing?(name, include_private = false)
+      true
+    end
+
+    private
+
+    def finalize(**meta_params)
+      return @result if @result
+
+      @sv_param_overrides ||= {}
+      merged_kwargs = @kwargs.merge(meta_params)
+      current_module = RSV.current_module_def
+      if current_module
+        @result = current_module.send(:instantiate_module_curried,
+          @klass, *@args, sv_params: @sv_param_overrides, **merged_kwargs)
+      else
+        @result = @klass.build_definition(*@args, sv_params: @sv_param_overrides, **merged_kwargs, &@block)
+      end
+      @result
+    end
+  end
+
   # Base class for class-based module definitions.
   #
   # Example:
@@ -116,14 +167,19 @@ module RSV
       def new(*args, **kwargs, &block)
         raise ArgumentError, "ModuleDef must be subclassed" if self == RSV::ModuleDef
 
+        if sv_param_defs.any?
+          return CurriedModuleBuilder.new(self, *args, **kwargs, &block)
+        end
+
         current_module = RSV.current_module_def
         return current_module.send(:instantiate_module, self, *args, **kwargs) if current_module
 
         build_definition(*args, **kwargs, &block)
       end
 
-      def build_definition(*args, **kwargs, &block)
+      def build_definition(*args, sv_params: {}, **kwargs, &block)
         mod = allocate
+        mod.instance_variable_set(:@_sv_param_overrides, sv_params)
         RSV.with_module_def(mod) do
           mod.send(:initialize, *args, **kwargs, &block)
         end
@@ -131,9 +187,18 @@ module RSV
         mod
       end
 
-      def definition(*args, **kwargs, &block)
-        definition = build_definition(*args, **kwargs, &block)
+      def definition(*args, sv_params: {}, **kwargs, &block)
+        definition = build_definition(*args, sv_params: sv_params, **kwargs, &block)
         definition_handle_registry[definition.module_name] ||= ModuleDefinitionHandle.new(definition)
+      end
+
+      def sv_param(name, default_value)
+        sv_param_defs << { name: name.to_s, default: default_value }
+        SvParamRef.new(name.to_s)
+      end
+
+      def sv_param_defs
+        @sv_param_defs ||= []
       end
 
       private
@@ -169,6 +234,8 @@ module RSV
       @module_name_finalized = false
       @auto_connection_wires = {}
       @instance_port_base_wires = {}
+
+      apply_sv_param_defs
 
       auto_build = self.class.instance_method(:initialize).owner == ModuleDef &&
         self.class.instance_method(:build).owner != ModuleDef
@@ -546,6 +613,13 @@ module RSV
       instantiate_definition_handle(definition_handle, inst_name: inst_name)
     end
 
+    def instantiate_module_curried(module_class, *args, sv_params: {}, **kwargs)
+      inst_name = kwargs.delete(:inst_name)
+      definition_handle = build_definition_handle(module_class, *args, sv_params: {}, **kwargs)
+      inst_name ||= next_instance_name(definition_handle)
+      instantiate_definition_handle(definition_handle, inst_name: inst_name, param_overrides: sv_params)
+    end
+
     def build_definition_handle(source, *args, **kwargs, &block)
       return source.definition(*args, **kwargs, &block) if source.respond_to?(:build_definition) && source.respond_to?(:definition)
       raise ArgumentError, "definition handle does not accept extra arguments" unless args.empty? && kwargs.empty?
@@ -553,9 +627,9 @@ module RSV
       RSV.normalize_module_definition_handle(source)
     end
 
-    def instantiate_definition_handle(definition_handle, inst_name:)
+    def instantiate_definition_handle(definition_handle, inst_name:, param_overrides: {})
       inst_name ||= next_instance_name(definition_handle)
-      handle = ModuleInstanceHandle.new(definition_handle, inst_name: inst_name)
+      handle = ModuleInstanceHandle.new(definition_handle, inst_name: inst_name, param_overrides: param_overrides)
       @stmts << Instance.new(handle.module_name, handle.inst_name, params: handle.params, connections: handle.connections)
       handle
     end
@@ -570,6 +644,25 @@ module RSV
 
     def default_module_name
       self.class.name.to_s.split("::").last
+    end
+
+    def apply_sv_param_defs
+      overrides = @_sv_param_overrides || {}
+      self.class.sv_param_defs.each do |pd|
+        key_sym = pd[:name].to_sym
+        key_str = pd[:name].to_s
+        value = overrides.fetch(key_sym, overrides.fetch(key_str, pd[:default]))
+        type = infer_sv_param_type(value)
+        @params << ParamDecl.new(pd[:name], value, type)
+      end
+    end
+
+    def infer_sv_param_type(value)
+      case value
+      when Integer then "int"
+      when String then "string"
+      else "int"
+      end
     end
 
     def finalize_module_name!

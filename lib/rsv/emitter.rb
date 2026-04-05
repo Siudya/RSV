@@ -71,6 +71,8 @@ module RSV
         "[#{simple_decl_expr?(text) ? text : "(#{text})"}-1:0]"
       when SignalHandler
         "[#{length.name}-1:0]"
+      when SvParamRef, GenvarRef
+        "[#{length.name}-1:0]"
       else
         "[(" + emit_expr(length) + ")-1:0]"
       end
@@ -460,6 +462,8 @@ module RSV
       when MacroRef
         "`#{expr.macro_name}"
       when GenvarRef
+        expr.name
+      when SvParamRef
         expr.name
       else
         expr.to_s

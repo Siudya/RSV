@@ -43,6 +43,7 @@ ruby examples/import_demo.rb
 ruby examples/const_demo.rb
 ruby examples/macro_demo.rb
 ruby examples/generate_demo.rb
+ruby examples/curried_params.rb
 ```
 
 These examples print generated SystemVerilog with `to_sv("-")` and write the
@@ -59,6 +60,7 @@ of one module class, it also writes the deduplicated dependency modules there.
 - `const_demo.rb`: `const` declarations emitted as SV `localparam`
 - `macro_demo.rb`: SV preprocessor macros (`define, `ifdef, `ifndef, etc.)
 - `generate_demo.rb`: generate-for and generate-if blocks
+- `curried_params.rb`: sv_param and curried parameter application
 
 Use xmake automation:
 

@@ -48,6 +48,10 @@ class ExamplesSuiteTest < Minitest::Test
     "generate_demo.rb" => {
       outputs: ["generate_demo.sv"],
       lint_files: ["build/rtl/generate_demo.sv"]
+    },
+    "curried_params.rb" => {
+      outputs: ["curried_top.sv", "curried_param_counter.sv", "curried_param_counter_1.sv"],
+      lint_files: ["build/rtl/curried_param_counter.sv", "build/rtl/curried_param_counter_1.sv", "build/rtl/curried_top.sv"]
     }
   }.freeze
 

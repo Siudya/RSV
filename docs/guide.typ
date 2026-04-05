@@ -11,6 +11,8 @@ SystemVerilog.
 + If you override `initialize(...)`, call `super()` before using the DSL.
 + Declare parameters with `parameter(...)` and anonymous RSV data types with
   `bit(...)`, `uint(...)`, `arr(...)`, and `mem(...)`.
++ Use class-level `sv_param("NAME", default)` to declare SV parameters and
+  enable curried construction: `MyMod.new("name").(WIDTH: 16).(meta: val)`.
 + Create named ports and locals with `input("name", type)`,
   `output("name", type)`, `wire("name", type)`, and `reg("name", type)`.
 + Declare constants with `const("name", type)` where the data type carries an

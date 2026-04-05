@@ -939,12 +939,14 @@ module RSV
   class ModuleInstanceHandle
     attr_reader :definition, :definition_handle, :inst_name, :params, :connections
 
-    def initialize(definition, inst_name:)
+    def initialize(definition, inst_name:, param_overrides: {})
       @definition_handle = RSV.normalize_module_definition_handle(definition)
       @definition = @definition_handle.definition
       @inst_name = inst_name
       @params = @definition_handle.params.each_with_object({}) do |param, memo|
-        memo[param.name] = param.value
+        key_str = param.name.to_s
+        key_sym = param.name.to_sym
+        memo[param.name] = param_overrides.fetch(key_sym, param_overrides.fetch(key_str, param.value))
       end
       @connections = {}
       @ports = @definition_handle.ports.each_with_object({}) do |port, memo|
@@ -1204,6 +1206,25 @@ module RSV
     end
   end
 
+  # SV parameter reference expression: usable in types and expressions
+  class SvParamRef
+    include ExprOps
+
+    attr_reader :name
+
+    def initialize(name)
+      @name = name
+    end
+
+    def width
+      nil
+    end
+
+    def to_s
+      @name
+    end
+  end
+
   def self.normalize_signal_spec(signal)
     return signal if signal.is_a?(SignalSpec)
 
@@ -1221,7 +1242,7 @@ module RSV
     when SignalHandler, InstancePortHandler, RawExpr, LiteralExpr, BinaryExpr, UnaryExpr, IndexExpr,
          RangeSelectExpr, IndexedPartSelectExpr, AsSintExpr, ClockSignal, ResetSignal,
          ParenExpr,
-         MuxExpr, CatExpr, FillExpr, PackedCollectionExpr, MacroRef, GenvarRef
+         MuxExpr, CatExpr, FillExpr, PackedCollectionExpr, MacroRef, GenvarRef, SvParamRef
       operand
     when String
       RawExpr.new(operand)
@@ -1450,7 +1471,7 @@ module RSV
     when SignalHandler
       raise ArgumentError, "array/memory index must be unsigned (uint), got signed signal" if idx.signed
       return
-    when IndexExpr, RangeSelectExpr, IndexedPartSelectExpr, BinaryExpr, UnaryExpr, RawExpr, LiteralExpr, GenvarRef
+    when IndexExpr, RangeSelectExpr, IndexedPartSelectExpr, BinaryExpr, UnaryExpr, RawExpr, LiteralExpr, GenvarRef, SvParamRef
       return
     else
       raise ArgumentError, "array/memory index must be a hardware uint or an integer literal, got #{idx.class}"

@@ -21,6 +21,12 @@
 == Declarations
 
 / `parameter(name, value, type:)`: emits a SystemVerilog parameter declaration.
+/ `sv_param(name, default_value)`: class-level macro that declares an SV
+  parameter and returns an `SvParamRef` expression node. The ref can be used as
+  a width specifier (`uint(WIDTH)`) or in any expression. Enables curried module
+  construction: `MyMod.new("name").(WIDTH: 16).(meta: true)`.
+  - First `.()` overrides SV parameter defaults.
+  - Second `.()` supplies meta parameters passed to `build(**kwargs)`.
 / `bit(init = nil)`: creates an anonymous 1-bit RSV data type.
 / `bits(width = 1, init = nil)`: creates an anonymous unsigned data type. Same as
   `uint`.

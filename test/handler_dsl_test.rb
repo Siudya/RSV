@@ -5,6 +5,35 @@ require "minitest/autorun"
 $LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
 require "rsv"
 
+# Test helper classes for sv_param tests (constants can't be set inside Class.new blocks)
+class SvParamTestModule < RSV::ModuleDef
+  WIDTH = sv_param("WIDTH", 8)
+  def build
+    input("d", uint(WIDTH))
+    output("q", uint(WIDTH))
+  end
+end
+
+class SvParamExprModule < RSV::ModuleDef
+  N = sv_param("N", 4)
+  def build
+    a = input("a", uint(N))
+    y = output("y", uint(N))
+    y <= a + N
+  end
+end
+
+class CurriedMetaModule < RSV::ModuleDef
+  W = sv_param("W", 8)
+  def build(signed_mode: false)
+    if signed_mode
+      output("y", sint(W))
+    else
+      output("y", uint(W))
+    end
+  end
+end
+
 class HandlerDslTest < Minitest::Test
   def test_module_def_public_api_uses_snake_case
     mod = module_class("SnakeApi").new
@@ -388,6 +417,38 @@ class HandlerDslTest < Minitest::Test
     assert_includes sv, "if (EN == 1) begin : gen_en"
     assert_includes sv, "assign y = a;"
     refute_includes sv, "else"
+  end
+
+  # ── Curried parameter tests ─────────────────────────────────────────────
+
+  def test_sv_param_declares_parameter
+    mod = SvParamTestModule.new("sv_param_test").().()
+    sv = mod.to_sv
+    assert_includes sv, "parameter int WIDTH = 8"
+    assert_includes sv, "[WIDTH-1:0]"
+  end
+
+  def test_sv_param_override_via_curried_call
+    mod = SvParamTestModule.new("sv_param_override").(WIDTH: 32).()
+    sv = mod.to_sv
+    assert_includes sv, "parameter int WIDTH = 32"
+  end
+
+  def test_sv_param_ref_in_expression
+    mod = SvParamExprModule.new("sv_param_expr").().()
+    sv = mod.to_sv
+    assert_includes sv, "assign y = a + N;"
+  end
+
+  def test_curried_meta_params
+    unsigned_mod = CurriedMetaModule.new("curried_meta_u").(W: 8).(signed_mode: false)
+    sv = unsigned_mod.to_sv
+    refute_includes sv, "signed"
+
+    signed_mod = CurriedMetaModule.new("curried_meta_s").(W: 16).(signed_mode: true)
+    sv = signed_mod.to_sv
+    assert_includes sv, "signed"
+    assert_includes sv, "parameter int W = 16"
   end
 
   private
