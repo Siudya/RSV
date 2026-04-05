@@ -25,11 +25,7 @@ module RSV
         lines << ""
       end
 
-      mod.stmts.each_with_index do |stmt, idx|
-        lines.concat(emit_stmt(stmt, 1))
-        next_stmt = mod.stmts[idx + 1]
-        lines << "" if next_stmt && blank_line_between?(stmt, next_stmt)
-      end
+      lines.concat(emit_stmt_list(mod.stmts, 1))
 
       lines << "" unless mod.stmts.empty?
       lines << "endmodule"
@@ -104,12 +100,14 @@ module RSV
       max_dir = entries.map { |entry| entry[:dir].length }.max
       max_type = entries.map { |entry| entry[:type].length }.max
 
-      entries.each_with_index.map do |entry, idx|
+      entries.each_with_index.flat_map do |entry, idx|
         comma = idx < entries.size - 1 ? "," : ""
         dir = entry[:dir].ljust(max_dir)
         type = entry[:type].ljust(max_type)
-        attr_str = emit_attr(entry[:attr])
-        "#{ind(1)}#{attr_str}#{dir} #{type} #{entry[:name]}#{comma}"
+        lines = []
+        lines.concat(emit_attr_lines(entry[:attr], 1))
+        lines << "#{ind(1)}#{dir} #{type} #{entry[:name]}#{comma}"
+        lines
       end
     end
 
@@ -135,17 +133,20 @@ module RSV
       max_packed = entries.map { |entry| entry[:packed].length }.max
       max_name = entries.map { |entry| entry[:name].length }.max
 
-      entries.map do |entry|
+      entries.flat_map do |entry|
         prefix = entry[:kind].ljust(max_kind)
         prefix = "#{prefix} #{entry[:packed].ljust(max_packed)}" if max_packed.positive?
-        attr_str = emit_attr(entry[:attr])
+        lines = []
+        lines.concat(emit_attr_lines(entry[:attr], level))
 
         if entry[:init]
           name_part = entry[:name].ljust(max_name)
-          "#{ind(level)}#{attr_str}#{prefix} #{name_part} = #{entry[:init]};"
+          lines << "#{ind(level)}#{prefix} #{name_part} = #{entry[:init]};"
         else
-          "#{ind(level)}#{attr_str}#{prefix} #{entry[:name]};"
+          lines << "#{ind(level)}#{prefix} #{entry[:name]};"
         end
+
+        lines
       end
     end
 
@@ -156,13 +157,51 @@ module RSV
       "#{width}'h#{init.to_s(16)}"
     end
 
-    def emit_attr(attr)
-      return "" if attr.nil? || attr.empty?
+    def emit_attr_lines(attr, level)
+      return [] if attr.nil? || attr.empty?
 
       parts = attr.map do |key, val|
         val.nil? ? key.to_s : "#{key} = #{val}"
       end
-      "(* #{parts.join(", ")} *) "
+      ["#{ind(level)}(* #{parts.join(", ")} *)"]
+    end
+
+    def emit_stmt_list(stmts, level)
+      lines = []
+      idx = 0
+
+      while idx < stmts.length
+        stmt = stmts[idx]
+
+        if stmt.is_a?(AssignStmt)
+          assign_block = []
+          while idx < stmts.length && stmts[idx].is_a?(AssignStmt)
+            assign_block << stmts[idx]
+            idx += 1
+          end
+          lines.concat(emit_assign_block(assign_block, level))
+          prev_stmt = assign_block.last
+        else
+          lines.concat(emit_stmt(stmt, level))
+          idx += 1
+          prev_stmt = stmt
+        end
+
+        next_stmt = stmts[idx]
+        lines << "" if next_stmt && blank_line_between?(prev_stmt, next_stmt)
+      end
+
+      lines
+    end
+
+    def emit_assign_block(stmts, level)
+      lhs_entries = stmts.map { |stmt| emit_expr(stmt.lhs) }
+      max_lhs = lhs_entries.map(&:length).max
+
+      stmts.each_with_index.map do |stmt, idx|
+        lhs = lhs_entries[idx].ljust(max_lhs)
+        "#{ind(level)}assign #{lhs} = #{emit_expr(stmt.rhs)};"
+      end
     end
 
     def emit_stmt(stmt, level)
@@ -219,16 +258,16 @@ module RSV
 
     def emit_macro_cond(directive, stmt, level)
       lines = ["#{directive} #{stmt.macro_name}"]
-      stmt.body.each { |s| lines.concat(emit_stmt(s, level)) }
+      lines.concat(emit_stmt_list(stmt.body, level))
 
       stmt.elsif_clauses.each do |clause|
         lines << "`elsif #{clause[:macro_name]}"
-        clause[:body].each { |s| lines.concat(emit_stmt(s, level)) }
+        lines.concat(emit_stmt_list(clause[:body], level))
       end
 
       if stmt.else_body
         lines << "`else"
-        stmt.else_body.each { |s| lines.concat(emit_stmt(s, level)) }
+        lines.concat(emit_stmt_list(stmt.else_body, level))
       end
 
       lines << "`endif"
@@ -241,7 +280,7 @@ module RSV
         lines.concat(emit_local_decls(locals, level))
         lines << ""
       end
-      stmts.each { |s| lines.concat(emit_stmt(s, level)) }
+      lines.concat(emit_stmt_list(stmts, level))
       lines
     end
 

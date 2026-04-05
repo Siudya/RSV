@@ -87,22 +87,22 @@ class OperatorDslTest < Minitest::Test
         logic [3:0] slice_down;
         logic [7:0] tmp;
 
-        assign eq = a == b;
-        assign neq = a != b;
-        assign logic_and = a && b;
-        assign logic_or = a || b;
-        assign red_or = |a;
-        assign red_and = &b;
-        assign inv = !eq;
-        assign bit_inv = ~a;
-        assign shl = a << 8'd1;
-        assign shr = b >> 8'd1;
-        assign mul = a * b;
-        assign div = a / 8'd3;
-        assign mod_val = a % 8'd3;
-        assign slice_a = a[7:4];
-        assign slice_b = b[7:4];
-        assign slice_up = a[2 +: 4];
+        assign eq         = a == b;
+        assign neq        = a != b;
+        assign logic_and  = a && b;
+        assign logic_or   = a || b;
+        assign red_or     = |a;
+        assign red_and    = &b;
+        assign inv        = !eq;
+        assign bit_inv    = ~a;
+        assign shl        = a << 8'd1;
+        assign shr        = b >> 8'd1;
+        assign mul        = a * b;
+        assign div        = a / 8'd3;
+        assign mod_val    = a % 8'd3;
+        assign slice_a    = a[7:4];
+        assign slice_b    = b[7:4];
+        assign slice_up   = a[2 +: 4];
         assign slice_down = b[5 -: 4];
 
         always_comb begin
@@ -133,7 +133,7 @@ class OperatorDslTest < Minitest::Test
 
     sv = mod.to_sv
 
-    assert_includes sv, "assign left = a;"
+    assert_includes sv, "assign left  = a;"
     assert_includes sv, "assign right = a;"
   end
 

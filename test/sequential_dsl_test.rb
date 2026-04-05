@@ -26,7 +26,7 @@ class SequentialDslTest < Minitest::Test
         logic [15:0] b;
         logic [15:0] c;
 
-        assign c = a + b;
+        assign c   = a + b;
         assign out = c;
 
       endmodule

@@ -471,7 +471,7 @@ class ClassModuleTest < Minitest::Test
     assert_includes top_sv, "logic [7:0] u_producer_tx_mem[1:0][2:0];"
     assert_includes top_sv, "logic [7:0] u_consumer_rx_mem[1:0][2:0];"
     assert_includes top_sv, "logic [7:0] u_producer_tx_mem_0_1;"
-    assert_includes top_sv, "assign u_producer_tx_mem_0_1 = u_producer_tx_mem[0][1];"
+    assert_includes top_sv, "assign u_producer_tx_mem_0_1   = u_producer_tx_mem[0][1];"
     assert_includes top_sv, "assign u_consumer_rx_mem[1][2] = u_producer_tx_mem_0_1;"
     assert_includes top_sv, ".tx_mem(u_producer_tx_mem)"
     assert_includes top_sv, ".rx_mem(u_consumer_rx_mem)"

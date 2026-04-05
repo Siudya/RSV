@@ -226,8 +226,8 @@ class HandlerDslTest < Minitest::Test
     end.new
 
     sv = mod.to_sv
-    assert_includes sv, "(* mark_debug = \"true\" *) input"
-    assert_includes sv, "(* keep *) output"
+    assert_includes sv, "(* mark_debug = \"true\" *)\n  input"
+    assert_includes sv, "(* keep *)\n  output"
   end
 
   def test_attr_on_local
@@ -237,8 +237,8 @@ class HandlerDslTest < Minitest::Test
     end.new
 
     sv = mod.to_sv
-    assert_includes sv, "(* mark_debug = \"true\" *) logic"
-    assert_includes sv, "(* dont_touch, keep *) logic"
+    assert_includes sv, "(* mark_debug = \"true\" *)\n  logic"
+    assert_includes sv, "(* dont_touch, keep *)\n  logic"
   end
 
   def test_attr_on_const
@@ -247,7 +247,38 @@ class HandlerDslTest < Minitest::Test
     end.new
 
     sv = mod.to_sv
-    assert_includes sv, "(* synthesis = \"off\" *) localparam"
+    assert_includes sv, "(* synthesis = \"off\" *)\n  localparam"
+  end
+
+  def test_continuous_assigns_align_equals
+    mod = module_class("AlignedAssigns") do
+      a = input("a", uint(8))
+      short = wire("x", uint(8))
+      long_name = wire("long_name", uint(8))
+      y = output("y", uint(8))
+
+      short <= a
+      long_name <= short
+      y <= long_name
+    end.new
+
+    expected = <<~SV.chomp
+      module AlignedAssigns (
+        input  logic [7:0] a,
+        output logic [7:0] y
+      );
+
+        logic [7:0] x;
+        logic [7:0] long_name;
+
+        assign x         = a;
+        assign long_name = x;
+        assign y         = long_name;
+
+      endmodule
+    SV
+
+    assert_equal expected, mod.to_sv
   end
 
   def test_sv_def_emits_define
