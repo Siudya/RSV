@@ -8,6 +8,13 @@ module RSV
     def emit_module(mod)
       lines = []
 
+      # Emit bundle typedefs before module declaration (file scope)
+      typedefs = collect_bundle_typedefs(mod.ports, mod.locals)
+      unless typedefs.empty?
+        lines.concat(emit_typedefs(typedefs, 0))
+        lines << ""
+      end
+
       if mod.params.empty?
         lines << "module #{mod.name} ("
       else
@@ -31,6 +38,104 @@ module RSV
       lines << "endmodule"
 
       lines.join("\n")
+    end
+
+    def emit_bundle(bundle)
+      lines = []
+      lines << "typedef struct packed {"
+      bundle.fields.each do |f|
+        lines << "  #{self.class.format_field_decl(f)};"
+      end
+      lines << "} #{bundle.name};"
+      if bundle.params.any?
+        # Wrap in a package-like comment
+      end
+      lines.join("\n")
+    end
+
+    def emit_interface(intf)
+      lines = []
+
+      # Collect bundle typedefs from fields
+      bundle_types = []
+      seen = {}
+      collect_bt = ->(bt) {
+        return unless bt
+        bt.fields.each { |f| collect_bt.call(f.data_type.bundle_type) if f.data_type.bundle_type }
+        unless seen[bt.type_name]
+          seen[bt.type_name] = true
+          bundle_types << bt
+        end
+      }
+      intf.fields.each do |f|
+        dt = f[:data_type]
+        collect_bt.call(dt.bundle_type) if dt.respond_to?(:bundle_type) && dt.bundle_type
+      end
+
+      unless bundle_types.empty?
+        lines.concat(emit_typedefs(bundle_types, 0))
+        lines << ""
+      end
+
+      if intf.params.empty?
+        lines << "interface #{intf.name};"
+      else
+        lines << "interface #{intf.name} #("
+        lines.concat(emit_params_list(intf.params))
+        lines << ");"
+      end
+      lines << ""
+
+      intf.fields.each do |f|
+        dir_str = f[:dir] ? "#{f[:dir]} " : ""
+        lines << "  #{dir_str}#{self.class.format_intf_field(f)};"
+      end
+
+      lines << "" if intf.fields.any?
+
+      intf.modports.each do |mp|
+        port_list = mp[:ports].map { |p| "#{p[:dir]} #{p[:name]}" }.join(", ")
+        lines << "  modport #{mp[:name]} (#{port_list});"
+      end
+
+      lines << ""
+      lines << "endinterface"
+      lines.join("\n")
+    end
+
+    def self.format_field_decl(field)
+      dt = field.data_type
+      if dt.bundle_type
+        type_name = dt.bundle_type.type_name
+        dim_str = ""
+        dt.packed_dims.each { |d| dim_str += "[#{RSV.format_dim(d)}]" }
+        dt.unpacked_dims.each { |d| dim_str += "[#{RSV.format_dim(d)}]" }
+        "#{type_name} #{field.name}#{dim_str}"
+      else
+        e = Emitter.new
+        signed_str = dt.signed ? "signed " : ""
+        dims = e.send(:packed_decl_dims, dt.width, dt.packed_dims)
+        unpacked = e.send(:unpacked_decl_dims, dt.unpacked_dims)
+        type_str = "logic #{signed_str}#{dims}".rstrip
+        "#{type_str} #{field.name}#{unpacked}"
+      end
+    end
+
+    def self.format_intf_field(field)
+      dt = field[:data_type]
+      if dt.is_a?(DataType) && dt.bundle_type
+        type_name = dt.bundle_type.type_name
+        "#{type_name} #{field[:name]}"
+      elsif dt.is_a?(DataType)
+        e = Emitter.new
+        signed_str = dt.signed ? "signed " : ""
+        dims = e.send(:packed_decl_dims, dt.width, dt.packed_dims)
+        unpacked = e.send(:unpacked_decl_dims, dt.unpacked_dims)
+        type_str = "logic #{signed_str}#{dims}".rstrip
+        "#{type_str} #{field[:name]}#{unpacked}"
+      else
+        "logic #{field[:name]}"
+      end
     end
 
     private
@@ -90,11 +195,26 @@ module RSV
       return [] if ports.empty?
 
       entries = ports.map do |port|
-        signed_str = port.signed ? "signed " : ""
-        dims = packed_decl_dims(port.width, port.packed_dims)
-        type_part = "logic #{signed_str}#{dims}".rstrip
-        name_part = "#{port.name}#{unpacked_decl_dims(port.unpacked_dims)}"
-        { dir: port.dir.to_s, type: type_part, name: name_part, attr: port.attr }
+        if port.dir == :intf && port.intf_type
+          intf_info = port.intf_type
+          type_str = if intf_info[:modport]
+            "#{intf_info[:type_name]}.#{intf_info[:modport]}"
+          else
+            intf_info[:type_name]
+          end
+          { dir: "", type: type_str, name: port.name, attr: port.attr }
+        elsif port.bundle_type
+          type_name = port.bundle_type.type_name
+          dim_str = unpacked_decl_dims(port.unpacked_dims)
+          packed = port.packed_dims.map { |d| decl_range(d) }.join
+          { dir: port.dir.to_s, type: "#{type_name}#{packed}", name: "#{port.name}#{dim_str}", attr: port.attr }
+        else
+          signed_str = port.signed ? "signed " : ""
+          dims = packed_decl_dims(port.width, port.packed_dims)
+          type_part = "logic #{signed_str}#{dims}".rstrip
+          name_part = "#{port.name}#{unpacked_decl_dims(port.unpacked_dims)}"
+          { dir: port.dir.to_s, type: type_part, name: name_part, attr: port.attr }
+        end
       end
 
       max_dir = entries.map { |entry| entry[:dir].length }.max
@@ -102,31 +222,47 @@ module RSV
 
       entries.each_with_index.flat_map do |entry, idx|
         comma = idx < entries.size - 1 ? "," : ""
-        dir = entry[:dir].ljust(max_dir)
+        dir_str = entry[:dir].empty? ? "" : "#{entry[:dir].ljust(max_dir)} "
         type = entry[:type].ljust(max_type)
         lines = []
         lines.concat(emit_attr_lines(entry[:attr], 1))
-        lines << "#{ind(1)}#{dir} #{type} #{entry[:name]}#{comma}"
+        lines << "#{ind(1)}#{dir_str}#{type} #{entry[:name]}#{comma}"
         lines
       end
     end
 
     def emit_local_decls(locals, level)
       entries = locals.map do |sig|
-        packed_field = []
-        packed_field << "signed" if sig.signed
-        decl_dims = packed_decl_dims(sig.width, sig.packed_dims)
-        packed_field << decl_dims unless decl_dims.empty?
-        init_value = sig.init.nil? ? nil : emit_literal_init(sig.init, sig.width)
-        is_const = sig.is_a?(ConstDecl)
-        {
-          kind: sig.sv_kind.to_s,
-          packed: packed_field.join(" "),
-          name: "#{sig.name}#{unpacked_decl_dims(sig.unpacked_dims)}",
-          init: init_value,
-          force_init: is_const,
-          attr: sig.respond_to?(:attr) ? sig.attr : nil
-        }
+        bt = sig.respond_to?(:bundle_type) ? sig.bundle_type : nil
+        if bt
+          packed_extra = sig.packed_dims.map { |d| decl_range(d) }.join
+          unpacked_extra = unpacked_decl_dims(sig.unpacked_dims)
+          init_value = sig.init.nil? ? nil : emit_literal_init(sig.init, sig.width)
+          is_const = sig.is_a?(ConstDecl)
+          {
+            kind: bt.type_name,
+            packed: packed_extra,
+            name: "#{sig.name}#{unpacked_extra}",
+            init: init_value,
+            force_init: is_const,
+            attr: sig.respond_to?(:attr) ? sig.attr : nil
+          }
+        else
+          packed_field = []
+          packed_field << "signed" if sig.signed
+          decl_dims = packed_decl_dims(sig.width, sig.packed_dims)
+          packed_field << decl_dims unless decl_dims.empty?
+          init_value = sig.init.nil? ? nil : emit_literal_init(sig.init, sig.width)
+          is_const = sig.is_a?(ConstDecl)
+          {
+            kind: sig.sv_kind.to_s,
+            packed: packed_field.join(" "),
+            name: "#{sig.name}#{unpacked_decl_dims(sig.unpacked_dims)}",
+            init: init_value,
+            force_init: is_const,
+            attr: sig.respond_to?(:attr) ? sig.attr : nil
+          }
+        end
       end
 
       max_kind = entries.map { |entry| entry[:kind].length }.max
@@ -164,6 +300,42 @@ module RSV
         val.nil? ? key.to_s : "#{key} = #{val}"
       end
       ["#{ind(level)}(* #{parts.join(", ")} *)"]
+    end
+
+    def collect_bundle_typedefs(ports, locals)
+      seen = {}
+      typedefs = []
+      collect = ->(bt) {
+        return unless bt
+        # Recurse into nested bundles first
+        bt.fields.each do |f|
+          collect.call(f.data_type.bundle_type) if f.data_type.bundle_type
+        end
+        unless seen[bt.type_name]
+          seen[bt.type_name] = true
+          typedefs << bt
+        end
+      }
+      ports.each { |p| collect.call(p.bundle_type) }
+      locals.each { |l| collect.call(l.bundle_type) if l.respond_to?(:bundle_type) }
+      typedefs
+    end
+
+    def emit_typedefs(bundles, level)
+      lines = []
+      bundles.each_with_index do |bt, idx|
+        guard = "__RSV_#{bt.type_name.upcase}_DEFINED__"
+        lines << "#{ind(level)}`ifndef #{guard}"
+        lines << "#{ind(level)}`define #{guard}"
+        lines << "#{ind(level)}typedef struct packed {"
+        bt.fields.each do |f|
+          lines << "#{ind(level + 1)}#{self.class.format_field_decl(f)};"
+        end
+        lines << "#{ind(level)}} #{bt.type_name};"
+        lines << "#{ind(level)}`endif"
+        lines << "" if idx < bundles.size - 1
+      end
+      lines
     end
 
     def emit_stmt_list(stmts, level)
@@ -474,8 +646,12 @@ module RSV
         expr.name
       when InstancePortHandler
         expr.name
+      when InterfacePortHandler
+        expr.name
       when SignalHandler
         expr.name
+      when FieldAccessExpr
+        "#{emit_expr(expr.base)}.#{expr.field_name}"
       when RawExpr
         expr.source
       when LiteralExpr

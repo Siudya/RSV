@@ -328,6 +328,20 @@ module RSV
       declare_port(:inout, build_signal_spec(name, data_type, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
     end
 
+    def interface_port(name, intf_type, modport: nil)
+      raise ArgumentError, "interface_port expects an InterfaceDef DataType" unless intf_type.is_a?(DataType) && intf_type.instance_variable_get(:@_intf_def)
+
+      intf_def = intf_type.instance_variable_get(:@_intf_def)
+      spec = SignalSpec.new(name, width: 1, signed: false)
+      intf_info = { klass: intf_def, modport: modport&.to_s, type_name: intf_def.type_name }
+      @ports << PortDecl.new(:intf, spec, intf_type: intf_info)
+      handler = SignalHandler.new(name, width: 1, kind: :intf)
+
+      # return a handler that supports field access via method_missing
+      intf_handler = InterfacePortHandler.new(name, intf_def)
+      intf_handler
+    end
+
     # ── Internal signal declarations ────────────────────────────────────────
 
     def wire(name, data_type, init: UNSET_INIT, attr: nil)
@@ -511,7 +525,8 @@ module RSV
           signed: data_type.signed,
           init: data_type.init,
           packed_dims: [],
-          unpacked_dims: data_type.unpacked_dims
+          unpacked_dims: data_type.unpacked_dims,
+          bundle_type: data_type.bundle_type
         )
         data_type.append_dimensions(packed: normalized_dims + inner_packed)
       when :unpacked
@@ -521,7 +536,8 @@ module RSV
           signed: data_type.signed,
           init: data_type.init,
           packed_dims: data_type.packed_dims,
-          unpacked_dims: []
+          unpacked_dims: [],
+          bundle_type: data_type.bundle_type
         )
         data_type.append_dimensions(unpacked: normalized_dims + inner_unpacked)
       else
@@ -551,7 +567,14 @@ module RSV
       type = RSV.normalize_data_type(data_type)
       effective_init = init.equal?(UNSET_INIT) ? type.init : init
 
-      if effective_init.is_a?(DataType) && !RSV.shape_matches_type?(type, effective_init)
+      # Allow Hash init for bundle types (partial field initialization)
+      if effective_init.is_a?(Hash) && type.bundle_type
+        # validate field names
+        valid_fields = type.bundle_type.fields.map(&:name)
+        effective_init.each_key do |k|
+          raise ArgumentError, "unknown bundle field '#{k}' in init for #{name}" unless valid_fields.include?(k.to_s)
+        end
+      elsif effective_init.is_a?(DataType) && !RSV.shape_matches_type?(type, effective_init)
         raise ArgumentError, "initializer shape must match declared data type for #{name}"
       end
 
@@ -561,14 +584,15 @@ module RSV
         signed: type.signed,
         init: effective_init,
         packed_dims: type.packed_dims,
-        unpacked_dims: type.unpacked_dims
+        unpacked_dims: type.unpacked_dims,
+        bundle_type: type.bundle_type
       )
     end
 
     def declare_port(dir, spec, clock_type: false, reset_type: false, attr: nil)
       raise ArgumentError, "#{dir} does not support init" unless spec.init.nil?
 
-      @ports << PortDecl.new(dir, spec, attr: attr)
+      @ports << PortDecl.new(dir, spec, attr: attr, bundle_type: spec.bundle_type)
       handler = build_handler(spec, dir)
       return ClockSignal.new(handler) if clock_type
       return ResetSignal.new(handler) if reset_type
@@ -586,11 +610,12 @@ module RSV
     end
 
     def build_local_decl(kind, spec, attr: nil)
+      bt = spec.bundle_type
       case kind
       when :reg
-        LocalDecl.new(kind, spec, init: nil, reset_init: spec.init, attr: attr)
+        LocalDecl.new(kind, spec, init: nil, reset_init: spec.init, attr: attr, bundle_type: bt)
       else
-        LocalDecl.new(kind, spec, attr: attr)
+        LocalDecl.new(kind, spec, attr: attr, bundle_type: bt)
       end
     end
 
@@ -602,7 +627,8 @@ module RSV
         kind: kind,
         init: spec.init,
         packed_dims: spec.packed_dims,
-        unpacked_dims: spec.unpacked_dims
+        unpacked_dims: spec.unpacked_dims,
+        bundle_type: spec.bundle_type
       )
     end
 

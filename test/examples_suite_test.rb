@@ -60,6 +60,15 @@ class ExamplesSuiteTest < Minitest::Test
     "sv_plugin_demo.rb" => {
       outputs: ["sv_plugin_demo.sv"],
       lint_files: ["build/rtl/sv_plugin_demo.sv"]
+    },
+    "bundle_and_interface.rb" => {
+      outputs: ["pixel_processor.sv", "stream_intf.sv", "stream_sink.sv", "simple_bus.sv", "bus_slave.sv"],
+      lint_files: [
+        "-Wno-MULTITOP",
+        "build/rtl/pixel_processor.sv",
+        "build/rtl/stream_intf.sv", "build/rtl/stream_sink.sv",
+        "build/rtl/simple_bus.sv", "build/rtl/bus_slave.sv"
+      ]
     }
   }.freeze
 

@@ -248,3 +248,67 @@ end
 
 This flow relies on `python3` + `pyslang` and currently imports module
 signatures only; it does not translate the imported module body into RSV.
+
+== Bundle (struct) usage
+
+Subclass `RSV::BundleDef` and use `field` inside `build` to declare members.
+The class produces a `DataType` usable with all RSV declarations.
+
+```ruby
+class Pixel < RSV::BundleDef
+  def build
+    r = field("r", uint(8))
+    g = field("g", uint(8))
+    b = field("b", uint(8))
+  end
+end
+
+class PixProc < RSV::ModuleDef
+  def build
+    clk = input("clk", clock); rst = input("rst", reset)
+    px = reg("px", Pixel.new, init: { "r" => 0, "g" => 0, "b" => 0 })
+    with_clk_and_rst(clk, rst)
+    always_ff { px.r <= 1 }
+  end
+end
+```
+
+Bundles support:
+- Nested bundles: `field "inner", OtherBundle.new`
+- `arr`/`mem`: `mem(4, Pixel.new)` → `pixel_t fifo[3:0]`
+- `sv_param`: `W = sv_param "W", 8` with curried `Pixel.new.(W: 16)`
+- Partial reset: only listed fields get reset in `always_ff`
+- Field access: `handler.field_name` for reads and writes
+- Field handles: `r = field("r", type)` — Ruby name may differ from SV name
+
+== Interface usage
+
+Subclass `RSV::InterfaceDef` and use `field` and `modport` inside `build`.
+Use `interface_port` in a module to connect it.
+
+```ruby
+class MyBus < RSV::InterfaceDef
+  def build
+    data  = field("data",  uint(32))
+    valid = field("valid", bit)
+    ready = field("ready", bit)
+    modport "master", inputs: [ready], outputs: [data, valid]
+    modport "slave",  inputs: [data, valid], outputs: [ready]
+  end
+end
+
+class Slave < RSV::ModuleDef
+  def build
+    bus = interface_port("bus", MyBus.new, modport: "slave")
+    o = output("dout", uint(32))
+    o <= bus.data
+  end
+end
+```
+
+Interfaces support:
+- Struct fields: `field "payload", Pixel.new`
+- Modport views: `modport "name", inputs: [...], outputs: [...]`
+- Module integration: `interface_port("name", IntfClass.new, modport: "slave")`
+- Field access on interface ports: `bus.data`, `bus.valid`
+- Meta parameters in `build(addr_w:, data_w:)`

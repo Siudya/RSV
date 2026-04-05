@@ -20,6 +20,7 @@ xmake rtl -f syn
   columns: (auto, auto, auto),
   [*名称*], [*别名*], [*特性摘要*],
   [`auto_dedup`], [`aut`], [自动去重与子模块自动布线],
+  [`bundle_and_interface`], [`bdi`], [Bundle (struct) 与 Interface 支持],
   [`const_demo`], [`cst`], [`const` / `localparam` 常量声明],
   [`counter`], [`ctr`], [基础参数化顺序计数器],
   [`curried_params`], [`cur`], [`sv_param` 与柯里化参数],
@@ -246,6 +247,27 @@ Verilog 兼容 wrapper 产生器。
 提供: 模块参数 (`WIDTH`, `DEPTH`)、时钟/复位端口、unpacked 数组输出、
 `always_comb` 组合逻辑、三元表达式、位切片等标准 SV 语法。
 
+== bundle_and_interface.rb
+
+Bundle (struct) 与 Interface 综合演示。
+
+- Bundle 定义: `RSV::BundleDef` 子类，`field` 声明字段
+- Bundle 参数化: `sv_param("W", 8)` 与柯里化 `.new.(W: 16)`
+- Bundle 嵌套: 在另一个 Bundle 的字段中引用其他 Bundle
+- Bundle 作为端口类型: `input("px_in", Pixel.new)`, `output("px_out", Pixel.new)`
+- Bundle 作为 reg 类型: `reg("px_r", Pixel.new, init: { ... })`
+- Bundle 部分初始化: 仅列出的字段在 `always_ff` 中产生 reset
+- Bundle 字段访问: `handler.field_name` 读写
+- Bundle 与 mem 组合: `mem(N, BundleType.new)` → unpacked struct 数组
+- Bundle 去重: 不同 sv\_param 值产生不同 typedef 名
+- Interface 定义: `RSV::InterfaceDef` 子类，`field`、`modport` 声明
+- Interface 含 struct 字段: `field "payload", DataPacket.new.(W: 32)`
+- Interface modport 视图: `modport "master"`, `modport "slave"`
+- Interface 端口: `interface_port("bus", StreamIntf.new, modport: "slave")`
+- Interface 字段访问: `bus.payload`, `bus.valid`, `bus.ready`
+- 元参数 Interface: `build(addr_w:, data_w:)`
+- 输出: `to_sv(path)`, `intf.to_sv(path)`
+
 == 特性覆盖矩阵
 
 #table(
@@ -283,4 +305,14 @@ Verilog 兼容 wrapper 产生器。
   [`sv_plugin` 内嵌 SV 代码], [sv\_plugin\_demo],
   [流式 API (`sv_map` 等)], [storage\_streams],
   [`attr:` 硬件属性], [（见 test/handler\_dsl\_test.rb 中的单元测试）],
+  [`BundleDef` struct 定义], [bundle\_and\_interface],
+  [Bundle 参数化 (`sv_param`)], [bundle\_and\_interface],
+  [Bundle 嵌套], [bundle\_and\_interface],
+  [Bundle 部分初始化], [bundle\_and\_interface],
+  [Bundle 字段访问], [bundle\_and\_interface],
+  [Bundle + `mem`/`arr`], [bundle\_and\_interface],
+  [`InterfaceDef` 定义], [bundle\_and\_interface],
+  [Interface modport], [bundle\_and\_interface],
+  [Interface 含 struct], [bundle\_and\_interface],
+  [`interface_port`], [bundle\_and\_interface],
 )

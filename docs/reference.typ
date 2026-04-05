@@ -251,3 +251,48 @@ inferred width and computed init value:
   supported by the RSV DSL.
 - Example: `sv_plugin '$display("val=%h", sig);'`
 - Example: see `examples/sv_plugin_demo.rb`.
+
+== Bundle (Struct)
+
+- Subclass `RSV::BundleDef` to define a packed struct.
+- Implement field declarations in `build(...)`.
+- `field(name, type)`: declares a struct member. The type can be any RSV data
+  type (`bit`, `uint`, `sint`, another bundle, `arr(...)`, `mem(...)`).
+  Returns a field handle for use in the Ruby scope. The Ruby variable name
+  may differ from the SV field name for encryption-friendly naming.
+- `MyBundle.new` returns a `DataType` usable with `input`, `output`, `wire`,
+  `reg`, `arr`, `mem`, etc.
+- Bundle types emit as `typedef struct packed { ... }` before the module body,
+  guarded by ifndef to allow safe multi-file compilation.
+- Nested bundles are supported: `field "inner", OtherBundle.new`.
+- Parameterized bundles support `sv_param` at class level. Curried call:
+  `MyBundle.new.(W: 16)`. Different parameter values produce different
+  type names via automatic dedup.
+- Partial reset: `reg("r", bundle_t, init: { "field" => 0 })` only generates
+  reset assignments for the listed fields in `always_ff`.
+- Full reset: provide all field names in the init hash.
+- Field access: `handler.field_name` returns a `FieldAccessExpr` usable on
+  both sides of assignments. E.g., `r.valid <= 1`, `o <= r.data`.
+- Array indexing preserves bundle type: `fifo[0].data` works on
+  `mem(N, bundle_t)`.
+- Example: see `examples/bundle_and_interface.rb` file.
+
+== Interface
+
+- Subclass `RSV::InterfaceDef` to define a SystemVerilog interface.
+- `field(name, type)`: declares a plain logic signal (no direction).
+  Returns a field handle. The handle can be used in `modport` lists.
+- `field(name, :input, type)` / `field(name, :output, type)`: declares a
+  directional signal. Returns a field handle.
+- `modport(name, inputs: [...], outputs: [...])`: declares a modport view.
+  Accepts field handles or plain strings.
+- Struct (bundle) fields are supported: `field "payload", MyBundle.new`.
+- Interface types emit as `interface ... endinterface` with the struct typedefs
+  included.
+- Parameterized interfaces: meta parameters in `build(addr_w: 32, data_w: 32)`.
+  `sv_param` at class level also supported.
+- `intf.to_sv(path)`: emits the interface SV text.
+- Module IO integration: `interface_port(name, IntfClass.new, modport: "slave")`
+  declares an interface port emitting `IntfName.slave port_name`.
+- The returned handler supports field access: `bus.data`, `bus.ready`.
+- Example: see `examples/bundle_and_interface.rb` file.

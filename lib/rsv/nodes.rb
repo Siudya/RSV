@@ -195,14 +195,15 @@ module RSV
   # Anonymous RSV data type used to define named hardware objects.
   # Non-hardware DataType instances with init values support Ruby-time arithmetic.
   class DataType
-    attr_reader :width, :signed, :init, :packed_dims, :unpacked_dims
+    attr_reader :width, :signed, :init, :packed_dims, :unpacked_dims, :bundle_type
 
-    def initialize(width:, signed: false, init: nil, packed_dims: [], unpacked_dims: [])
+    def initialize(width:, signed: false, init: nil, packed_dims: [], unpacked_dims: [], bundle_type: nil)
       @width = width
       @signed = signed
       @init = init
       @packed_dims = packed_dims.dup
       @unpacked_dims = unpacked_dims.dup
+      @bundle_type = bundle_type
     end
 
     def append_dimensions(packed: [], unpacked: [])
@@ -211,7 +212,8 @@ module RSV
         signed: @signed,
         init: @init,
         packed_dims: @packed_dims + packed,
-        unpacked_dims: @unpacked_dims + unpacked
+        unpacked_dims: @unpacked_dims + unpacked,
+        bundle_type: @bundle_type
       )
     end
 
@@ -494,17 +496,42 @@ module RSV
     end
   end
 
+  # A single field inside a BundleDef.
+  BundleFieldDef = Struct.new(:name, :data_type, keyword_init: true)
+
+  # Expression node for accessing a field of a bundle-typed signal: base.field_name
+  class FieldAccessExpr
+    include ExprOps
+    include AssignableExpr
+
+    attr_reader :base, :field_name
+
+    def initialize(base, field_name)
+      @base = base
+      @field_name = field_name
+    end
+
+    def to_s
+      "#{@base}.#{@field_name}"
+    end
+
+    def base_name
+      @base.respond_to?(:base_name) ? @base.base_name : @base.to_s
+    end
+  end
+
   # Internal named signal declaration spec used by ports/locals.
   class SignalSpec
-    attr_reader :name, :width, :signed, :init, :packed_dims, :unpacked_dims
+    attr_reader :name, :width, :signed, :init, :packed_dims, :unpacked_dims, :bundle_type
 
-    def initialize(name, width:, signed: false, init: nil, packed_dims: [], unpacked_dims: [])
+    def initialize(name, width:, signed: false, init: nil, packed_dims: [], unpacked_dims: [], bundle_type: nil)
       @name         = name
       @width        = width
       @signed       = signed
       @init         = init
       @packed_dims   = packed_dims.dup
       @unpacked_dims = unpacked_dims.dup
+      @bundle_type  = bundle_type
     end
 
     def append_dimensions!(packed: [], unpacked: [])
@@ -621,6 +648,26 @@ module RSV
 
     def base_name
       @base.base_name if @base.respond_to?(:base_name)
+    end
+
+    def bundle_type
+      @base.respond_to?(:bundle_type) ? @base.bundle_type : nil
+    end
+
+    def method_missing(meth, *args, &blk)
+      bt = bundle_type
+      if bt && args.empty? && blk.nil?
+        field_name = meth.to_s
+        fd = bt.fields.find { |f| f.name == field_name }
+        return FieldAccessExpr.new(self, field_name) if fd
+      end
+      super
+    end
+
+    def respond_to_missing?(meth, include_private = false)
+      bt = bundle_type
+      return true if bt && bt.fields.any? { |f| f.name == meth.to_s }
+      super
     end
   end
 
@@ -818,9 +865,9 @@ module RSV
     include ExprOps
     include AssignableExpr
 
-    attr_reader :name, :width, :signed, :kind, :init, :packed_dims, :unpacked_dims
+    attr_reader :name, :width, :signed, :kind, :init, :packed_dims, :unpacked_dims, :bundle_type
 
-    def initialize(name, width: 1, signed: false, kind: nil, init: nil, packed_dims: [], unpacked_dims: [])
+    def initialize(name, width: 1, signed: false, kind: nil, init: nil, packed_dims: [], unpacked_dims: [], bundle_type: nil)
       @name         = name
       @width        = width
       @signed       = signed
@@ -828,6 +875,7 @@ module RSV
       @init         = init
       @packed_dims   = packed_dims.dup
       @unpacked_dims = unpacked_dims.dup
+      @bundle_type  = bundle_type
     end
 
     def with_width(width)
@@ -838,7 +886,8 @@ module RSV
         kind: @kind,
         init: @init,
         packed_dims: @packed_dims,
-        unpacked_dims: @unpacked_dims
+        unpacked_dims: @unpacked_dims,
+        bundle_type: @bundle_type
       )
     end
 
@@ -862,6 +911,59 @@ module RSV
 
     def as_sint
       AsSintExpr.new(self)
+    end
+
+    def method_missing(meth, *args, &blk)
+      if @bundle_type && args.empty? && blk.nil?
+        field_name = meth.to_s
+        fd = @bundle_type.fields.find { |f| f.name == field_name }
+        if fd
+          return FieldAccessExpr.new(self, field_name)
+        end
+      end
+      super
+    end
+
+    def respond_to_missing?(meth, include_private = false)
+      if @bundle_type
+        return true if @bundle_type.fields.any? { |f| f.name == meth.to_s }
+      end
+      super
+    end
+  end
+
+  # Handler for interface port signals — supports field access via method_missing.
+  class InterfacePortHandler
+    include ExprOps
+    include AssignableExpr
+
+    attr_reader :name, :intf_def
+
+    def initialize(name, intf_def)
+      @name = name
+      @intf_def = intf_def
+    end
+
+    def to_s
+      @name
+    end
+
+    def base_name
+      @name
+    end
+
+    def method_missing(meth, *args, &blk)
+      if args.empty? && blk.nil?
+        field_name = meth.to_s
+        if @intf_def.fields.any? { |f| f[:name] == field_name }
+          return FieldAccessExpr.new(self, field_name)
+        end
+      end
+      super
+    end
+
+    def respond_to_missing?(meth, include_private = false)
+      @intf_def.fields.any? { |f| f[:name] == meth.to_s } || super
     end
   end
 
@@ -986,10 +1088,10 @@ module RSV
 
   # Represents an input / output / inout port declaration.
   class PortDecl
-    attr_reader :dir, :name, :width, :signed, :packed_dims, :unpacked_dims, :raw_type, :attr
+    attr_reader :dir, :name, :width, :signed, :packed_dims, :unpacked_dims, :raw_type, :attr, :bundle_type, :intf_type
 
-    def initialize(dir, signal, raw_type: nil, attr: nil)
-      @dir          = dir    # :input | :output | :inout
+    def initialize(dir, signal, raw_type: nil, attr: nil, bundle_type: nil, intf_type: nil)
+      @dir          = dir    # :input | :output | :inout | :intf
       @name         = signal.name
       @width        = signal.width  # Integer or String (e.g. "WIDTH")
       @signed       = signal.signed
@@ -997,6 +1099,8 @@ module RSV
       @unpacked_dims = signal.unpacked_dims.dup
       @raw_type      = raw_type
       @attr          = attr  # Hash or nil: { "mark_debug" => "true" } or { "keep" => nil }
+      @bundle_type  = bundle_type
+      @intf_type    = intf_type  # { klass:, modport:, type_name: }
     end
 
     def append_dimensions!(packed: [], unpacked: [])
@@ -1039,9 +1143,9 @@ module RSV
 
   # Represents a local wire / logic / reg signal declaration.
   class LocalDecl
-    attr_reader :kind, :name, :width, :signed, :init, :reset_init, :packed_dims, :unpacked_dims, :attr
+    attr_reader :kind, :name, :width, :signed, :init, :reset_init, :packed_dims, :unpacked_dims, :attr, :bundle_type
 
-    def initialize(kind, signal, init: signal.init, reset_init: nil, attr: nil)
+    def initialize(kind, signal, init: signal.init, reset_init: nil, attr: nil, bundle_type: nil)
       @kind         = kind
       @name         = signal.name
       @width        = signal.width
@@ -1051,6 +1155,7 @@ module RSV
       @packed_dims   = signal.packed_dims.dup
       @unpacked_dims = signal.unpacked_dims.dup
       @attr          = attr
+      @bundle_type  = bundle_type
     end
 
     def sv_kind
@@ -1077,6 +1182,27 @@ module RSV
       @ports  = ports
       @locals = locals
       @stmts  = stmts
+    end
+  end
+
+  class ElaboratedBundle
+    attr_reader :name, :params, :fields
+
+    def initialize(name, params:, fields:)
+      @name   = name
+      @params = params
+      @fields = fields
+    end
+  end
+
+  class ElaboratedInterface
+    attr_reader :name, :params, :fields, :modports
+
+    def initialize(name, params:, fields:, modports:)
+      @name   = name
+      @params = params
+      @fields = fields
+      @modports = modports
     end
   end
 
@@ -1236,15 +1362,17 @@ module RSV
 
   def self.normalize_data_type(data_type)
     return data_type if data_type.is_a?(DataType)
+    # Auto-finalize curried bundle builders
+    return data_type.send(:finalize) if data_type.is_a?(CurriedBundleBuilder)
 
     raise TypeError, "data type declaration expects RSV::DataType, got #{data_type.class}"
   end
 
   def self.normalize_expr(operand)
     case operand
-    when SignalHandler, InstancePortHandler, RawExpr, LiteralExpr, BinaryExpr, UnaryExpr, IndexExpr,
+    when SignalHandler, InstancePortHandler, InterfacePortHandler, RawExpr, LiteralExpr, BinaryExpr, UnaryExpr, IndexExpr,
          RangeSelectExpr, IndexedPartSelectExpr, AsSintExpr, ClockSignal, ResetSignal,
-         ParenExpr,
+         ParenExpr, FieldAccessExpr,
          MuxExpr, CatExpr, FillExpr, PackedCollectionExpr, MacroRef, GenvarRef, SvParamRef
       operand
     when String
@@ -1511,6 +1639,14 @@ module RSV
       dim.value
     else
       nil
+    end
+  end
+
+  def self.format_dim(d)
+    case d
+    when Integer then d.to_s
+    when LiteralExpr then d.value.to_s
+    else d.to_s
     end
   end
 end

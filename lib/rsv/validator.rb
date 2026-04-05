@@ -99,6 +99,10 @@ module RSV
         expr.name
       when SignalHandler, IndexExpr, RangeSelectExpr, IndexedPartSelectExpr
         expr.base_name
+      when FieldAccessExpr
+        assigned_base_name(expr.base)
+      when InterfacePortHandler
+        expr.name
       when RawExpr
         raw_expr_base_name(expr.source)
       else

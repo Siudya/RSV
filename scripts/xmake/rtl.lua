@@ -1,5 +1,6 @@
 local example_catalog = {
   {name = "auto_dedup", alias = "aut", summary = "automatic dedup and child-to-child auto wiring"},
+  {name = "bundle_and_interface", alias = "bdi", summary = "bundle (struct) and interface definitions"},
   {name = "const_demo", alias = "cst", summary = "const localparam declarations and typed constants"},
   {name = "counter", alias = "ctr", summary = "parameterized sequential counter"},
   {name = "curried_params", alias = "cur", summary = "sv_param and curried parameter application"},
