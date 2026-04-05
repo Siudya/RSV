@@ -458,10 +458,10 @@ class NewTypesDslTest < Minitest::Test
 
       always_comb do
         svcase(sel) do
-          when_(0) { out <= 0x10 }
-          when_(1) { out <= 0x20 }
-          when_(2) { out <= 0x30 }
-          default_ { out <= 0xFF }
+          is(0) { out <= 0x10 }
+          is(1) { out <= 0x20 }
+          is(2) { out <= 0x30 }
+          fallin { out <= 0xFF }
         end
       end
     end.new
@@ -484,9 +484,9 @@ class NewTypesDslTest < Minitest::Test
 
       always_comb do
         svcasez(sel) do
-          when_(0b0001) { out <= 0xA }
-          when_(0b0010) { out <= 0xB }
-          default_ { out <= 0 }
+          is(0b0001) { out <= 0xA }
+          is(0b0010) { out <= 0xB }
+          fallin { out <= 0 }
         end
       end
     end.new
@@ -503,9 +503,9 @@ class NewTypesDslTest < Minitest::Test
 
       always_comb do
         svcase(sel, unique: true) do
-          when_(0) { out <= 1 }
-          when_(1) { out <= 2 }
-          default_ { out <= 0 }
+          is(0) { out <= 1 }
+          is(1) { out <= 2 }
+          fallin { out <= 0 }
         end
       end
     end.new
@@ -522,8 +522,8 @@ class NewTypesDslTest < Minitest::Test
 
       always_comb do
         svcase(sel, priority: true) do
-          when_(0) { out <= 1 }
-          default_ { out <= 0 }
+          is(0) { out <= 1 }
+          fallin { out <= 0 }
         end
       end
     end.new
@@ -539,14 +539,34 @@ class NewTypesDslTest < Minitest::Test
 
       always_comb do
         svcasez(sel, unique: true) do
-          when_(0b0001) { out <= 1 }
-          default_ { out <= 0 }
+          is(0b0001) { out <= 1 }
+          fallin { out <= 0 }
         end
       end
     end.new
 
     sv = mod.to_sv
     assert_includes sv, "unique casez (sel)"
+  end
+
+  def test_svcasez_wildcard
+    mod = module_class("CasezWild") do
+      sel = input("sel", uint(4))
+      out = wire("out", uint(8))
+
+      always_comb do
+        svcasez(sel) do
+          is("4'b1??0") { out <= 0xA }
+          is("4'b??01") { out <= 0xB }
+          fallin { out <= 0 }
+        end
+      end
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "casez (sel)"
+    assert_includes sv, "4'b1??0: begin"
+    assert_includes sv, "4'b??01: begin"
   end
 
   def test_svcase_multi_val_branch
@@ -556,9 +576,9 @@ class NewTypesDslTest < Minitest::Test
 
       always_comb do
         svcase(sel) do
-          when_(0, 1) { out <= 0xAA }
-          when_(2, 3) { out <= 0xBB }
-          default_ { out <= 0 }
+          is(0, 1) { out <= 0xAA }
+          is(2, 3) { out <= 0xBB }
+          fallin { out <= 0 }
         end
       end
     end.new
@@ -579,9 +599,9 @@ class NewTypesDslTest < Minitest::Test
       with_clk_and_rst(clk, rst)
       always_ff do
         svcase(sel) do
-          when_(0) { r <= 0x10 }
-          when_(1) { r <= 0x20 }
-          default_ { r <= 0 }
+          is(0) { r <= 0x10 }
+          is(1) { r <= 0x20 }
+          fallin { r <= 0 }
         end
       end
     end.new
@@ -602,8 +622,8 @@ class NewTypesDslTest < Minitest::Test
 
       always_comb do
         svif(a.eq(0), unique: true) { out <= 1 }
-        svelif(a.eq(1)) { out <= 2 }
-        svelse { out <= 0 }
+        .svelif(a.eq(1)) { out <= 2 }
+        .svelse { out <= 0 }
       end
     end.new
 
@@ -620,7 +640,7 @@ class NewTypesDslTest < Minitest::Test
 
       always_comb do
         svif(a.eq(0), priority: true) { out <= 1 }
-        svelse { out <= 0 }
+        .svelse { out <= 0 }
       end
     end.new
 

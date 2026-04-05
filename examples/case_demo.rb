@@ -5,12 +5,13 @@
 #
 # Covered syntax:
 # - svcase: plain case statement
-# - svcasez: casez statement
+# - svcasez: casez statement (with ? wildcard)
 # - svcasex: casex statement
 # - unique/priority qualifiers on case and if
-# - Multi-value when_ branches
-# - default_ branch
+# - Multi-value is() branches
+# - fallin (default) branch
 # - Case inside always_ff (non-blocking assigns)
+# - Chained svif/svelif/svelse
 #
 # Run:
 #   xmake rtl -f case_demo
@@ -45,22 +46,22 @@ class CaseDemo < ModuleDef
     # plain case in always_comb
     always_comb do
       svcase(opcode) do
-        when_(0) { alu_w <= data_in }
-        when_(1) { alu_w <= data_in + 1 }
-        when_(2) { alu_w <= data_in - 1 }
-        when_(3, 4) { alu_w <= data_in << 1 }
-        default_ { alu_w <= 0 }
+        is(0) { alu_w <= data_in }
+        is(1) { alu_w <= data_in + 1 }
+        is(2) { alu_w <= data_in - 1 }
+        is(3, 4) { alu_w <= data_in << 1 }
+        fallin { alu_w <= 0 }
       end
     end
 
-    # unique casez with one-hot-style matching
+    # unique casez with ? wildcard patterns
     always_comb do
       svcasez(mode, unique: true) do
-        when_(0b0001) { flag_w <= 1 }
-        when_(0b0010) { flag_w <= 1 }
-        when_(0b0100) { flag_w <= 0 }
-        when_(0b1000) { flag_w <= 0 }
-        default_ { flag_w <= 0 }
+        is("4'b???1") { flag_w <= 1 }
+        is("4'b??10") { flag_w <= 1 }
+        is("4'b?100") { flag_w <= 0 }
+        is("4'b1000") { flag_w <= 0 }
+        fallin { flag_w <= 0 }
       end
     end
 
@@ -68,23 +69,17 @@ class CaseDemo < ModuleDef
     with_clk_and_rst(clk, rst)
     always_ff do
       svcase(opcode) do
-        when_(0) { state_r <= data_in }
-        when_(1) { state_r <= state_r + 1 }
-        default_ { state_r <= state_r }
+        is(0) { state_r <= data_in }
+        is(1) { state_r <= state_r + 1 }
+        fallin { state_r <= state_r }
       end
     end
 
-    # unique if / priority if
+    # compact chained unique if / svelif / svelse
     always_comb do
-      svif(opcode.eq(0), unique: true) do
-        sel_w <= data_in
-      end
-      svelif(opcode.eq(1)) do
-        sel_w <= data_in + 1
-      end
-      svelse do
-        sel_w <= 0
-      end
+      svif(opcode.eq(0), unique: true) { sel_w <= data_in }
+      .svelif(opcode.eq(1)) { sel_w <= data_in + 1 }
+      .svelse { sel_w <= 0 }
     end
   end
 end

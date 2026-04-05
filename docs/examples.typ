@@ -135,11 +135,12 @@ case/casez 语句及 unique/priority 限定符。
 - 端口声明: `input`, `output`
 - 类型构造: `clock`, `reset`, `uint`, `bit`
 - 局部声明: `wire`, `reg`(含初始值)
-- `svcase(expr) { when\_(val) { ... } default\_ { ... } }`: case 语句
+- `svcase(expr) { is(val) { ... } fallin { ... } }`: case 语句
 - `svcasez(expr, unique: true)`: unique casez 语句
-- 多值匹配: `when\_(val1, val2) { ... }`
+- casez `?` 通配符: `is("4'b1??0")`
+- 多值匹配: `is(val1, val2) { ... }`
 - `svif(cond, unique: true)`: unique if 限定符
-- `svif(cond, priority: true)`: priority if 限定符
+- 链式 `svif(...) { }.svelif(...) { }.svelse { }` 紧凑写法
 - case 在 `always_ff` 内使用非阻塞赋值
 - 赋值: `<=`
 - 时序逻辑: `always_ff`, `with_clk_and_rst`
@@ -316,8 +317,9 @@ Bundle (struct) 与 Interface 综合演示。
   [`expr()`], [counter, syntax\_showcase],
   [`.as_sint` 类型转换], [syntax\_showcase],
   [`always_ff`/`always_comb`/`always_latch`], [syntax\_showcase 覆盖全部三种],
-  [`svif`/`svelif`/`svelse`], [counter, syntax\_showcase, macro\_demo, case\_demo],
-  [`svcase`/`svcasez` case 语句], [case\_demo],
+  [`svif`/`svelif`/`svelse` 链式写法], [counter, syntax\_showcase, macro\_demo, case\_demo],
+  [`svcase`/`svcasez` case 语句 (`is`/`fallin`)], [case\_demo],
+  [`casez ? 通配符`], [case\_demo],
   [`unique`/`priority` 限定符], [case\_demo],
   [模块实例化与端口连接], [auto\_dedup, manual\_dedup, import\_demo, curried\_params],
   [子模块间自动布线], [auto\_dedup, manual\_dedup],

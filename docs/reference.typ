@@ -110,12 +110,15 @@
 / `always_comb { ... }`: emits `always_comb begin ... end`.
 / `svif(cond, unique: false, priority: false) { ... }`: procedural if statement.
   Set `unique: true` or `priority: true` to emit `unique if` or `priority if`.
+  Returns a chainable object — use `.svelif(cond) { ... }` and `.svelse { ... }` for
+  compact if/elsif/else chains (standalone `svelif`/`svelse` calls also work).
 / `svelif(cond) { ... }`: else-if branch (appends to preceding `svif`).
 / `svelse { ... }`: else branch.
 / `svcase(expr, unique: false, priority: false) { ... }`: procedural case statement.
-  Inside the block, use `when_(val, ...) { ... }` for branches and `default_ { ... }`
-  for the default branch. Multiple values in `when_` emit comma-separated match.
+  Inside the block, use `is(val, ...) { ... }` for branches and `fallin { ... }`
+  for the default branch. Multiple values in `is` emit comma-separated match.
 / `svcasez(expr, unique: false, priority: false) { ... }`: casez statement.
+  Use string values like `is("4'b1??0")` for `?` wildcard patterns.
 / `svcasex(expr, unique: false, priority: false) { ... }`: casex statement.
 / `lhs <= rhs`: left assignment.
 / `rhs >= lhs`: right assignment.

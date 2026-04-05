@@ -28,6 +28,7 @@ module RSV
       stmt    = IfStmt.new(RSV.normalize_expr(cond), builder.stmts, qualifier: qualifier)
       @stmts << stmt
       @last_if = stmt
+      IfChain.new(self, stmt)
     end
 
     def svif(cond, unique: false, priority: false, &block)
@@ -42,6 +43,7 @@ module RSV
       builder = ProceduralBuilder.new(assign_context: @assign_context)
       builder.build(&block)
       @last_if.add_elsif(RSV.normalize_expr(cond), builder.stmts)
+      IfChain.new(self, @last_if)
     end
     alias svelif elsif_stmt
 
@@ -164,19 +166,35 @@ module RSV
       @stmt
     end
 
-    # when(val1, val2, ...) { ... }
-    def when_(*vals, &block)
+    # is(val1, val2, ...) { ... } — a case branch
+    def is(*vals, &block)
       builder = ProceduralBuilder.new(assign_context: @assign_context)
       builder.build(&block)
       normalized_vals = vals.map { |v| RSV.normalize_expr(v) }
       @stmt.add_branch(normalized_vals, builder.stmts)
     end
 
-    # default { ... }
-    def default_(&block)
+    # fallin { ... } — the default branch
+    def fallin(&block)
       builder = ProceduralBuilder.new(assign_context: @assign_context)
       builder.build(&block)
       @stmt.set_default(builder.stmts)
+    end
+  end
+
+  # Chainable wrapper returned by svif/svelif — allows compact if/elsif/else chains.
+  class IfChain
+    def initialize(proc_builder, if_stmt)
+      @proc_builder = proc_builder
+      @if_stmt = if_stmt
+    end
+
+    def svelif(cond, &block)
+      @proc_builder.svelif(cond, &block)
+    end
+
+    def svelse(&block)
+      @proc_builder.svelse(&block)
     end
   end
 end
