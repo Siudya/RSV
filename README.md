@@ -3,15 +3,10 @@
 RSV is a lightweight Ruby DSL for generating readable SystemVerilog with a
 class-based module API.
 
-Current DSL highlights include anonymous `bit` / `uint` / `arr` / `mem` data
-types, class-based module construction, and stream-view operations on `uint`,
-`arr`, and `mem` values (`sv_take`, `sv_select`, `sv_foreach`, `sv_reduce`,
-`sv_map`). Class-based modules also expose a mutable `module_name` and
-automatically suffix colliding structural variants under the same base name.
-For repeated submodules, you can also build a reusable template once with
-`Counter.definition(...)` and instantiate it later with `instance(...)`.
-Repeated `definition(...)` calls that elaborate to the same SV template reuse
-the same handle automatically.
+RSV covers class-based module construction, anonymous `bit` / `uint` / `sint`
+/ `arr` / `mem` types, procedural blocks, generate blocks, macro helpers,
+imported black-box modules, Verilog wrapper emission, and inline
+SystemVerilog escape hatches.
 
 ## Environment
 
@@ -30,99 +25,46 @@ cd RSV
 
 ## Quick start
 
-For a better Ruby editing experience in VS Code, install the `Ruby LSP`
-extension and keep the project gems in Bundler. `Ruby LSP` provides syntax
-highlighting, completion, hover, and go-to-definition, while `RuboCop` adds
-lint diagnostics and formatting support:
-
 ```sh
-gem install bundler
-bundle add ruby-lsp
-bundle add rubocop --group development
-bundle install
-```
-
-Then add this to your VS Code `settings.json`:
-
-```json
-{
-  "[ruby]": {
-    "editor.defaultFormatter": "Shopify.ruby-lsp",
-    "editor.formatOnSave": true
-  }
-}
-```
-
-Run the bundled examples:
-
-```sh
-ruby examples/counter.rb
-ruby examples/auto_dedup.rb
-ruby examples/manual_dedup.rb
-ruby examples/syntax_showcase.rb
-ruby examples/storage_streams.rb
-ruby examples/mux_cases.rb
-ruby examples/import_demo.rb
-ruby examples/const_demo.rb
-ruby examples/macro_demo.rb
-ruby examples/generate_demo.rb
-ruby examples/curried_params.rb
-ruby examples/verilog_wrapper.rb
-ruby examples/sv_plugin_demo.rb
-```
-
-These examples print generated SystemVerilog with `to_sv("-")` and write the
-results to `build/rtl/`. When an example instantiates multiple distinct variants
-of one module class, it also writes the deduplicated dependency modules there.
-
-- `counter.rb`: parameterized sequential counter
-- `auto_dedup.rb`: automatic dedup plus child-to-child wiring through auto-generated parent-local wires
-- `manual_dedup.rb`: manual `definition(...)` / `instance(...)` dedup plus child-to-child wiring through auto-generated parent-local wires
-- `syntax_showcase.rb`: declarations, operators, slices, casts, and control blocks
-- `storage_streams.rb`: arr/mem shapes, fill helpers, indexing, and stream views
-- `mux_cases.rb`: ternary, one-hot, and priority mux helpers
-- `import_demo.rb`: `RSV.import_sv` with an imported SV module under `examples/`
-- `const_demo.rb`: `const` declarations emitted as SV `localparam`
-- `macro_demo.rb`: SV preprocessor macros (`define, `ifdef, `ifndef, etc.)
-- `generate_demo.rb`: generate-for and generate-if blocks
-- `curried_params.rb`: sv_param and curried parameter application
-- `verilog_wrapper.rb`: Verilog-compatible wrapper with flattened ports
-- `sv_plugin_demo.rb`: inline SystemVerilog code embedding with `sv_plugin`
-
-Use xmake automation:
-
-```sh
-xmake rtl -f counter
+xmake rtl -l
+xmake rtl -f ctr
+xmake rtl -f syn
 xmake doc
 ```
 
-These generate `build/rtl/*.sv` and `build/rsv_doc.pdf`.
+`xmake rtl -l` lists all built-in examples, their 3-4 character aliases, and a
+short feature summary. `xmake rtl -f <name-or-alias>` runs a built-in example
+from `examples/` and emits RTL into `build/rtl/`.
 
-## Import existing SystemVerilog modules
+To run a script from another directory, use:
 
-`RSV.import_sv` can import an external SystemVerilog module as a black-box
-signature provider. The imported object exposes the module name, parameters,
-and ports, and can be instantiated inside RSV modules just like an RSV-defined
-module.
-
-```ruby
-Uart = RSV.import_sv("vendor/uart.sv", top: "Uart", incdirs: ["vendor/include"])
-
-class Top < RSV::ModuleDef
-  def build
-    clk = input("clk", bit)
-    tx = output("tx", bit)
-
-    uart = Uart.new(inst_name: "u_uart", WIDTH: 16)
-    uart.clk <= clk
-    tx <= uart.tx
-  end
-end
+```sh
+xmake rtl -f custom_demo -d path/to/scripts
 ```
 
-This importer uses `python3` + `pyslang` under the hood and currently imports
-module signatures only; it does not translate the imported module body into
-RSV.
+To build the Typst documentation:
+
+```sh
+xmake doc
+```
+
+This generates `build/rsv_doc.pdf`.
+
+## SystemVerilog feature support
+
+| Area | Support |
+| --- | --- |
+| Module structure | parameters, ports, locals, continuous `assign`, readable alignment |
+| Procedural RTL | `always_ff`, `always_comb`, `always_latch`, reset injection, `if` / `else` |
+| Data shapes | packed `arr`, unpacked `mem`, mixed shapes, indexing and slices |
+| Expressions | arithmetic, compare, logical, reduction, shifts, `mux`, `cat`, `fill`, `$signed` |
+| Elaboration-time features | `generate_for`, `generate_if`, `definition` / `instance`, curried `sv_param` |
+| SV integration | macro directives, imported SV module signatures, inline `sv_plugin`, Verilog wrapper |
+| Examples | `xmake rtl -l` lists runnable examples with aliases and feature summaries |
+
+Imported SystemVerilog modules are supported as black-box signatures. RSV reads
+their module name, parameters, and ports, then lets you instantiate them from
+Ruby DSL code. The imported body is not translated into RSV.
 
 ## Project structure
 
@@ -141,6 +83,7 @@ RSV/
 - [Documentation overview](docs/index.typ)
 - [Guide](docs/guide.typ)
 - [Reference](docs/reference.typ)
+- [Examples and feature coverage](docs/examples.typ)
 
 ## Reference links
 

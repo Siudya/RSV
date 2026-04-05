@@ -11,7 +11,7 @@
 # - different meta_params produce different module templates
 #
 # Run:
-#   ruby examples/curried_params.rb
+#   xmake rtl -f cur
 
 $LOAD_PATH.unshift(File.join(__dir__, "..", "lib"))
 require "rsv"

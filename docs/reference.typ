@@ -204,6 +204,7 @@ inferred width and computed init value:
 - Public DSL entry points use snake_case.
 - Local RSV `wire`/`reg` declarations are emitted as aligned SV `logic`
   declarations.
+- Consecutive continuous `assign` statements align at the `=` column.
 
 == Attributes
 
@@ -211,9 +212,17 @@ inferred width and computed init value:
 - Each key is the attribute name; its value is either a string expression or
   `nil` (for standalone attributes).
 - Example: `wire("sig", uint(8), attr: { "mark_debug" => "\"true\"" })`
-  emits `(* mark_debug = "true" *) logic [7:0] sig;`.
+  emits:
+  ```systemverilog
+  (* mark_debug = "true" *)
+  logic [7:0] sig;
+  ```
 - Example: `output("dout", uint(8), attr: { "keep" => nil })`
-  emits `(* keep *) output logic [7:0] dout`.
+  emits:
+  ```systemverilog
+  (* keep *)
+  output logic [7:0] dout
+  ```
 - Multiple attributes may be combined: `attr: { "a" => nil, "b" => "1" }`
   emits `(* a, b = 1 *)`.
 

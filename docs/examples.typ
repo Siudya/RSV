@@ -2,6 +2,38 @@
 
 本文档描述 `examples/` 目录下每一个示例文件所覆盖的 RSV 特性。
 
+== 使用 xmake 运行示例
+
+```bash
+xmake rtl -l
+xmake rtl -f ctr
+xmake rtl -f syn
+```
+
+- `xmake rtl -l` 列出所有内置示例、3-4 字符别名与特性摘要。
+- `xmake rtl -f <名称或别名>` 运行 `examples/` 目录下的内置示例。
+- `xmake rtl -f name -d dir` 可运行自定义目录下的 Ruby 脚本。
+
+== 内置示例目录
+
+#table(
+  columns: (auto, auto, auto),
+  [*名称*], [*别名*], [*特性摘要*],
+  [`auto_dedup`], [`aut`], [自动去重与子模块自动布线],
+  [`const_demo`], [`cst`], [`const` / `localparam` 常量声明],
+  [`counter`], [`ctr`], [基础参数化顺序计数器],
+  [`curried_params`], [`cur`], [`sv_param` 与柯里化参数],
+  [`generate_demo`], [`gen`], [generate 块、属性与多级流水],
+  [`import_demo`], [`imp`], [导入外部 SystemVerilog 模块签名],
+  [`macro_demo`], [`mac`], [宏定义、条件编译与宏引用],
+  [`manual_dedup`], [`man`], [手动 `definition` / `instance` 去重],
+  [`mux_cases`], [`mux`], [`mux` / `mux1h` / `muxp`],
+  [`storage_streams`], [`str`], [arr/mem 形态、fill 与流式 API],
+  [`sv_plugin_demo`], [`svp`], [内嵌原始 SystemVerilog 代码],
+  [`syntax_showcase`], [`syn`], [操作符、切片、类型转换与过程块],
+  [`verilog_wrapper`], [`vwr`], [Verilog 兼容 wrapper 生成],
+)
+
 == counter.rb
 
 基础的参数化顺序计数器。

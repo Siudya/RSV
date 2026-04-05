@@ -9,7 +9,7 @@
 # - sv_dref for macro value references (`MACRO_NAME)
 #
 # Run:
-#   ruby examples/macro_demo.rb
+#   xmake rtl -f mac
 
 $LOAD_PATH.unshift(File.join(__dir__, "..", "lib"))
 require "rsv"

@@ -12,7 +12,7 @@
 # - unique dependency emission for deduplicated module objects
 #
 # Run:
-#   ruby examples/auto_dedup.rb
+#   xmake rtl -f aut
 
 $LOAD_PATH.unshift(File.join(__dir__, "..", "lib"))
 require "rsv"

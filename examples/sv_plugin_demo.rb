@@ -10,7 +10,7 @@
 # - Combining sv_plugin with normal RSV declarations
 #
 # Run:
-#   ruby examples/sv_plugin_demo.rb
+#   xmake rtl -f svp
 
 $LOAD_PATH.unshift(File.join(__dir__, "..", "lib"))
 require "rsv"

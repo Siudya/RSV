@@ -10,7 +10,7 @@
 # - parameter passthrough
 #
 # Run:
-#   ruby examples/verilog_wrapper.rb
+#   xmake rtl -f vwr
 
 $LOAD_PATH.unshift(File.join(__dir__, "..", "lib"))
 require "rsv"

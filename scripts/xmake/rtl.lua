@@ -1,3 +1,41 @@
+local example_catalog = {
+  {name = "auto_dedup", alias = "aut", summary = "automatic dedup and child-to-child auto wiring"},
+  {name = "const_demo", alias = "cst", summary = "const localparam declarations and typed constants"},
+  {name = "counter", alias = "ctr", summary = "parameterized sequential counter"},
+  {name = "curried_params", alias = "cur", summary = "sv_param and curried parameter application"},
+  {name = "generate_demo", alias = "gen", summary = "generate blocks, attributes, and staged pipelines"},
+  {name = "import_demo", alias = "imp", summary = "import existing SystemVerilog modules with pyslang"},
+  {name = "macro_demo", alias = "mac", summary = "SystemVerilog macro directives and macro references"},
+  {name = "manual_dedup", alias = "man", summary = "manual definition/instance dedup and auto wiring"},
+  {name = "mux_cases", alias = "mux", summary = "mux, mux1h, and muxp selection helpers"},
+  {name = "storage_streams", alias = "str", summary = "arr/mem storage shapes, fill helpers, and stream views"},
+  {name = "sv_plugin_demo", alias = "svp", summary = "inline SystemVerilog embedding with sv_plugin"},
+  {name = "syntax_showcase", alias = "syn", summary = "operators, slices, casts, and procedural blocks"},
+  {name = "verilog_wrapper", alias = "vwr", summary = "Verilog-compatible wrapper generation for RSV modules"}
+}
+
+local example_by_alias = {}
+for _, entry in ipairs(example_catalog) do
+  example_by_alias[entry.alias] = entry
+end
+
+local function resolve_example_name(name)
+  local stem = name:gsub("%.rb$", "")
+  local entry = example_by_alias[stem]
+  if entry then
+    return entry.name
+  end
+  return name
+end
+
+local function list_examples()
+  print("name            alias  feature summary")
+  print("--------------  -----  -----------------------------------------------")
+  for _, entry in ipairs(example_catalog) do
+    print(string.format("%-14s  %-5s  %s", entry.name, entry.alias, entry.summary))
+  end
+end
+
 task("rtl")
   set_category("plugin")
 
@@ -10,12 +48,21 @@ task("rtl")
       raise("ruby not found in PATH")
     end
 
+    if option.get("list") then
+      list_examples()
+      return
+    end
+
     local file = option.get("script")
     if not file then
       raise("missing required option: -f/--script")
     end
 
     local directory = option.get("directory") or "examples"
+    if directory == "examples" then
+      file = resolve_example_name(file)
+    end
+
     if not file:match("%.rb$") then
       file = file .. ".rb"
     end
@@ -29,10 +76,11 @@ task("rtl")
   end)
 
   set_menu {
-    usage = "xmake rtl -f <name> [-d dir]",
-    description = "Run <dir>/<name>.rb with Ruby, defaulting dir to examples",
+    usage = "xmake rtl -f <name-or-alias> [-d dir] | xmake rtl -l",
+    description = "Run a built-in example by name/alias or list built-in example features",
     options = {
-      {"f", "script", "kv", nil, "Ruby script basename, with or without .rb"},
-      {"d", "directory", "kv", "examples", "Directory that contains the Ruby script"}
+      {"f", "script", "kv", nil, "Ruby script basename or built-in example alias"},
+      {"d", "directory", "kv", "examples", "Directory that contains the Ruby script"},
+      {"l", "list", "k", nil, "List built-in examples, aliases, and feature summaries"}
     }
   }

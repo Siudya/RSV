@@ -12,7 +12,7 @@
 # - unique dependency emission for deduplicated definition handles
 #
 # Run:
-#   ruby examples/manual_dedup.rb
+#   xmake rtl -f man
 
 $LOAD_PATH.unshift(File.join(__dir__, "..", "lib"))
 require "rsv"

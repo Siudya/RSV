@@ -7,7 +7,7 @@
 # - `muxp(...)` for a priority casez tree in both LSB-first and MSB-first modes
 #
 # Run:
-#   ruby examples/mux_cases.rb
+#   xmake rtl -f mux
 
 $LOAD_PATH.unshift(File.join(__dir__, "..", "lib"))
 require "rsv"

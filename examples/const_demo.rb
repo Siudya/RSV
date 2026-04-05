@@ -8,7 +8,7 @@
 # - using const values in expressions
 #
 # Run:
-#   ruby examples/const_demo.rb
+#   xmake rtl -f cst
 
 $LOAD_PATH.unshift(File.join(__dir__, "..", "lib"))
 require "rsv"

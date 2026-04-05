@@ -11,7 +11,7 @@
 # - connecting imported ports with both assignment directions
 #
 # Run:
-#   ruby examples/import_demo.rb
+#   xmake rtl -f imp
 
 $LOAD_PATH.unshift(File.join(__dir__, "..", "lib"))
 require "rsv"

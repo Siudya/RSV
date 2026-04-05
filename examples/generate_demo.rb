@@ -17,7 +17,7 @@
 # - attr: hardware attributes on signals
 #
 # Run:
-#   ruby examples/generate_demo.rb
+#   xmake rtl -f gen
 
 $LOAD_PATH.unshift(File.join(__dir__, "..", "lib"))
 require "rsv"

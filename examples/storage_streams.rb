@@ -12,7 +12,7 @@
 # - explicit `always_ff(clock, reset)` with negedge clock and active-low reset
 #
 # Run:
-#   ruby examples/storage_streams.rb
+#   xmake rtl -f str
 
 $LOAD_PATH.unshift(File.join(__dir__, "..", "lib"))
 require "rsv"

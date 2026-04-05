@@ -34,7 +34,7 @@ SystemVerilog.
   `sig[base, :-, w]` for bit-select and slicing.
 + While `arr(...)` / `mem(...)` dimensions remain, `sig[...]` only accepts a
   single index.
-+ Emit the final module with `to_sv`, `to_sv("-")`, or `to_sv(path)`.
++ Emit the final module with `to_sv` or `to_sv(path)`.
 
 == Two-pass elaboration
 
@@ -79,7 +79,7 @@ class Counter < RSV::ModuleDef
 end
 
 counter = Counter.new(width: 8)
-counter.to_sv("-")
+counter.to_sv("build/rtl/counter.sv")
 ```
 
 == Generated SystemVerilog
@@ -98,7 +98,7 @@ module Counter #(
   logic [WIDTH-1:0] count_next;
 
   assign count_next = count_r + 1;
-  assign count = count_r;
+  assign count      = count_r;
 
   always_ff @(posedge clk or posedge rst) begin
     if (rst) begin
@@ -206,25 +206,70 @@ end
 
 == Example scripts
 
-- `examples/counter.rb` generates `build/rtl/counter.sv`.
-- `examples/auto_dedup.rb` demonstrates automatic dedup plus child-to-child
-  wiring through auto-generated parent-local wires.
-- `examples/manual_dedup.rb` demonstrates manual `definition(...)` /
-  `instance(...)` dedup plus child-to-child wiring through auto-generated
-  parent-local wires.
-- `examples/syntax_showcase.rb` covers declarations, operators, slices, casts,
-  and control blocks.
-- `examples/storage_streams.rb` covers shaped storage declarations, fill
-  helpers, indexing, and stream-view traversal.
-- `examples/mux_cases.rb` demonstrates `mux`, `mux1h`, and `muxp`.
-- `examples/import_demo.rb` demonstrates `RSV.import_sv` using
-  `examples/imported_counter.sv`.
-- `examples/const_demo.rb` demonstrates `const` localparam declarations.
-- `examples/macro_demo.rb` demonstrates SV preprocessor macros.
-- `examples/generate_demo.rb` demonstrates generate-for and generate-if blocks.
-- `examples/curried_params.rb` demonstrates sv_param and curried parameters.
-- `examples/verilog_wrapper.rb` demonstrates Verilog-compatible wrapper generation.
-- `examples/sv_plugin_demo.rb` demonstrates inline SystemVerilog code embedding.
-- `xmake rtl -f counter` runs `examples/counter.rb`.
-- `xmake rtl -f name -d dir` runs `dir/name.rb`, with `dir` defaulting to
-  `examples`.
+Use xmake as the user-facing entry point for bundled examples:
+
+```bash
+xmake rtl -l
+xmake rtl -f ctr
+xmake rtl -f syn
+```
+
+- `xmake rtl -l` prints all built-in example names, their 3-4 character aliases,
+  and a one-line feature summary.
+- `xmake rtl -f <name-or-alias>` runs an example from `examples/`.
+- `xmake rtl -f name -d dir` runs `dir/name.rb` for custom scripts outside the
+  built-in example catalog.
+- See `examples.typ` for the full example catalog and feature coverage matrix.
+
+== Import existing SystemVerilog modules
+
+`RSV.import_sv` imports an external SystemVerilog module as a black-box
+signature provider. The imported object exposes the module name, parameters,
+and ports so it can be instantiated from RSV like an RSV-defined module.
+
+```ruby
+ImportedCounter = RSV.import_sv(
+  File.join(__dir__, "imported_counter.sv"),
+  top: "ImportedCounter",
+  incdirs: [__dir__]
+)
+
+class ImportDemo < RSV::ModuleDef
+  def build
+    clk = input("clk", bit)
+    dout = output("dout", uint(12))
+
+    counter = ImportedCounter.new(inst_name: "u_imported_counter", WIDTH: 12)
+    counter.clk <= clk
+    dout <= counter.dout
+  end
+end
+```
+
+This flow relies on `python3` + `pyslang` and currently imports module
+signatures only; it does not translate the imported module body into RSV.
+
+== Editor setup
+
+For VS Code, use `Ruby LSP` for syntax highlighting, completion, hover, and
+go-to-definition, then add `RuboCop` for diagnostics and formatting support.
+Keep these gems in Bundler so the editor and the project resolve the same Ruby
+environment:
+
+```sh
+gem install bundler
+bundle add ruby-lsp
+bundle add rubocop --group development
+bundle install
+```
+
+Recommended VS Code setting:
+
+```json
+{
+  "[ruby]": {
+    "editor.defaultFormatter": "Shopify.ruby-lsp",
+    "editor.formatOnSave": true
+  }
+}
+```

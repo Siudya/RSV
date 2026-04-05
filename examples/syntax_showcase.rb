@@ -16,7 +16,7 @@
 # - `svif`, `svelif`, `svelse`
 #
 # Run:
-#   ruby examples/syntax_showcase.rb
+#   xmake rtl -f syn
 
 $LOAD_PATH.unshift(File.join(__dir__, "..", "lib"))
 require "rsv"

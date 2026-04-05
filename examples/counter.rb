@@ -13,7 +13,7 @@
 # - continuous assignment with <=
 #
 # Run:
-#   ruby examples/counter.rb
+#   xmake rtl -f ctr
 
 $LOAD_PATH.unshift(File.join(__dir__, "..", "lib"))
 require "rsv"
