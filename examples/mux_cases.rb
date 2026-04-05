@@ -26,19 +26,12 @@ class MuxCases < RSV::ModuleDef
     priority_lsb_o = output("priority_lsb_o", uint(8))
     priority_msb_o = output("priority_msb_o", uint(8))
 
-    one_hot_w = wire("one_hot_w", uint(8))
-    priority_lsb_w = wire("priority_lsb_w", uint(8))
-    priority_msb_w = wire("priority_msb_w", uint(8))
-
     ternary_o <= mux(ternary_sel, a, b)
-    one_hot_o <= one_hot_w
-    priority_lsb_o <= priority_lsb_w
-    priority_msb_o <= priority_msb_w
 
     always_comb do
-      mux1h(sel_1h, dats, result: one_hot_w)
-      muxp(sel_p, dats, result: priority_lsb_w)
-      muxp(sel_p, dats, result: priority_msb_w, lsb_first: false)
+      one_hot_o <= mux1h(sel_1h, dats)
+      priority_lsb_o <= muxp(sel_p, dats)
+      priority_msb_o <= muxp(sel_p, dats, lsb_first: false)
     end
   end
 end

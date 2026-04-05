@@ -124,7 +124,7 @@ xmake rtl -f syn
 - 局部声明: `wire`
 - 赋值: `<=`
 - 选择器表达式: `mux()`（三元选择）, `mux1h()`（独热选择）, `muxp()`（优先级选择）
-- `mux1h`/`muxp` 参数: `result:`, `lsb_first:`
+- `mux1h`/`muxp` 使用赋值语法: `out <= mux1h(sel, dats)`, `lsb_first:`
 - 组合逻辑: `always_comb`
 
 == import_demo.rb

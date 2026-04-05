@@ -499,6 +499,27 @@ module RSV
     end
   end
 
+  # Intermediate expression returned by mux1h(); expanded to MuxCaseStmt on assignment.
+  class Mux1hExpr
+    attr_reader :sel, :dats
+
+    def initialize(sel, dats)
+      @sel  = sel
+      @dats = dats
+    end
+  end
+
+  # Intermediate expression returned by muxp(); expanded to MuxCaseStmt on assignment.
+  class MuxpExpr
+    attr_reader :sel, :dats, :lsb_first
+
+    def initialize(sel, dats, lsb_first: true)
+      @sel       = sel
+      @dats      = dats
+      @lsb_first = lsb_first
+    end
+  end
+
   # A single field inside a BundleDef.
   BundleFieldDef = Struct.new(:name, :data_type, keyword_init: true)
 

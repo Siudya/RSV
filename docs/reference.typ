@@ -75,12 +75,12 @@
   Use to cast an unsigned signal to signed for arithmetic.
 / `mux(sel, a, b)`: ternary mux expression. Emits `sel ? a : b` in SV. When
   `sel` is 1, selects `a`; otherwise selects `b`.
-/ `mux1h(sel1h, dats, result:)`: one-hot mux. `sel1h` must be a `wire(uint)`,
-  `dats` must be an `arr` or `mem` whose highest dimension length matches the
-  width of `sel1h`. Emits `unique casez` with the default branch outputting
-  zero.
-/ `muxp(sel, dats, result:)`: priority mux. Same signature as `mux1h`. Emits
-  `priority casez` with the default branch outputting zero.
+/ `mux1h(sel1h, dats)`: one-hot mux. Returns an expression that expands to
+  `unique casez` when assigned via `<=`. `dats` must be an `arr` or `mem`
+  whose highest dimension length matches the width of `sel1h`. Usage:
+  `out <= mux1h(sel, dats)` inside `always_comb`/`always_ff`/`always_latch`.
+/ `muxp(sel, dats, lsb_first: true)`: priority mux. Same as `mux1h` but
+  emits `priority casez`. The `lsb_first:` option controls priority order.
 / `expr.sv_take(n)`: starts a stream view and keeps the first `n` elements.
 / `expr.sv_select { |elem, i| ... }`: filters a stream view with a Ruby boolean
   predicate. The index `i` is the original element index and is not renumbered

@@ -348,12 +348,12 @@ module RSV
       FillExpr.new(n, part)
     end
 
-    def mux1h(_sel1h, _dats, result: nil)
-      raise ArgumentError, "mux1h must be used inside an always_ff, always_comb, or always_latch block"
+    def mux1h(sel1h, dats)
+      Mux1hExpr.new(sel1h, dats)
     end
 
-    def muxp(_sel, _dats, result: nil, lsb_first: true)
-      raise ArgumentError, "muxp must be used inside an always_ff, always_comb, or always_latch block"
+    def muxp(sel, dats, lsb_first: true)
+      MuxpExpr.new(sel, dats, lsb_first: lsb_first)
     end
 
     # ── Generate blocks ────────────────────────────────────────────────────
@@ -681,6 +681,10 @@ module RSV
 
       if lhs_port || rhs_port
         return connect_instance_endpoint(lhs_port || rhs_port, lhs_port ? rhs : lhs)
+      end
+
+      if rhs.is_a?(Mux1hExpr) || rhs.is_a?(MuxpExpr)
+        raise ArgumentError, "mux1h/muxp must be used inside an always_ff, always_comb, or always_latch block"
       end
 
       stmt = AssignStmt.new(RSV.normalize_expr(lhs), RSV.normalize_expr(rhs))

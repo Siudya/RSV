@@ -213,7 +213,7 @@ class NewTypesDslTest < Minitest::Test
       out = wire("out", uint(8))
 
       always_comb do
-        mux1h(sel, dats, result: out)
+        out <= mux1h(sel, dats)
       end
     end.new
 
@@ -234,7 +234,7 @@ class NewTypesDslTest < Minitest::Test
         sel = input("sel", uint(3))
         dats = input("dats", mem([3], uint(8)))
         out = wire("out", uint(8))
-        mux1h(sel, dats, result: out)
+        out <= mux1h(sel, dats)
       end.new
     end
   end
@@ -248,7 +248,7 @@ class NewTypesDslTest < Minitest::Test
       out = wire("out", uint(8))
 
       always_comb do
-        muxp(sel, dats, result: out)
+        out <= muxp(sel, dats)
       end
     end.new
 
@@ -271,7 +271,7 @@ class NewTypesDslTest < Minitest::Test
       out = wire("out", uint(8))
 
       always_comb do
-        muxp(sel, dats, result: out, lsb_first: false)
+        out <= muxp(sel, dats, lsb_first: false)
       end
     end.new
 
@@ -291,7 +291,7 @@ class NewTypesDslTest < Minitest::Test
         sel = input("sel", uint(3))
         dats = input("dats", mem([3], uint(8)))
         out = wire("out", uint(8))
-        muxp(sel, dats, result: out)
+        out <= muxp(sel, dats)
       end.new
     end
   end
