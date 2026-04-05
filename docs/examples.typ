@@ -138,15 +138,17 @@ SystemVerilog 预处理宏指令。
 
 == generate_demo.rb
 
-generate 循环与条件生成。
+generate 循环与条件生成，以及在 generate-for 内例化子模块。
 
 - 端口声明: `input`, `output`
 - 类型构造: `clock`, `reset`, `uint`, `arr`
 - 局部声明: `reg`, `wire`, `const`
 - generate for: `generate_for("i", start, count, label:)`，生成循环体内声明局部变量
+- generate for 例化子模块: `definition()` 创建共享定义，`instance()` 在循环体内例化
+- genvar 索引连接: `chain[k]`, `chain[k + 1]` 用 genvar 索引组成流水链
 - generate if: `generate_if()`，条件生成块
 - generate 链式: `.generate_elif()`, `.generate_else(label:)`
-- 赋值: `<=`
+- 赋值: `<=`, `>=`
 - 数组索引: `[]`（使用 genvar 索引）
 - 比较运算: `.eq`
 - 时序逻辑: `always_ff`, `with_clk_and_rst`
@@ -222,6 +224,7 @@ Verilog 兼容 wrapper 产生器。
   [`sv_def`/`sv_ifdef` 等宏指令], [macro\_demo],
   [`sv_dref` 宏引用], [macro\_demo],
   [`generate_for`/`generate_if`], [generate\_demo],
+  [generate-for 内例化子模块], [generate\_demo],
   [`sv_param` 柯里化参数], [curried\_params],
   [`v_wrapper` Verilog wrapper], [verilog\_wrapper],
   [流式 API (`sv_map` 等)], [storage\_streams],
