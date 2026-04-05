@@ -1,6 +1,7 @@
 local example_catalog = {
   {name = "auto_dedup", alias = "aut", summary = "automatic dedup and child-to-child auto wiring"},
   {name = "bundle_and_interface", alias = "bdi", summary = "bundle (struct) and interface definitions"},
+  {name = "case_demo", alias = "cas", summary = "case/casez/casex with unique/priority and ? wildcards"},
   {name = "const_demo", alias = "cst", summary = "const localparam declarations and typed constants"},
   {name = "counter", alias = "ctr", summary = "parameterized sequential counter"},
   {name = "curried_params", alias = "cur", summary = "sv_param and curried parameter application"},
@@ -9,6 +10,7 @@ local example_catalog = {
   {name = "macro_demo", alias = "mac", summary = "SystemVerilog macro directives and macro references"},
   {name = "manual_dedup", alias = "man", summary = "manual definition/instance dedup and auto wiring"},
   {name = "mux_cases", alias = "mux", summary = "mux, mux1h, and muxp selection helpers"},
+  {name = "pop_count_demo", alias = "pop", summary = "pop_count and log2ceil bit-width utilities"},
   {name = "storage_streams", alias = "str", summary = "arr/mem storage shapes, fill helpers, and stream views"},
   {name = "sv_plugin_demo", alias = "svp", summary = "inline SystemVerilog embedding with sv_plugin"},
   {name = "syntax_showcase", alias = "syn", summary = "operators, slices, casts, and procedural blocks"},
@@ -30,10 +32,10 @@ local function resolve_example_name(name)
 end
 
 local function list_examples()
-  print("name            alias  feature summary")
-  print("--------------  -----  -----------------------------------------------")
+  print("name                    alias  feature summary")
+  print("----------------------  -----  -----------------------------------------------")
   for _, entry in ipairs(example_catalog) do
-    print(string.format("%-14s  %-5s  %s", entry.name, entry.alias, entry.summary))
+    print(string.format("%-22s  %-5s  %s", entry.name, entry.alias, entry.summary))
   end
 end
 

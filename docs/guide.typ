@@ -23,6 +23,14 @@ SystemVerilog.
 + Materialize named intermediate wires with `expr(...)`.
 + Describe sequential or combinational behavior with `always_ff`,
   `always_latch`, and `always_comb`.
++ Use `svif`/`svelif`/`svelse` for procedural if chains (chainable syntax
+  supported: `svif(c){}.svelif(c){}.svelse{}`). Add `unique:` or `priority:`
+  qualifiers as needed.
++ Use `svcase`/`svcasez`/`svcasex` for case statements with `is()` branches
+  and `fallin` default. Pass string patterns like `is("4'b1??0")` for casez
+  wildcards.
++ Use `log2ceil(n)` to compute bit widths at Ruby time, and
+  `cnt <= pop_count(vec)` inside `always_comb` for population count.
 + Adjust `module_name` inside `build(...)` if one Ruby class needs to emit a
   non-default SV module name.
 + Use `Counter.definition(...)` plus `instance(...)` when one elaborated module
