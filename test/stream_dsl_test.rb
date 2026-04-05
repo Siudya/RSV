@@ -120,6 +120,48 @@ class StreamDslTest < Minitest::Test
     assert_includes sv, "assign out = {words[1], words[0]};"
   end
 
+  def test_mixed_multidim_stream_map_preserves_nested_shape
+    mod = module_class("MixedStreamMap") do
+      data = input("data", mem([2], arr([3], uint(8))))
+      out = output("out", arr([2, 2], uint(8)))
+
+      out <= data
+        .sv_take(2)
+        .sv_map { |row, _i| row.sv_take(2).sv_map { |v, _j| v } }
+    end.new
+
+    sv = mod.to_sv
+
+    assert_includes sv, "output logic [1:0][1:0][7:0] out"
+    assert_includes sv, "assign out = {{data[1][1], data[1][0]}, {data[0][1], data[0][0]}};"
+  end
+
+  def test_mixed_multidim_stream_foreach_supports_nested_views
+    mod = module_class("MixedStreamForeach") do
+      clk = input("clk", clock)
+      rst = input("rst", reset)
+      data = input("data", mem([2], arr([3], uint(8))))
+      out = reg("out", mem([2], arr([3], uint(8))), init: mem.fill(2, arr.fill(3, uint(8, 0))))
+
+      with_clk_and_rst(clk, rst)
+      always_ff do
+        data.sv_take(2).sv_foreach do |row, i|
+          row
+            .sv_take(3)
+            .sv_select { |_, j| j.even? }
+            .sv_foreach { |v, j| out[i][j] <= v }
+        end
+      end
+    end.new
+
+    sv = mod.to_sv
+
+    assert_includes sv, "out[0][0] <= data[0][0];"
+    assert_includes sv, "out[0][2] <= data[0][2];"
+    assert_includes sv, "out[1][0] <= data[1][0];"
+    assert_includes sv, "out[1][2] <= data[1][2];"
+  end
+
   private
 
   def module_class(name, &build_block)

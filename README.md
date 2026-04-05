@@ -5,8 +5,8 @@ class-based module API.
 
 Current DSL highlights include anonymous `bit` / `uint` / `arr` / `mem` data
 types, class-based module construction, and stream-view operations on `uint`,
-packed `arr`, and single-dimension `mem` values (`sv_take`, `sv_select`,
-`sv_foreach`, `sv_reduce`, `sv_map`).
+`arr`, and `mem` values (`sv_take`, `sv_select`, `sv_foreach`, `sv_reduce`,
+`sv_map`).
 
 ## Environment
 

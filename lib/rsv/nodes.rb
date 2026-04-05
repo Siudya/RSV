@@ -704,14 +704,12 @@ module RSV
       unpacked_dims = RSV.expr_unpacked_dims(expr)
       packed_dims = RSV.expr_packed_dims(expr)
 
-      entries = if unpacked_dims.empty? && packed_dims.empty?
-        build_scalar_entries(expr)
-      elsif unpacked_dims.empty?
-        build_packed_entries(expr, packed_dims.first)
-      elsif packed_dims.empty? && unpacked_dims.length == 1
+      entries = if !unpacked_dims.empty?
         build_unpacked_entries(expr, unpacked_dims.first)
+      elsif !packed_dims.empty?
+        build_packed_entries(expr, packed_dims.first)
       else
-        raise ArgumentError, "sv_stream phase 2 only supports uint, packed arr, and single-dimension mem sources"
+        build_scalar_entries(expr)
       end
 
       new(entries)
