@@ -29,6 +29,7 @@ xmake rtl -f syn
   [`macro_demo`], [`mac`], [宏定义、条件编译与宏引用],
   [`manual_dedup`], [`man`], [手动 `definition` / `instance` 去重],
   [`mux_cases`], [`mux`], [`mux` / `mux1h` / `muxp`],
+  [`pop_count_demo`], [`pop`], [`pop_count` / `log2ceil`],
   [`case_demo`], [`cas`], [`svcase` / `svcasez` / `unique` / `priority`],
   [`storage_streams`], [`str`], [arr/mem 形态、fill 与流式 API],
   [`sv_plugin_demo`], [`svp`], [内嵌原始 SystemVerilog 代码],
@@ -126,6 +127,17 @@ xmake rtl -f syn
 - 赋值: `<=`
 - 选择器表达式: `mux()`（三元选择）, `mux1h()`（独热选择）, `muxp()`（优先级选择）
 - `mux1h`/`muxp` 使用赋值语法: `out <= mux1h(sel, dats)`, `lsb_first:`
+- 组合逻辑: `always_comb`
+
+== pop_count_demo.rb
+
+population count 与 log2ceil 位宽计算。
+
+- 端口声明: `input`, `output`
+- 类型构造: `uint`
+- 局部声明: `wire`
+- `log2ceil(n)`: 编译期位宽计算（ceil(log2(n))）
+- `pop_count(vec)`: 人口计数，展开为 for 循环累加器
 - 组合逻辑: `always_comb`
 
 == case_demo.rb
@@ -313,6 +325,8 @@ Bundle (struct) 与 Interface 综合演示。
   [移位运算 `<<`/`>>`], [syntax\_showcase],
   [位切片 `[]`], [syntax\_showcase, storage\_streams, generate\_demo],
   [`mux`/`mux1h`/`muxp`], [mux\_cases, syntax\_showcase],
+  [`pop_count`], [pop\_count\_demo],
+  [`log2ceil`], [pop\_count\_demo],
   [`cat`/`fill`], [syntax\_showcase, storage\_streams],
   [`expr()`], [counter, syntax\_showcase],
   [`.as_sint` 类型转换], [syntax\_showcase],

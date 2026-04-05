@@ -213,6 +213,8 @@ module RSV
           branch[:stmts].each { |nested| collect_assigned_names_from_stmt(nested, names) }
         end
         stmt.default_stmts&.each { |nested| collect_assigned_names_from_stmt(nested, names) }
+      when MuxCaseStmt, PopCountStmt
+        names << stmt.lhs.base_name if stmt.lhs.respond_to?(:base_name)
       end
     end
 

@@ -99,6 +99,14 @@ module RSV
       MuxExpr.new(sel, a, b)
     end
 
+    def pop_count(vec)
+      PopCountExpr.new(vec)
+    end
+
+    def log2ceil(n)
+      RSV.log2ceil(n)
+    end
+
     def sv_dref(name)
       MacroRef.new(name.to_s)
     end
@@ -110,7 +118,7 @@ module RSV
     private
 
     def append_assignment(lhs, rhs)
-      # Expand mux1h/muxp expressions into MuxCaseStmt
+      # Expand mux1h/muxp/pop_count expressions into dedicated statements
       case rhs
       when Mux1hExpr
         normalized_lhs = RSV.normalize_expr(lhs)
@@ -121,6 +129,13 @@ module RSV
       when MuxpExpr
         normalized_lhs = RSV.normalize_expr(lhs)
         stmt = MuxCaseStmt.new(normalized_lhs, rhs.sel, rhs.dats, case_type: :priority, lsb_first: rhs.lsb_first)
+        @stmts << stmt
+        @last_if = nil
+        return stmt
+      when PopCountExpr
+        raise ArgumentError, "pop_count can only be used in always_comb" unless @assign_context == :always_comb
+        normalized_lhs = RSV.normalize_expr(lhs)
+        stmt = PopCountStmt.new(normalized_lhs, rhs.vec, in_width: rhs.in_width, out_width: rhs.out_width)
         @stmts << stmt
         @last_if = nil
         return stmt

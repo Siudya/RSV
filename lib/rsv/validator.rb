@@ -48,7 +48,7 @@ module RSV
           validate_proc_stmts(clause[:stmts], context: context, driver_context: driver_context)
         end
         validate_proc_stmts(stmt.else_stmts, context: context, driver_context: driver_context) if stmt.else_stmts
-      when MuxCaseStmt
+      when MuxCaseStmt, PopCountStmt
         validate_assignment_target(stmt.lhs, context: context, driver_context: driver_context)
       when CaseStmt
         stmt.branches.each do |branch|

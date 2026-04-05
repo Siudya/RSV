@@ -356,6 +356,14 @@ module RSV
       MuxpExpr.new(sel, dats, lsb_first: lsb_first)
     end
 
+    def pop_count(vec)
+      PopCountExpr.new(vec)
+    end
+
+    def log2ceil(n)
+      RSV.log2ceil(n)
+    end
+
     # ── Generate blocks ────────────────────────────────────────────────────
 
     def generate_if(cond, label: nil, &block)
@@ -683,8 +691,8 @@ module RSV
         return connect_instance_endpoint(lhs_port || rhs_port, lhs_port ? rhs : lhs)
       end
 
-      if rhs.is_a?(Mux1hExpr) || rhs.is_a?(MuxpExpr)
-        raise ArgumentError, "mux1h/muxp must be used inside an always_ff, always_comb, or always_latch block"
+      if rhs.is_a?(Mux1hExpr) || rhs.is_a?(MuxpExpr) || rhs.is_a?(PopCountExpr)
+        raise ArgumentError, "mux1h/muxp/pop_count must be used inside an always_comb block"
       end
 
       stmt = AssignStmt.new(RSV.normalize_expr(lhs), RSV.normalize_expr(rhs))

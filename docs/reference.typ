@@ -81,6 +81,11 @@
   `out <= mux1h(sel, dats)` inside `always_comb`/`always_ff`/`always_latch`.
 / `muxp(sel, dats, lsb_first: true)`: priority mux. Same as `mux1h` but
   emits `priority casez`. The `lsb_first:` option controls priority order.
+/ `pop_count(vec)`: population count. Returns an expression that expands to a
+  for-loop accumulator when assigned via `<=` inside `always_comb`. Counts the
+  number of 1-bits in `vec`. Output width is `log2ceil(vec.width + 1)`.
+/ `log2ceil(n)`: pure Ruby utility. Returns `ceil(log2(n))` — the minimum number
+  of bits to address `n` items. Available in module `build` blocks and as `RSV.log2ceil(n)`.
 / `expr.sv_take(n)`: starts a stream view and keeps the first `n` elements.
 / `expr.sv_select { |elem, i| ... }`: filters a stream view with a Ruby boolean
   predicate. The index `i` is the original element index and is not renumbered

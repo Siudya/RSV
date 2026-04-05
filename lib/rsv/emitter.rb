@@ -494,6 +494,24 @@ module RSV
       stmt.code.lines.map { |line| "#{ind(level)}#{line.chomp}" }
     end
 
+    def emit_pop_count_stmt(stmt, level)
+      lhs = emit_expr(stmt.lhs)
+      vec = emit_expr(stmt.vec)
+      ow = stmt.out_width
+      iw = stmt.in_width
+      pad = ow - 1
+      lines = []
+      lines << "#{ind(level)}#{lhs} = #{ow}'d0;"
+      lines << "#{ind(level)}for (int _pc_i = 0; _pc_i < #{iw}; _pc_i = _pc_i + 1) begin"
+      if pad > 0
+        lines << "#{ind(level + 1)}#{lhs} = #{lhs} + {{#{pad}{1'b0}}, #{vec}[_pc_i]};"
+      else
+        lines << "#{ind(level + 1)}#{lhs} = #{lhs} + #{vec}[_pc_i];"
+      end
+      lines << "#{ind(level)}end"
+      lines
+    end
+
     def emit_proc_stmt(stmt, level)
       case stmt
       when NbAssign
@@ -508,6 +526,8 @@ module RSV
         emit_for_stmt(stmt, level)
       when MuxCaseStmt
         emit_mux_case_inline(stmt, level)
+      when PopCountStmt
+        emit_pop_count_stmt(stmt, level)
       when SvPlugin
         emit_sv_plugin(stmt, level)
       else

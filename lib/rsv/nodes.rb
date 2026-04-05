@@ -520,6 +520,32 @@ module RSV
     end
   end
 
+  # Intermediate expression returned by pop_count(); expanded to PopCountStmt on assignment.
+  class PopCountExpr
+    attr_reader :vec, :in_width, :out_width
+
+    def initialize(vec)
+      normalized = RSV.normalize_expr(vec)
+      @vec = normalized
+      w = RSV.infer_expr_width(normalized)
+      raise ArgumentError, "pop_count requires a signal with known integer width, got #{w.inspect}" unless w.is_a?(Integer)
+      @in_width = w
+      @out_width = RSV.log2ceil(w + 1)
+    end
+  end
+
+  # Statement for pop_count — emits a for-loop accumulator.
+  class PopCountStmt
+    attr_reader :lhs, :vec, :in_width, :out_width
+
+    def initialize(lhs, vec, in_width:, out_width:)
+      @lhs = lhs
+      @vec = vec
+      @in_width = in_width
+      @out_width = out_width
+    end
+  end
+
   # A single field inside a BundleDef.
   BundleFieldDef = Struct.new(:name, :data_type, keyword_init: true)
 
@@ -1720,5 +1746,12 @@ module RSV
     when LiteralExpr then d.value.to_s
     else d.to_s
     end
+  end
+
+  # ceil(log2(n)) — returns minimum bits to address n items.
+  def self.log2ceil(n)
+    raise ArgumentError, "log2ceil requires positive integer, got #{n}" unless n.is_a?(Integer) && n > 0
+    return 0 if n == 1
+    (n - 1).bit_length
   end
 end

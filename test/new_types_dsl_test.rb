@@ -648,6 +648,94 @@ class NewTypesDslTest < Minitest::Test
     assert_includes sv, "priority if (a == 2'd0) begin"
   end
 
+  # ── log2ceil ───────────────────────────────────────────────────────────────
+
+  def test_log2ceil
+    assert_equal 0, RSV.log2ceil(1)
+    assert_equal 1, RSV.log2ceil(2)
+    assert_equal 2, RSV.log2ceil(3)
+    assert_equal 2, RSV.log2ceil(4)
+    assert_equal 3, RSV.log2ceil(5)
+    assert_equal 3, RSV.log2ceil(8)
+    assert_equal 4, RSV.log2ceil(9)
+    assert_equal 4, RSV.log2ceil(16)
+    assert_equal 5, RSV.log2ceil(17)
+    assert_raises(ArgumentError) { RSV.log2ceil(0) }
+    assert_raises(ArgumentError) { RSV.log2ceil(-1) }
+  end
+
+  def test_log2ceil_in_build
+    mod = module_class("Log2CeilMod") do
+      w = log2ceil(8 + 1)   # 4 bits for 0..8
+      _cnt = wire("cnt", uint(w))
+    end.new
+    sv = mod.to_sv
+    assert_includes sv, "logic [3:0] cnt"
+  end
+
+  # ── pop_count ──────────────────────────────────────────────────────────────
+
+  def test_pop_count_basic
+    mod = module_class("PopCntBasic") do
+      vec = input("vec", uint(8))
+      cnt = wire("cnt", uint(log2ceil(8 + 1)))
+
+      always_comb do
+        cnt <= pop_count(vec)
+      end
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "logic [3:0] cnt"
+    assert_includes sv, "cnt = 4'd0;"
+    assert_includes sv, "for (int _pc_i = 0; _pc_i < 8; _pc_i = _pc_i + 1) begin"
+    assert_includes sv, "cnt = cnt + {{3{1'b0}}, vec[_pc_i]};"
+    assert_includes sv, "end"
+  end
+
+  def test_pop_count_4bit
+    mod = module_class("PopCnt4") do
+      vec = input("vec", uint(4))
+      cnt = wire("cnt", uint(log2ceil(4 + 1)))
+
+      always_comb do
+        cnt <= pop_count(vec)
+      end
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "logic [2:0] cnt"
+    assert_includes sv, "cnt = 3'd0;"
+    assert_includes sv, "for (int _pc_i = 0; _pc_i < 4; _pc_i = _pc_i + 1) begin"
+    assert_includes sv, "cnt = cnt + {{2{1'b0}}, vec[_pc_i]};"
+  end
+
+  def test_pop_count_rejects_always_ff
+    assert_raises(ArgumentError) do
+      module_class("PopCntFF") do
+        clk = input("clk", clock)
+        rst = input("rst", reset)
+        vec = input("vec", uint(4))
+        cnt = reg("cnt", uint(3), init: 0)
+
+        with_clk_and_rst(clk, rst)
+        always_ff do
+          cnt <= pop_count(vec)
+        end
+      end.new
+    end
+  end
+
+  def test_pop_count_rejects_module_level
+    assert_raises(ArgumentError) do
+      module_class("PopCntTop") do
+        vec = input("vec", uint(4))
+        cnt = wire("cnt", uint(3))
+        cnt <= pop_count(vec)
+      end.new
+    end
+  end
+
   private
 
   def module_class(name, &build_block)
