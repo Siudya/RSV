@@ -124,6 +124,19 @@
   wherever a normal RSV expression is expected. Available in both module-level
   and procedural contexts.
 
+== Generate blocks
+
+/ `generate_for(genvar_name, start, end, label: nil) { |i| ... }`:
+  emits a `for (genvar ...)` loop. The block receives a genvar reference usable
+  as an array index. Local `wire`/`reg`/`const` declarations inside the block
+  become block-scoped. `always_ff`, `always_comb`, and `always_latch` may be
+  used inside the block.
+/ `generate_if(cond, label: nil) { ... }`:
+  emits a generate-level `if` block. The condition must be a constant expression
+  (e.g., `localparam` or `const` comparison). Returns a builder that supports
+  `.generate_elif(cond, label:) { ... }` and `.generate_else(label:) { ... }`
+  chaining.
+
 - Both assignment forms emit continuous `assign` outside procedural blocks and
   emit `<=` inside `always_ff`.
 - Inside `always_comb` and `always_latch`, assignments emit blocking `=`.

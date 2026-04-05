@@ -48,6 +48,10 @@ module RSV
         [Instance.new(stmt.module_name, stmt.inst_name, params: stmt.params, connections: elaborate_connections(stmt.connections))]
       when SvIfdef, SvIfndef
         [elaborate_macro_cond(stmt)]
+      when GenerateIf
+        [elaborate_generate_if(stmt)]
+      when GenerateFor
+        [elaborate_generate_for(stmt)]
       else
         [stmt]
       end
@@ -65,6 +69,32 @@ module RSV
       end
       elaborated_else = stmt.else_body&.flat_map { |s| elaborate_stmt(s) }
       klass.new(stmt.macro_name, elaborated_body, elaborated_elsifs, elaborated_else)
+    end
+
+    def elaborate_generate_block(locals, stmts)
+      elab_stmts = stmts.flat_map { |s| elaborate_stmt(s) }
+      [locals, elab_stmts]
+    end
+
+    def elaborate_generate_if(stmt)
+      locals, stmts = elaborate_generate_block(stmt.locals, stmt.stmts)
+      elab_elsifs = stmt.elsif_clauses.map do |clause|
+        el, es = elaborate_generate_block(clause[:locals], clause[:stmts])
+        { cond: clause[:cond], label: clause[:label], locals: el, stmts: es }
+      end
+      elab_else = nil
+      if stmt.else_body
+        el, es = elaborate_generate_block(stmt.else_body[:locals], stmt.else_body[:stmts])
+        elab_else = { label: stmt.else_body[:label], locals: el, stmts: es }
+      end
+      GenerateIf.new(stmt.cond, label: stmt.label, locals: locals, stmts: stmts,
+                      elsif_clauses: elab_elsifs, else_body: elab_else)
+    end
+
+    def elaborate_generate_for(stmt)
+      locals, stmts = elaborate_generate_block(stmt.locals, stmt.stmts)
+      GenerateFor.new(stmt.genvar, stmt.start_val, stmt.end_val,
+                      label: stmt.label, locals: locals, stmts: stmts)
     end
 
     def elaborate_always_ff(stmt)

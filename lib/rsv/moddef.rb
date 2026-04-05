@@ -23,6 +23,51 @@ module RSV
     end
   end
 
+  # Builder for capturing locals and statements inside a generate block.
+  class GenerateBuilder
+    attr_reader :locals, :stmts
+
+    def initialize(mod)
+      @mod = mod
+      @locals = []
+      @stmts = []
+    end
+
+    def capture(&block)
+      saved_locals = @mod.instance_variable_get(:@locals)
+      saved_stmts = @mod.instance_variable_get(:@stmts)
+      @mod.instance_variable_set(:@locals, @locals)
+      @mod.instance_variable_set(:@stmts, @stmts)
+      @mod.instance_eval(&block)
+      @locals = @mod.instance_variable_get(:@locals)
+      @stmts = @mod.instance_variable_get(:@stmts)
+      @mod.instance_variable_set(:@locals, saved_locals)
+      @mod.instance_variable_set(:@stmts, saved_stmts)
+    end
+  end
+
+  # Chaining helper for generate_if elsif/else
+  class GenerateIfCondBuilder
+    def initialize(node, mod)
+      @node = node
+      @mod = mod
+    end
+
+    def generate_elif(cond, label: nil, &block)
+      builder = GenerateBuilder.new(@mod)
+      builder.capture(&block)
+      @node.add_elsif(RSV.normalize_expr(cond), label: label, locals: builder.locals, stmts: builder.stmts)
+      self
+    end
+
+    def generate_else(label: nil, &block)
+      builder = GenerateBuilder.new(@mod)
+      builder.capture(&block)
+      @node.set_else(label: label, locals: builder.locals, stmts: builder.stmts)
+      self
+    end
+  end
+
   # Base class for class-based module definitions.
   #
   # Example:
@@ -278,6 +323,27 @@ module RSV
 
     def muxp(_sel, _dats, result: nil, lsb_first: true)
       raise ArgumentError, "muxp must be used inside an always_ff, always_comb, or always_latch block"
+    end
+
+    # ── Generate blocks ────────────────────────────────────────────────────
+
+    def generate_if(cond, label: nil, &block)
+      builder = GenerateBuilder.new(self)
+      builder.capture(&block)
+      node = GenerateIf.new(RSV.normalize_expr(cond), label: label, locals: builder.locals, stmts: builder.stmts)
+      @stmts << node
+      GenerateIfCondBuilder.new(node, self)
+    end
+
+    def generate_for(genvar_name, start_val, end_val, label: nil, &block)
+      genvar = GenvarRef.new(genvar_name.to_s)
+      builder = GenerateBuilder.new(self)
+      builder.capture { instance_exec(genvar, &block) }
+      @stmts << GenerateFor.new(
+        genvar.name, start_val, end_val,
+        label: label, locals: builder.locals, stmts: builder.stmts
+      )
+      genvar
     end
 
     # ── Preprocessor macros ──────────────────────────────────────────────────

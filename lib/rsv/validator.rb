@@ -27,6 +27,10 @@ module RSV
         validate_proc_stmts(stmt.body, context: :always_comb, driver_context: driver_context)
       when SvIfdef, SvIfndef
         validate_macro_cond(stmt, driver_context: driver_context)
+      when GenerateIf
+        validate_generate_if(stmt)
+      when GenerateFor
+        validate_generate_block(stmt.locals, stmt.stmts)
       end
     end
 
@@ -115,6 +119,19 @@ module RSV
       stmt.body.each_with_index { |s, idx| validate_stmt(s, driver_context: driver_context_for(s, idx)) }
       stmt.elsif_clauses.each { |clause| clause[:body].each_with_index { |s, idx| validate_stmt(s, driver_context: driver_context_for(s, idx)) } }
       stmt.else_body&.each_with_index { |s, idx| validate_stmt(s, driver_context: driver_context_for(s, idx)) }
+    end
+
+    def validate_generate_block(locals, stmts)
+      saved_locals = @locals_by_name.dup
+      locals.each { |l| @locals_by_name[l.name] = l }
+      stmts.each_with_index { |s, idx| validate_stmt(s, driver_context: driver_context_for(s, idx)) }
+      @locals_by_name = saved_locals
+    end
+
+    def validate_generate_if(stmt)
+      validate_generate_block(stmt.locals, stmt.stmts)
+      stmt.elsif_clauses.each { |clause| validate_generate_block(clause[:locals], clause[:stmts]) }
+      validate_generate_block(stmt.else_body[:locals], stmt.else_body[:stmts]) if stmt.else_body
     end
   end
 end

@@ -15,6 +15,8 @@ SystemVerilog.
   `output("name", type)`, `wire("name", type)`, and `reg("name", type)`.
 + Declare constants with `const("name", type)` where the data type carries an
   init value (emits as SV `localparam`).
++ Use `generate_for` and `generate_if` for elaboration-time code generation
+  (genvar loops and conditional blocks with local scopes).
 + Use `arr.fill(...)` and `mem.fill(...)` to build shaped reset initializers.
 + Materialize named intermediate wires with `expr(...)`.
 + Describe sequential or combinational behavior with `always_ff`,

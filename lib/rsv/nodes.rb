@@ -1154,6 +1154,56 @@ module RSV
     end
   end
 
+  # Generate block nodes
+  class GenerateIf
+    attr_reader :cond, :label, :locals, :stmts, :elsif_clauses, :else_body
+
+    def initialize(cond, label:, locals:, stmts:, elsif_clauses: [], else_body: nil)
+      @cond           = cond
+      @label          = label
+      @locals         = locals
+      @stmts          = stmts
+      @elsif_clauses  = elsif_clauses  # Array of { cond:, label:, locals:, stmts: }
+      @else_body      = else_body      # { label:, locals:, stmts: } or nil
+    end
+
+    def add_elsif(cond, label:, locals:, stmts:)
+      @elsif_clauses << { cond: cond, label: label, locals: locals, stmts: stmts }
+    end
+
+    def set_else(label:, locals:, stmts:)
+      @else_body = { label: label, locals: locals, stmts: stmts }
+    end
+  end
+
+  class GenerateFor
+    attr_reader :genvar, :start_val, :end_val, :label, :locals, :stmts
+
+    def initialize(genvar, start_val, end_val, label:, locals:, stmts:)
+      @genvar    = genvar
+      @start_val = start_val
+      @end_val   = end_val
+      @label     = label
+      @locals    = locals
+      @stmts     = stmts
+    end
+  end
+
+  # Genvar reference expression: usable inside generate for
+  class GenvarRef
+    include ExprOps
+
+    attr_reader :name
+
+    def initialize(name)
+      @name = name
+    end
+
+    def width
+      nil
+    end
+  end
+
   def self.normalize_signal_spec(signal)
     return signal if signal.is_a?(SignalSpec)
 
@@ -1171,7 +1221,7 @@ module RSV
     when SignalHandler, InstancePortHandler, RawExpr, LiteralExpr, BinaryExpr, UnaryExpr, IndexExpr,
          RangeSelectExpr, IndexedPartSelectExpr, AsSintExpr, ClockSignal, ResetSignal,
          ParenExpr,
-         MuxExpr, CatExpr, FillExpr, PackedCollectionExpr, MacroRef
+         MuxExpr, CatExpr, FillExpr, PackedCollectionExpr, MacroRef, GenvarRef
       operand
     when String
       RawExpr.new(operand)
@@ -1400,7 +1450,7 @@ module RSV
     when SignalHandler
       raise ArgumentError, "array/memory index must be unsigned (uint), got signed signal" if idx.signed
       return
-    when IndexExpr, RangeSelectExpr, IndexedPartSelectExpr, BinaryExpr, UnaryExpr, RawExpr, LiteralExpr
+    when IndexExpr, RangeSelectExpr, IndexedPartSelectExpr, BinaryExpr, UnaryExpr, RawExpr, LiteralExpr, GenvarRef
       return
     else
       raise ArgumentError, "array/memory index must be a hardware uint or an integer literal, got #{idx.class}"

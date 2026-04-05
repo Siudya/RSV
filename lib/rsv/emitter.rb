@@ -175,6 +175,10 @@ module RSV
         emit_always_comb(stmt, level)
       when Instance
         emit_instance(stmt, level)
+      when GenerateIf
+        emit_generate_if(stmt, level)
+      when GenerateFor
+        emit_generate_for(stmt, level)
       when SvDefine
         value_part = stmt.value ? " #{stmt.value}" : ""
         ["`define #{stmt.macro_name}#{value_part}"]
@@ -227,6 +231,49 @@ module RSV
 
       lines << "`endif"
       lines
+    end
+
+    def emit_generate_block_body(locals, stmts, level)
+      lines = []
+      unless locals.empty?
+        lines.concat(emit_local_decls(locals, level))
+        lines << ""
+      end
+      stmts.each { |s| lines.concat(emit_stmt(s, level)) }
+      lines
+    end
+
+    def emit_generate_if(stmt, level)
+      lines = ["#{ind(level)}if (#{emit_expr(stmt.cond)}) begin#{label_suffix(stmt.label)}"]
+      lines.concat(emit_generate_block_body(stmt.locals, stmt.stmts, level + 1))
+
+      stmt.elsif_clauses.each do |clause|
+        lines << "#{ind(level)}end else if (#{emit_expr(clause[:cond])}) begin#{label_suffix(clause[:label])}"
+        lines.concat(emit_generate_block_body(clause[:locals], clause[:stmts], level + 1))
+      end
+
+      if stmt.else_body
+        lines << "#{ind(level)}end else begin#{label_suffix(stmt.else_body[:label])}"
+        lines.concat(emit_generate_block_body(stmt.else_body[:locals], stmt.else_body[:stmts], level + 1))
+      end
+
+      lines << "#{ind(level)}end"
+      lines
+    end
+
+    def emit_generate_for(stmt, level)
+      lines = [
+        "#{ind(level)}for (genvar #{stmt.genvar} = #{emit_expr(RSV.normalize_expr(stmt.start_val))}; " \
+        "#{stmt.genvar} < #{emit_expr(RSV.normalize_expr(stmt.end_val))}; " \
+        "#{stmt.genvar} = #{stmt.genvar} + 1) begin#{label_suffix(stmt.label)}"
+      ]
+      lines.concat(emit_generate_block_body(stmt.locals, stmt.stmts, level + 1))
+      lines << "#{ind(level)}end"
+      lines
+    end
+
+    def label_suffix(label)
+      label ? " : #{label}" : ""
     end
 
     def emit_proc_stmt(stmt, level)
@@ -412,6 +459,8 @@ module RSV
         "{#{expr.parts_low_to_high.reverse.map { |p| emit_expr(p) }.join(", ")}}"
       when MacroRef
         "`#{expr.macro_name}"
+      when GenvarRef
+        expr.name
       else
         expr.to_s
       end

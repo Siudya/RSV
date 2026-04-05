@@ -314,6 +314,82 @@ class HandlerDslTest < Minitest::Test
     assert_includes sv, "`WIDTH"
   end
 
+  # ── Generate tests ──────────────────────────────────────────────────────
+
+  def test_generate_for_with_local_and_always
+    mod = module_class("GenForTest") {
+      clk = input("clk", clock)
+      rst = input("rst", reset)
+      d = input("d", arr(4, uint(8)))
+      q = output("q", arr(4, uint(8)))
+      with_clk_and_rst(clk, rst)
+      generate_for("i", 0, 4, label: "gen_pipe") do |i|
+        r = reg("r", uint(8))
+        always_ff { r <= d[i] }
+        q[i] <= r
+      end
+    }.new
+
+    sv = mod.to_sv
+    assert_includes sv, "for (genvar i = 0; i < 4; i = i + 1) begin : gen_pipe"
+    assert_includes sv, "logic [7:0] r;"
+    assert_includes sv, "always_ff"
+    assert_includes sv, "r <= d[i];"
+    assert_includes sv, "assign q[i] = r;"
+    assert_includes sv, "end"
+  end
+
+  def test_generate_if_with_elsif_and_else
+    mod = module_class("GenIfTest") {
+      mode = const("MODE", uint(2, 1))
+      a = input("a", uint(8))
+      y = output("y", uint(8))
+      generate_if(mode.eq(0), label: "m0") {
+        y <= 0
+      }.generate_elif(mode.eq(1), label: "m1") {
+        y <= a
+      }.generate_else(label: "mdef") {
+        y <= 0xff
+      }
+    }.new
+
+    sv = mod.to_sv
+    assert_includes sv, "if (MODE == 0) begin : m0"
+    assert_includes sv, "end else if (MODE == 1) begin : m1"
+    assert_includes sv, "end else begin : mdef"
+    assert_includes sv, "assign y = 8'd255;"
+  end
+
+  def test_generate_for_without_label
+    mod = module_class("GenForNoLabel") {
+      d = input("d", arr(2, uint(4)))
+      q = output("q", arr(2, uint(4)))
+      generate_for("j", 0, 2) do |j|
+        q[j] <= d[j]
+      end
+    }.new
+
+    sv = mod.to_sv
+    assert_includes sv, "for (genvar j = 0; j < 2; j = j + 1) begin"
+    refute_includes sv, "begin :"
+  end
+
+  def test_generate_if_only_then
+    mod = module_class("GenIfOnly") {
+      en = const("EN", uint(1, 1))
+      a = input("a", uint(8))
+      y = output("y", uint(8))
+      generate_if(en.eq(1), label: "gen_en") {
+        y <= a
+      }
+    }.new
+
+    sv = mod.to_sv
+    assert_includes sv, "if (EN == 1) begin : gen_en"
+    assert_includes sv, "assign y = a;"
+    refute_includes sv, "else"
+  end
+
   private
 
   def module_class(name, &build_block)
