@@ -13,7 +13,7 @@ class Pixel < RSV::BundleDef
   end
 end
 
-# Bundle with sv_param
+# Bundle with sv_param — width is an SV parameter
 class DataPacket < RSV::BundleDef
   W = sv_param "W", 8
   def build
@@ -34,10 +34,10 @@ end
 
 # ── Interface Definitions ────────────────────────────────────────────────────
 
-# Stream interface with struct payload
+# Stream interface with sv_param payload width
 class StreamIntf < RSV::InterfaceDef
-  def build
-    payload = field("payload", Pixel.new)
+  def build(payload_t:)
+    payload = field("payload", payload_t)
     valid   = field("valid",   bit)
     ready   = field("ready",   bit)
     modport "src",  inputs: [ready], outputs: [payload, valid]
@@ -45,7 +45,7 @@ class StreamIntf < RSV::InterfaceDef
   end
 end
 
-# AXI-like interface with parametric width
+# AXI-like interface with meta-param widths
 class SimpleBus < RSV::InterfaceDef
   def build(addr_w: 32, data_w: 32)
     addr  = field("addr",   uint(addr_w))
@@ -61,7 +61,7 @@ end
 
 # ── Modules Using Bundles & Interfaces ───────────────────────────────────────
 
-# Module using simple bundle, nested bundle, and partial reset
+# Demonstrates bundle basics, partial reset, nested bundle, mem, and sv_param
 class PixelProcessor < RSV::ModuleDef
   def build
     clk = input("clk", clock)
@@ -70,38 +70,44 @@ class PixelProcessor < RSV::ModuleDef
     px_in  = input("px_in", Pixel.new)
     px_out = output("px_out", Pixel.new)
 
-    # Register with partial reset (only r field)
-    px_reg = reg("px_reg", Pixel.new, init: { "r" => 0, "g" => 0, "b" => 0 })
+    # Partial reset — only r is cleared on reset, g and b are NOT reset
+    px_reg = reg("px_reg", Pixel.new, init: { "r" => 0 })
+
+    # Full reset — all fields cleared
+    px_buf = reg("px_buf", Pixel.new, init: { "r" => 0, "g" => 0, "b" => 0 })
 
     # Wire with nested bundle
     hdr = wire("hdr", FrameHeader.new)
 
-    # Bundle array (mem)
+    # Bundle array (mem of structs)
     fifo = wire("fifo", mem(4, Pixel.new))
 
-    # Parameterized bundle
-    pkt8  = wire("pkt8", DataPacket.new)
+    # Parameterized bundle: W=8 (default) vs W=16 — produces two typedefs
+    pkt8  = wire("pkt8",  DataPacket.new)
     pkt16 = wire("pkt16", DataPacket.new.(W: 16))
 
     with_clk_and_rst(clk, rst)
 
-    # Assign via field access
-    px_out <= px_reg
+    px_out <= px_buf
 
     always_ff do
+      # Field access on reg
       px_reg.r <= px_in.r
-      px_reg.g <= px_in.g
-      px_reg.b <= fifo[0].b
+      # Field access through mem index
+      px_buf.r <= fifo[0].r
+      px_buf.g <= fifo[0].g
+      px_buf.b <= fifo[0].b
     end
   end
 end
 
-# Module using interface port
+# Parameterized interface — payload type is passed as a meta parameter
 class StreamSink < RSV::ModuleDef
   def build
     clk = input("clk", clock)
     rst = input("rst", reset)
-    stream = interface_port("stream", StreamIntf.new, modport: "sink")
+    # StreamIntf parameterized with Pixel bundle as payload
+    stream = interface_port("stream", StreamIntf.new(payload_t: Pixel.new), modport: "sink")
     pix = output("pixel_out", Pixel.new)
     rdy = output("ready_out", bit)
 
@@ -110,7 +116,7 @@ class StreamSink < RSV::ModuleDef
   end
 end
 
-# Module using bus interface
+# Meta-param interface — addr/data widths set at elaboration time
 class BusSlave < RSV::ModuleDef
   def build
     clk  = input("clk", clock)
@@ -122,12 +128,38 @@ class BusSlave < RSV::ModuleDef
   end
 end
 
+# Module-level sv_param + bundle with meta-param selected width
+class PacketRouter < RSV::ModuleDef
+  PKT_W = sv_param "PKT_W", 8
+  def build(pkt_w: 8)
+    clk = input("clk", clock)
+    rst = input("rst", reset)
+
+    # Bundle width matches the meta-param (concrete at elaboration time)
+    pkt_t = DataPacket.new.(W: pkt_w)
+    pkt_in  = input("pkt_in",  pkt_t)
+    pkt_out = output("pkt_out", pkt_t)
+
+    # Partial reset — only valid bit is cleared; data retains previous value
+    pkt_r = reg("pkt_r", pkt_t, init: { "valid" => 0 })
+
+    with_clk_and_rst(clk, rst)
+
+    pkt_out <= pkt_r
+
+    always_ff do
+      pkt_r.valid <= pkt_in.valid
+      pkt_r.data  <= pkt_in.data
+    end
+  end
+end
+
 # ── Generate Output ──────────────────────────────────────────────────────────
 outdir = File.join(__dir__, "..", "build", "rtl")
 FileUtils.mkdir_p(outdir)
 
 # Emit interface files
-stream_intf = StreamIntf.new
+stream_intf = StreamIntf.new(payload_t: Pixel.new)
 stream_def = stream_intf.instance_variable_get(:@_intf_def)
 File.write(File.join(outdir, "stream_intf.sv"), stream_def.to_sv)
 
@@ -136,14 +168,15 @@ bus_def = bus_intf.instance_variable_get(:@_intf_def)
 File.write(File.join(outdir, "simple_bus.sv"), bus_def.to_sv)
 
 # Emit modules
-proc_mod = PixelProcessor.new
-File.write(File.join(outdir, "pixel_processor.sv"), proc_mod.to_sv)
+[PixelProcessor, StreamSink, BusSlave].each do |klass|
+  mod = klass.new
+  name = mod.module_name.gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase
+  File.write(File.join(outdir, "#{name}.sv"), mod.to_sv)
+end
 
-sink_mod = StreamSink.new
-File.write(File.join(outdir, "stream_sink.sv"), sink_mod.to_sv)
-
-slave_mod = BusSlave.new
-File.write(File.join(outdir, "bus_slave.sv"), slave_mod.to_sv)
+# PacketRouter with meta-param pkt_w=32 → uses data_packet_t with W=32
+router = PacketRouter.new("PacketRouter").(PKT_W: 32).(pkt_w: 32)
+File.write(File.join(outdir, "packet_router.sv"), router.to_sv)
 
 puts "Generated:"
 Dir.glob(File.join(outdir, "*.sv")).sort.each { |f| puts "  #{f}" }
