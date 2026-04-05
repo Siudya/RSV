@@ -335,6 +335,8 @@ module RSV
         expr.name
       when ResetSignal
         expr.name
+      when InstancePortHandler
+        expr.name
       when SignalHandler
         expr.name
       when RawExpr

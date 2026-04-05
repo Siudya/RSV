@@ -13,9 +13,13 @@ class ExamplesSuiteTest < Minitest::Test
       outputs: ["counter.sv"],
       lint_files: ["build/rtl/counter.sv"]
     },
-    "top.rb" => {
-      outputs: ["top.sv"],
-      lint_files: ["build/rtl/counter.sv", "build/rtl/top.sv"]
+    "auto_dedup.rb" => {
+      outputs: ["auto_dedup_counter.sv", "auto_dedup_top.sv"],
+      lint_files: ["build/rtl/auto_dedup_counter.sv", "build/rtl/auto_dedup_top.sv"]
+    },
+    "manual_dedup.rb" => {
+      outputs: ["manual_dedup_counter.sv", "manual_dedup_top.sv"],
+      lint_files: ["build/rtl/manual_dedup_counter.sv", "build/rtl/manual_dedup_top.sv"]
     },
     "syntax_showcase.rb" => {
       outputs: ["syntax_showcase.sv"],
@@ -59,6 +63,18 @@ class ExamplesSuiteTest < Minitest::Test
     syntax_showcase_sv = File.read(File.join(BUILD_RTL_DIR, "syntax_showcase.sv"))
     shared_domain_blocks = syntax_showcase_sv.scan("always_ff @(negedge clk or negedge rst_n)").length
     assert_operator shared_domain_blocks, :>=, 2, "expected syntax_showcase.sv to demonstrate multiple always_ff blocks sharing one with_clk_and_rst domain"
+
+    auto_dedup_top_sv = File.read(File.join(BUILD_RTL_DIR, "auto_dedup_top.sv"))
+    refute_includes auto_dedup_top_sv, "AutoDedupCounter_1", "expected automatic dedup example to collapse identical Counter templates to one module definition"
+    assert_includes auto_dedup_top_sv, "u_stage_a_dout;", "expected automatic dedup example to declare an auto-generated inter-module wire"
+    assert_includes auto_dedup_top_sv, ".dout(u_stage_a_dout)"
+    assert_includes auto_dedup_top_sv, ".din(u_stage_a_dout)"
+
+    manual_dedup_top_sv = File.read(File.join(BUILD_RTL_DIR, "manual_dedup_top.sv"))
+    refute_includes manual_dedup_top_sv, "ManualDedupCounter_1", "expected manual dedup example to collapse identical Counter templates to one module definition"
+    assert_includes manual_dedup_top_sv, "u_stage_a_dout;", "expected manual dedup example to declare an auto-generated inter-module wire"
+    assert_includes manual_dedup_top_sv, ".dout(u_stage_a_dout)"
+    assert_includes manual_dedup_top_sv, ".din(u_stage_a_dout)"
 
     EXAMPLES.each do |script, spec|
       stdout, stderr, status = Open3.capture3("verilator", "--lint-only", *spec[:lint_files], chdir: PROJECT_ROOT)

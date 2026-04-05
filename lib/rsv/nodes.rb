@@ -866,6 +866,7 @@ module RSV
   end
 
   class InstancePortHandler
+    include ExprOps
     include AssignableExpr
 
     attr_reader :instance_handle, :port
@@ -882,25 +883,77 @@ module RSV
     def dir
       @port.dir
     end
+
+    def width
+      @port.width
+    end
+
+    def signed
+      @port.signed
+    end
+
+    def packed_dims
+      @port.packed_dims
+    end
+
+    def unpacked_dims
+      @port.unpacked_dims
+    end
+
+    def element_width
+      @port.width
+    end
+
+    def base_name
+      "#{@instance_handle.inst_name}_#{@port.name}"
+    end
+
+    def to_s
+      @port.name
+    end
+  end
+
+  class ModuleDefinitionHandle
+    attr_reader :definition, :params, :ports
+
+    def initialize(definition)
+      @definition = definition
+      @module_name = definition.respond_to?(:module_name) ? definition.module_name : definition.name
+      @params = definition.params
+      @ports = definition.ports
+    end
+
+    def module_name
+      @module_name
+    end
+
+    alias name module_name
+
+    def to_sv(output = nil)
+      raise ArgumentError, "module definition handle does not support to_sv" unless @definition.respond_to?(:to_sv)
+
+      @definition.to_sv(output)
+    end
   end
 
   class ModuleInstanceHandle
-    attr_reader :definition, :inst_name, :params, :connections
+    attr_reader :definition, :definition_handle, :inst_name, :params, :connections
 
     def initialize(definition, inst_name:)
-      @definition = definition
+      @definition_handle = RSV.normalize_module_definition_handle(definition)
+      @definition = @definition_handle.definition
       @inst_name = inst_name
-      @params = definition.params.each_with_object({}) do |param, memo|
+      @params = @definition_handle.params.each_with_object({}) do |param, memo|
         memo[param.name] = param.value
       end
       @connections = {}
-      @ports = definition.ports.each_with_object({}) do |port, memo|
+      @ports = @definition_handle.ports.each_with_object({}) do |port, memo|
         memo[port.name] = InstancePortHandler.new(self, port)
       end
     end
 
     def module_name
-      @definition.name
+      @definition_handle.module_name
     end
 
     def connect(port_name, signal)
@@ -1074,7 +1127,7 @@ module RSV
 
   def self.normalize_expr(operand)
     case operand
-    when SignalHandler, RawExpr, LiteralExpr, BinaryExpr, UnaryExpr, IndexExpr,
+    when SignalHandler, InstancePortHandler, RawExpr, LiteralExpr, BinaryExpr, UnaryExpr, IndexExpr,
          RangeSelectExpr, IndexedPartSelectExpr, AsSintExpr, ClockSignal, ResetSignal,
          ParenExpr,
          MuxExpr, CatExpr, FillExpr, PackedCollectionExpr
@@ -1107,7 +1160,7 @@ module RSV
     expr = normalize_expr(expr)
 
     case expr
-    when SignalHandler, ClockSignal, ResetSignal
+    when SignalHandler, InstancePortHandler, ClockSignal, ResetSignal
       flatten_packed_width(expr.width, expr.packed_dims)
     when RawExpr
       nil
@@ -1225,6 +1278,49 @@ module RSV
   def self.current_module_def
     stack = Thread.current[:rsv_module_defs]
     stack&.last
+  end
+
+  def self.contains_instance_port?(expr)
+    expr = normalize_expr(expr)
+
+    case expr
+    when InstancePortHandler
+      true
+    when IndexExpr
+      contains_instance_port?(expr.base) || contains_instance_port?(expr.index)
+    when RangeSelectExpr
+      contains_instance_port?(expr.base) || contains_instance_port?(expr.msb) || contains_instance_port?(expr.lsb)
+    when IndexedPartSelectExpr
+      contains_instance_port?(expr.base) || contains_instance_port?(expr.start) || contains_instance_port?(expr.part_width)
+    when BinaryExpr
+      contains_instance_port?(expr.lhs) || contains_instance_port?(expr.rhs)
+    when UnaryExpr
+      contains_instance_port?(expr.operand)
+    when ParenExpr
+      contains_instance_port?(expr.inner)
+    when AsSintExpr
+      contains_instance_port?(expr.operand)
+    when MuxExpr
+      contains_instance_port?(expr.sel) || contains_instance_port?(expr.a) || contains_instance_port?(expr.b)
+    when CatExpr
+      expr.parts.any? { |part| contains_instance_port?(part) }
+    when FillExpr
+      contains_instance_port?(expr.count) || contains_instance_port?(expr.part)
+    when PackedCollectionExpr
+      expr.parts_low_to_high.any? { |part| contains_instance_port?(part) }
+    else
+      false
+    end
+  end
+
+  def self.normalize_module_definition_handle(source)
+    return source if source.is_a?(ModuleDefinitionHandle)
+
+    if source.respond_to?(:params) && source.respond_to?(:ports) && (source.respond_to?(:module_name) || source.respond_to?(:name))
+      return ModuleDefinitionHandle.new(source)
+    end
+
+    raise TypeError, "module definition expects an elaborated module or a definition handle"
   end
 
   def self.expr_packed_dims(expr)

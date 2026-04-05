@@ -340,6 +340,7 @@ module RSV
       @incdirs = incdirs
       @defines = normalize_define_map(defines)
       @definition_cache = {}
+      @definition_handle_cache = {}
     end
 
     def new(*args, **kwargs)
@@ -349,6 +350,14 @@ module RSV
       return current_module.send(:instantiate_module, self, **kwargs) if current_module
 
       build_definition(**kwargs)
+    end
+
+    def definition(*args, **kwargs)
+      raise ArgumentError, "imported SystemVerilog modules do not accept positional arguments" unless args.empty?
+
+      overrides = normalize_override_map(kwargs)
+      cache_key = JSON.dump(overrides.sort.to_h)
+      @definition_handle_cache[cache_key] ||= ModuleDefinitionHandle.new(build_definition(**kwargs))
     end
 
     def build_definition(*args, **kwargs)

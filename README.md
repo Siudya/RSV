@@ -6,7 +6,12 @@ class-based module API.
 Current DSL highlights include anonymous `bit` / `uint` / `arr` / `mem` data
 types, class-based module construction, and stream-view operations on `uint`,
 `arr`, and `mem` values (`sv_take`, `sv_select`, `sv_foreach`, `sv_reduce`,
-`sv_map`).
+`sv_map`). Class-based modules also expose a mutable `module_name` and
+automatically suffix colliding structural variants under the same base name.
+For repeated submodules, you can also build a reusable template once with
+`Counter.definition(...)` and instantiate it later with `instance(...)`.
+Repeated `definition(...)` calls that elaborate to the same SV template reuse
+the same handle automatically.
 
 ## Environment
 
@@ -29,7 +34,8 @@ Run the bundled examples:
 
 ```sh
 ruby examples/counter.rb
-ruby examples/top.rb
+ruby examples/auto_dedup.rb
+ruby examples/manual_dedup.rb
 ruby examples/syntax_showcase.rb
 ruby examples/storage_streams.rb
 ruby examples/mux_cases.rb
@@ -37,10 +43,12 @@ ruby examples/import_demo.rb
 ```
 
 These examples print generated SystemVerilog with `to_sv("-")` and write the
-results to `build/rtl/`.
+results to `build/rtl/`. When an example instantiates multiple distinct variants
+of one module class, it also writes the deduplicated dependency modules there.
 
 - `counter.rb`: parameterized sequential counter
-- `top.rb`: submodule instantiation and port connections
+- `auto_dedup.rb`: automatic dedup plus child-to-child wiring through auto-generated parent-local wires
+- `manual_dedup.rb`: manual `definition(...)` / `instance(...)` dedup plus child-to-child wiring through auto-generated parent-local wires
 - `syntax_showcase.rb`: declarations, operators, slices, casts, and control blocks
 - `storage_streams.rb`: arr/mem shapes, fill helpers, indexing, and stream views
 - `mux_cases.rb`: ternary, one-hot, and priority mux helpers

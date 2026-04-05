@@ -17,6 +17,10 @@ SystemVerilog.
 + Materialize named intermediate wires with `expr(...)`.
 + Describe sequential or combinational behavior with `always_ff`,
   `always_latch`, and `always_comb`.
++ Adjust `module_name` inside `build(...)` if one Ruby class needs to emit a
+  non-default SV module name.
++ Use `Counter.definition(...)` plus `instance(...)` when one elaborated module
+  template will be instantiated repeatedly.
 + Use left assignment `<=` or right assignment `>=` in user code.
 + Write comparisons with `eq/ne/lt/le/gt/ge`, logical ops with `.and(...)`
   and `.or(...)`, and reductions with `.or_r` / `.and_r`.
@@ -105,21 +109,39 @@ endmodule
 
 When `Counter.new(...)` is called at top level, it creates a module object. When
 it is called inside another module, it creates a submodule instance handle.
-Ports are connected later with `<=` or `>=`.
+Ports are connected later with `<=` or `>=`. For repeated variants, you can
+also elaborate once with `Counter.definition(...)` and instantiate that handle
+manually. If multiple `definition(...)` calls elaborate to the same SV template,
+RSV reuses one cached handle.
+
+When one child module output is connected directly to another child module input,
+RSV inserts the parent-local interconnect `wire` automatically. The generated
+wire name follows the driving instance and port path, so indexed multidimensional
+connections such as `u_src.tx_mem[0][1] <= u_dst.rx_mem[1][2]` produce names
+like `u_src_tx_mem_0_1`.
+
+Each module object also carries `module_name`, which defaults from the Ruby
+class name unless you override it. If repeated instantiations of one
+`ModuleDef` subclass produce different SV bodies while keeping the same base
+name, RSV preserves the first name and suffixes later variants with `_1`,
+`_2`, and so on so their instantiations stay collision-free.
 
 ```ruby
 class Top < RSV::ModuleDef
-  def build
+  def build(counter_def:)
     clk = input("clk", bit)
     rst = input("rst", bit)
     count = output("count", uint(8))
 
-    counter = Counter.new(inst_name: "u_counter", width: 8)
+    counter = instance(counter_def, inst_name: "u_counter")
     counter.clk <= clk
     rst >= counter.rst
     counter.count >= count
   end
 end
+
+counter_def = Counter.definition(width: 8)
+top = Top.new(counter_def: counter_def)
 ```
 
 == Packed arrays and unpacked memories
@@ -179,7 +201,11 @@ end
 == Example scripts
 
 - `examples/counter.rb` generates `build/rtl/counter.sv`.
-- `examples/top.rb` instantiates two counters and generates `build/rtl/top.sv`.
+- `examples/auto_dedup.rb` demonstrates automatic dedup plus child-to-child
+  wiring through auto-generated parent-local wires.
+- `examples/manual_dedup.rb` demonstrates manual `definition(...)` /
+  `instance(...)` dedup plus child-to-child wiring through auto-generated
+  parent-local wires.
 - `examples/syntax_showcase.rb` covers declarations, operators, slices, casts,
   and control blocks.
 - `examples/storage_streams.rb` covers shaped storage declarations, fill

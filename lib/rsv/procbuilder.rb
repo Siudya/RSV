@@ -84,7 +84,9 @@ module RSV
     private
 
     def append_assignment(lhs, rhs)
-      raise ArgumentError, "instance ports cannot be assigned inside procedural blocks" if lhs.is_a?(InstancePortHandler) || rhs.is_a?(InstancePortHandler)
+      if RSV.contains_instance_port?(lhs) || RSV.contains_instance_port?(rhs)
+        raise ArgumentError, "instance ports cannot be assigned inside procedural blocks"
+      end
 
       normalized_lhs = RSV.normalize_expr(lhs)
       normalized_rhs = RSV.normalize_expr(rhs)

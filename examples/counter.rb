@@ -20,7 +20,7 @@ require "rsv"
 
 class Counter < RSV::ModuleDef
   def build(width: 8)
-    parameter "WIDTH", width
+    parameter "WIDTH", 8
 
     clk = input("clk", bit)
     rst = input("rst", bit)

@@ -29,6 +29,8 @@ class HandlerDslTest < Minitest::Test
     assert_respond_to mod, :muxp
     assert_respond_to mod, :cat
     assert_respond_to mod, :fill
+    assert_respond_to mod, :definition
+    assert_respond_to mod, :instance
 
     refute_respond_to mod, :instantiate
     refute_respond_to mod, :assign_stmt

@@ -71,4 +71,50 @@ class SvImportTest < Minitest::Test
 
     assert_equal expected, top.to_sv
   end
+
+  def test_imported_definition_handle_can_be_instantiated_manually
+    imported = RSV.import_sv(IMPORTED_COUNTER, top: "ImportedCounter", incdirs: [FIXTURE_DIR])
+    imported_def = imported.definition(WIDTH: 16)
+
+    top = Class.new(RSV::ModuleDef) do
+      define_singleton_method(:name) { "ImportedTop" }
+
+      define_method(:build) do |imported_def:|
+        clk = input("clk", bit)
+        rst_n = input("rst_n", bit)
+        din = input("din", uint(12))
+        dout = output("dout", uint(12))
+
+        counter = instance(imported_def, inst_name: "u_counter")
+        counter.clk <= clk
+        counter.rst_n <= rst_n
+        counter.din <= din
+        dout <= counter.dout
+      end
+    end.new(imported_def: imported_def)
+
+    expected = <<~SV.chomp
+      module ImportedTop (
+        input  logic        clk,
+        input  logic        rst_n,
+        input  logic [11:0] din,
+        output logic [11:0] dout
+      );
+
+        ImportedCounter #(
+          .WIDTH(16),
+          .DEPTH(32)
+        ) u_counter (
+          .clk(clk),
+          .rst_n(rst_n),
+          .din(din),
+          .dout(dout)
+        );
+
+      endmodule
+    SV
+
+    assert_equal "ImportedCounter", imported_def.module_name
+    assert_equal expected, top.to_sv
+  end
 end

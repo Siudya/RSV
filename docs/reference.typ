@@ -5,9 +5,18 @@
 - Subclass `RSV::ModuleDef` to define a module.
 - Implement module construction in `build(...)` or `initialize(...)`.
 - If you override `initialize(...)`, call `super()` before using the DSL.
+- Each module object exposes `module_name`. It defaults from the class name (or
+  the positional constructor override) and may be reassigned inside `build(...)`
+  or `initialize(...)`.
 - `Counter.new(...)` at top level returns a module object.
+- `Counter.definition(...)` at top level returns a reusable elaborated module
+  template handle. If later `definition(...)` calls elaborate to the same
+  template, RSV reuses the same handle automatically.
 - `Counter.new(...)` inside another module returns a submodule instance handle.
 - `RSV::ModuleDef` itself is not instantiated directly.
+- When one `ModuleDef` subclass emits multiple distinct SV bodies under the same
+  base `module_name`, RSV reuses the first name and appends `_1`, `_2`, ... to
+  later variants.
 
 == Declarations
 
@@ -79,6 +88,11 @@
 
 / `with_clk_and_rst(clk, rst)`: sets the implicit clock/reset domain for
   following `always_ff` blocks. Supports `clk.neg` and `rst.neg` for negedge.
+/ `definition(source, ...)`: returns a reusable module-definition handle. Accepts
+  an RSV module class, an imported module object, or an already-built module /
+  definition handle. Identical elaborated templates reuse one cached handle.
+/ `instance(def_handle, inst_name:)`: instantiates a reusable definition handle
+  and returns the usual mirror-style port handle for later connections.
 / `always_ff { ... }`: emits a domain-driven `always_ff` using the current
   clock/reset.
 / `always_ff(clk, rst) { ... }`: emits an `always_ff` with an explicit domain.
@@ -120,12 +134,18 @@ inferred width and computed init value:
 == Submodule connections
 
 - Instantiate submodules by constructing the module class inside another module.
+- For repeated variants, prefer `Counter.definition(...)` + `instance(...)` so
+  elaboration happens once and the same template is reused.
 - Use `inst_name:` to set a deterministic instance name.
 - Connect input-like ports with `instance.port <= signal`.
 - Connect input-like ports with `signal >= instance.port` if you prefer
   right-assignment form.
 - Connect output-like ports with `signal <= instance.port` or
   `instance.port >= signal`.
+- Connecting an output instance port directly to an input instance port inserts
+  a parent-local `wire` automatically. The wire name is derived from the driving
+  instance and port, e.g. `u_tx_dout` or `u_tx_mem_0_1` for indexed /
+  multidimensional selections.
 
 == Expression behavior
 
