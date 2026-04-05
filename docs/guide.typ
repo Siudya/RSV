@@ -151,9 +151,9 @@ vector indexing and slicing behave the same as before.
 
 == Stream views
 
-Packed scalar `uint(...)` values and packed `arr(...)` values can be treated as
-enumerable views with `sv_take`, `sv_select`, `sv_foreach`, `sv_reduce`, and
-`sv_map`.
+Packed scalar `uint(...)` values, packed `arr(...)` values, and single-dimension
+`mem(...)` values can be treated as enumerable views with `sv_take`,
+`sv_select`, `sv_foreach`, `sv_reduce`, and `sv_map`.
 
 ```ruby
 always_comb do

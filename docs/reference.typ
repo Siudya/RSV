@@ -68,7 +68,7 @@
   after filtering.
 / `expr.sv_foreach { |elem, i| ... }`: eagerly expands one block invocation per
   selected element. In the current implementation, stream sources are limited to
-  `uint` and packed `arr(...)`.
+  `uint`, packed `arr(...)`, and single-dimension `mem(...)`.
 / `expr.sv_reduce { |a, b| ... }`: left-folds the selected elements and keeps
   the emitted fold order explicit in SV.
 / `expr.sv_map { |elem, i| ... }`: maps selected elements into a packed result.

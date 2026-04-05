@@ -704,14 +704,14 @@ module RSV
       unpacked_dims = RSV.expr_unpacked_dims(expr)
       packed_dims = RSV.expr_packed_dims(expr)
 
-      unless unpacked_dims.empty?
-        raise ArgumentError, "sv_stream phase 1 only supports uint and packed arr sources"
-      end
-
-      entries = if packed_dims.empty?
+      entries = if unpacked_dims.empty? && packed_dims.empty?
         build_scalar_entries(expr)
-      else
+      elsif unpacked_dims.empty?
         build_packed_entries(expr, packed_dims.first)
+      elsif packed_dims.empty? && unpacked_dims.length == 1
+        build_unpacked_entries(expr, unpacked_dims.first)
+      else
+        raise ArgumentError, "sv_stream phase 2 only supports uint, packed arr, and single-dimension mem sources"
       end
 
       new(entries)
@@ -733,6 +733,13 @@ module RSV
     def self.build_packed_entries(expr, dim)
       length = RSV.dimension_value(dim)
       raise ArgumentError, "sv_stream requires statically known packed dimensions" unless length.is_a?(Integer) && length.positive?
+
+      (0...length).map { |i| StreamEntry.new(IndexExpr.new(expr, LiteralExpr.new(i)), i) }
+    end
+
+    def self.build_unpacked_entries(expr, dim)
+      length = RSV.dimension_value(dim)
+      raise ArgumentError, "sv_stream requires statically known unpacked dimensions" unless length.is_a?(Integer) && length.positive?
 
       (0...length).map { |i| StreamEntry.new(IndexExpr.new(expr, LiteralExpr.new(i)), i) }
     end
