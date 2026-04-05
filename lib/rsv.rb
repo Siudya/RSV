@@ -6,7 +6,7 @@ require_relative "rsv/procbuilder"
 require_relative "rsv/validator"
 require_relative "rsv/moddef"
 require_relative "rsv/bundledef"
-require_relative "rsv/interfacedef"
+
 require_relative "rsv/elaborator"
 require_relative "rsv/emitter"
 require_relative "rsv/svimport"

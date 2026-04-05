@@ -259,10 +259,11 @@ end
 This flow relies on `python3` + `pyslang` and currently imports module
 signatures only; it does not translate the imported module body into RSV.
 
-== Bundle (struct) usage
+== Bundle usage
 
 Subclass `RSV::BundleDef` and use `field` inside `build` to declare members.
 The class produces a `DataType` usable with all RSV declarations.
+Bundle fields are flattened to individual signals at declaration time.
 
 ```ruby
 class Pixel < RSV::BundleDef
@@ -283,43 +284,14 @@ class PixProc < RSV::ModuleDef
 end
 ```
 
+A `reg("px", Pixel.new)` declaration generates three separate signals:
+`px_r`, `px_g`, `px_b`. Field access `px.r` maps directly to `px_r`.
+
 Bundles support:
-- Nested bundles: `field "inner", OtherBundle.new`
-- `arr`/`mem`: `mem(4, Pixel.new)` → `pixel_t fifo[3:0]`
+- Nested bundles: `field "inner", OtherBundle.new` (recursively flattened)
+- `arr`/`mem`: `mem(4, Pixel.new)` → separate signals with unpacked dim
 - `sv_param`: `W = sv_param "W", 8` with curried `Pixel.new.(W: 16)`
 - Partial reset: only listed fields get reset in `always_ff`
 - Field access: `handler.field_name` for reads and writes
 - Field handles: `r = field("r", type)` — Ruby name may differ from SV name
-
-== Interface usage
-
-Subclass `RSV::InterfaceDef` and declare signals with `input` and `output`
-(from the master's perspective). Modports `mst` and `slv` are auto-generated.
-Use `intf` in a module to connect it, and `.slv` to select the slave modport.
-
-```ruby
-class MyBus < RSV::InterfaceDef
-  def build
-    data  = output("data",  uint(32))
-    valid = output("valid", bit)
-    ready = input("ready",  bit)
-  end
-end
-
-class Slave < RSV::ModuleDef
-  def build
-    bus = intf("bus", MyBus.new.slv)
-    o = output("dout", uint(32))
-    o <= bus.data
-  end
-end
-```
-
-Interfaces support:
-- Struct fields: `output "payload", Pixel.new`
-- Auto modports: `mst` (as-declared) and `slv` (reversed)
-- Module integration: `intf("name", IntfClass.new.slv)`
-- Whole-interface interconnect: `mst <= slv` or `slv >= mst` expands to
-  per-field assign statements
-- Individual field assignment: `bus.data <= signal`
-- Meta parameters in `build(addr_w:, data_w:)`
+- Whole-bundle assignment: `out <= reg` expands to per-field assignments

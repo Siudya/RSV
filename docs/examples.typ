@@ -20,7 +20,7 @@ xmake rtl -f syn
   columns: (auto, auto, auto),
   [*名称*], [*别名*], [*特性摘要*],
   [`auto_dedup`], [`aut`], [自动去重与子模块自动布线],
-  [`bundle_and_interface`], [`bdi`], [Bundle (struct) 与 Interface 支持],
+  [`bundle_and_interface`], [`bdi`], [Bundle 类型展开为扁平信号],
   [`const_demo`], [`cst`], [`const` / `localparam` 常量声明],
   [`counter`], [`ctr`], [基础参数化顺序计数器],
   [`curried_params`], [`cur`], [`sv_param` 与柯里化参数],
@@ -248,10 +248,9 @@ SystemVerilog parameter 与柯里化参数。
 
 Verilog 兼容 wrapper 产生器，展示所有端口类型的展开。
 
-- 端口声明: `input`, `output`, `intf`
+- 端口声明: `input`, `output`
 - 类型构造: `clock`, `reset`, `arr`, `mem`, `uint`, `bit`
 - Bundle 定义: `BundleDef` + `field` 声明
-- Interface 定义: `InterfaceDef` + `output`/`input` 方向声明
 - 局部声明: `reg`(含初始值)
 - 赋值: `<=`
 - 数组/存储器索引: `[]`
@@ -260,10 +259,7 @@ Verilog 兼容 wrapper 产生器，展示所有端口类型的展开。
 - Verilog wrapper: `v_wrapper(path, wrapper_name:)` 生成端口打平的 Verilog 兼容顶层
   - packed 数组端口打平为位向量直连
   - unpacked 数组端口展开为独立标量端口
-  - interface 端口展开为各字段的平坦端口，内部例化 interface 连线
-  - bundle (struct) 端口展开为各字段的平坦端口，支持嵌套递归展开
-  - `mem(N, Bundle)` 端口同时展开维度和字段
-  - interface 含 bundle 字段时递归展开 payload
+  - bundle 端口已在声明时展开为扁平信号，wrapper 直接转发
 - 输出: `to_sv(path)`, `v_wrapper(path)`
 
 == sv_plugin_demo.rb
@@ -288,26 +284,19 @@ Verilog 兼容 wrapper 产生器，展示所有端口类型的展开。
 
 == bundle_and_interface.rb
 
-Bundle (struct) 与 Interface 综合演示。
+Bundle 类型展开为扁平信号的综合演示。
 
 - Bundle 定义: `RSV::BundleDef` 子类，`field` 声明字段
 - Bundle 参数化: `sv_param("W", 8)` 与柯里化 `.new.(W: 16)`
-- Bundle 嵌套: 在另一个 Bundle 的字段中引用其他 Bundle
+- Bundle 嵌套: 在另一个 Bundle 的字段中引用其他 Bundle（递归展开）
 - Bundle 作为端口类型: `input("px_in", Pixel.new)`, `output("px_out", Pixel.new)`
 - Bundle 作为 reg 类型: `reg("px_r", Pixel.new, init: { ... })`
 - Bundle 部分初始化: 仅列出的字段在 `always_ff` 中产生 reset
-- Bundle 字段访问: `handler.field_name` 读写
-- Bundle 与 mem 组合: `mem(N, BundleType.new)` → unpacked struct 数组
-- Bundle 去重: 不同 sv\_param 值产生不同 typedef 名
-- Interface 定义: `RSV::InterfaceDef` 子类，`input`/`output` 声明信号方向（从 master 视角）
-- Interface 自动 modport: 自动生成 `mst`（按声明方向）和 `slv`（反转方向）
-- Interface 含 struct 字段: `output "payload", DataPacket.new.(W: 32)`
-- Interface 端口: `intf("bus", StreamIntf.new.slv)` 声明 slave modport 端口
-- Interface 整体互联: `mst <= slv` 或 `slv >= mst` 展开为每个字段的 assign
-- Interface 字段单独赋值: `bus.data <= signal`
-- 元参数 Interface: `build(payload_t:)`, `build(addr_w:, data_w:)`
+- Bundle 字段访问: `handler.field_name` 读写（直接映射为展开后的信号名）
+- Bundle 与 mem 组合: `mem(N, BundleType.new)` → 每个字段带 unpacked 维度
+- Bundle 整体赋值: `out <= reg` 展开为逐字段赋值
 - 模板化模块: Bundle 类型作为模块元参数传递
-- 输出: `to_sv(path)`, `intf_def.to_sv(path)`
+- 输出: `to_sv(path)`
 
 == 特性覆盖矩阵
 
@@ -348,23 +337,16 @@ Bundle (struct) 与 Interface 综合演示。
   [generate-if + 局部 const], [generate\_demo],
   [`sv_param` 柯里化参数], [curried\_params],
   [`v_wrapper` Verilog wrapper], [verilog\_wrapper],
-  [`v_wrapper` Interface 端口展开], [verilog\_wrapper],
   [`v_wrapper` Bundle 端口展开], [verilog\_wrapper],
-  [`v_wrapper` mem(N, Bundle) 展开], [verilog\_wrapper],
-  [`v_wrapper` Interface 含 Bundle 展开], [verilog\_wrapper],
   [`sv_plugin` 内嵌 SV 代码], [sv\_plugin\_demo],
   [流式 API (`sv_map` 等)], [storage\_streams],
   [`attr:` 硬件属性], [（见 test/handler\_dsl\_test.rb 中的单元测试）],
-  [`BundleDef` struct 定义], [bundle\_and\_interface],
+  [`BundleDef` 定义], [bundle\_and\_interface],
   [Bundle 参数化 (`sv_param`)], [bundle\_and\_interface],
   [Bundle 嵌套], [bundle\_and\_interface],
   [Bundle 部分初始化], [bundle\_and\_interface],
   [Bundle 字段访问], [bundle\_and\_interface],
   [Bundle + `mem`/`arr`], [bundle\_and\_interface],
-  [`InterfaceDef` 定义], [bundle\_and\_interface],
-  [Interface 自动 modport (`mst`/`slv`)], [bundle\_and\_interface],
-  [Interface 含 struct], [bundle\_and\_interface],
-  [`intf()` 端口声明与 `.slv`], [bundle\_and\_interface],
-  [Interface 整体互联 (`<=`/`>=`)], [bundle\_and\_interface],
-  [Interface 字段单独赋值], [bundle\_and\_interface],
+  [Bundle 扁平展开], [bundle\_and\_interface],
+  [Bundle 整体赋值], [bundle\_and\_interface],
 )

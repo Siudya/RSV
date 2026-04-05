@@ -233,13 +233,6 @@ module RSV
       AsSintExpr.new(self)
     end
 
-    # Mark this interface DataType as slave modport.
-    def slv
-      raise ArgumentError, ".slv is only valid on InterfaceDef types" unless instance_variable_get(:@_intf_def)
-      @_intf_modport = "slv"
-      self
-    end
-
     def scalar?
       @packed_dims.empty? && @unpacked_dims.empty? && @width.is_a?(Integer) && !@init.nil? && @init.is_a?(Integer)
     end
@@ -567,6 +560,140 @@ module RSV
 
     def base_name
       @base.respond_to?(:base_name) ? @base.base_name : @base.to_s
+    end
+  end
+
+  # Holds flattened child signals for a bundle-typed declaration.
+  # Supports field access via method_missing and whole-bundle assignment.
+  class BundleSignalGroup
+    include AssignableExpr
+
+    attr_reader :name, :bundle_type, :children, :unpacked_dims
+
+    # children: Hash { field_name => SignalHandler | BundleSignalGroup }
+    def initialize(name, bundle_type:, children:, unpacked_dims: [])
+      @name = name
+      @bundle_type = bundle_type
+      @children = children
+      @unpacked_dims = unpacked_dims
+    end
+
+    def <=(rhs)
+      if rhs.is_a?(BundleSignalGroup)
+        @children.each do |fname, child|
+          rhs_child = rhs.children[fname]
+          raise ArgumentError, "bundle field mismatch: #{fname}" unless rhs_child
+          child <= rhs_child
+        end
+      elsif rhs.is_a?(IndexedBundleSignalGroup)
+        @children.each do |fname, child|
+          rhs_child = rhs.send(fname.to_sym)
+          child <= rhs_child
+        end
+      else
+        super
+      end
+    end
+
+    def >=(lhs)
+      if lhs.is_a?(BundleSignalGroup)
+        lhs <= self
+      else
+        super
+      end
+    end
+
+    def [](idx)
+      IndexedBundleSignalGroup.new(self, RSV.normalize_expr(idx))
+    end
+
+    def method_missing(meth, *args, &blk)
+      field_name = meth.to_s
+      if args.empty? && blk.nil? && @children.key?(field_name)
+        return @children[field_name]
+      end
+      super
+    end
+
+    def respond_to_missing?(meth, include_private = false)
+      @children.key?(meth.to_s) || super
+    end
+
+    # Collect all leaf SignalHandlers recursively.
+    def leaf_handlers
+      @children.each_value.flat_map do |child|
+        child.is_a?(BundleSignalGroup) ? child.leaf_handlers : [child]
+      end
+    end
+
+    def to_s
+      @name
+    end
+  end
+
+  # Result of indexing a BundleSignalGroup (e.g., fifo[i]).
+  # Routes field access to IndexExpr on the child handler.
+  class IndexedBundleSignalGroup
+    include AssignableExpr
+
+    attr_reader :group, :index
+
+    def initialize(group, index)
+      @group = group
+      @index = index
+    end
+
+    def <=(rhs)
+      if rhs.is_a?(BundleSignalGroup) || rhs.is_a?(IndexedBundleSignalGroup)
+        @group.children.each do |fname, child|
+          lhs_indexed = IndexExpr.new(child, @index)
+          rhs_child = rhs.is_a?(BundleSignalGroup) ? rhs.children[fname] : rhs.send(fname.to_sym)
+          lhs_indexed <= rhs_child
+        end
+      else
+        super
+      end
+    end
+
+    def >=(lhs)
+      if lhs.is_a?(BundleSignalGroup) || lhs.is_a?(IndexedBundleSignalGroup)
+        lhs <= self
+      else
+        super
+      end
+    end
+
+    def [](idx)
+      raise ArgumentError, "cannot double-index a bundle signal group"
+    end
+
+    def method_missing(meth, *args, &blk)
+      field_name = meth.to_s
+      if args.empty? && blk.nil? && @group.children.key?(field_name)
+        child = @group.children[field_name]
+        if child.is_a?(BundleSignalGroup)
+          # Nested bundle in mem: index propagates
+          indexed_children = child.children.transform_values do |c|
+            IndexExpr.new(c, @index)
+          end
+          return BundleSignalGroup.new(
+            "#{child.name}[#{@index}]",
+            bundle_type: child.bundle_type,
+            children: indexed_children
+          )
+        else
+          return IndexExpr.new(child, @index)
+        end
+      end
+      super
+    end
+
+    def respond_to_missing?(meth, include_private = false)
+      @group.children.key?(meth.to_s) || super
+    end
+
+    def to_s
+      "#{@group.name}[#{@index}]"
     end
   end
 
@@ -986,42 +1113,6 @@ module RSV
     end
   end
 
-  # Handler for interface port signals — supports field access via method_missing.
-  class InterfacePortHandler
-    include ExprOps
-    include AssignableExpr
-
-    attr_reader :name, :intf_def, :modport
-
-    def initialize(name, intf_def, modport: "mst")
-      @name = name
-      @intf_def = intf_def
-      @modport = modport
-    end
-
-    def to_s
-      @name
-    end
-
-    def base_name
-      @name
-    end
-
-    def method_missing(meth, *args, &blk)
-      if args.empty? && blk.nil?
-        field_name = meth.to_s
-        if @intf_def.fields.any? { |f| f[:name] == field_name }
-          return FieldAccessExpr.new(self, field_name)
-        end
-      end
-      super
-    end
-
-    def respond_to_missing?(meth, include_private = false)
-      @intf_def.fields.any? { |f| f[:name] == meth.to_s } || super
-    end
-  end
-
   class InstancePortHandler
     include ExprOps
     include AssignableExpr
@@ -1147,10 +1238,10 @@ module RSV
 
   # Represents an input / output / inout port declaration.
   class PortDecl
-    attr_reader :dir, :name, :width, :signed, :packed_dims, :unpacked_dims, :raw_type, :attr, :bundle_type, :intf_type
+    attr_reader :dir, :name, :width, :signed, :packed_dims, :unpacked_dims, :raw_type, :attr
 
-    def initialize(dir, signal, raw_type: nil, attr: nil, bundle_type: nil, intf_type: nil)
-      @dir          = dir    # :input | :output | :inout | :intf
+    def initialize(dir, signal, raw_type: nil, attr: nil)
+      @dir          = dir    # :input | :output | :inout
       @name         = signal.name
       @width        = signal.width  # Integer or String (e.g. "WIDTH")
       @signed       = signal.signed
@@ -1158,8 +1249,6 @@ module RSV
       @unpacked_dims = signal.unpacked_dims.dup
       @raw_type      = raw_type
       @attr          = attr  # Hash or nil: { "mark_debug" => "true" } or { "keep" => nil }
-      @bundle_type  = bundle_type
-      @intf_type    = intf_type  # { klass:, modport:, type_name: }
     end
 
     def append_dimensions!(packed: [], unpacked: [])
@@ -1202,9 +1291,9 @@ module RSV
 
   # Represents a local wire / logic / reg signal declaration.
   class LocalDecl
-    attr_reader :kind, :name, :width, :signed, :init, :reset_init, :packed_dims, :unpacked_dims, :attr, :bundle_type
+    attr_reader :kind, :name, :width, :signed, :init, :reset_init, :packed_dims, :unpacked_dims, :attr
 
-    def initialize(kind, signal, init: signal.init, reset_init: nil, attr: nil, bundle_type: nil)
+    def initialize(kind, signal, init: signal.init, reset_init: nil, attr: nil)
       @kind         = kind
       @name         = signal.name
       @width        = signal.width
@@ -1214,7 +1303,6 @@ module RSV
       @packed_dims   = signal.packed_dims.dup
       @unpacked_dims = signal.unpacked_dims.dup
       @attr          = attr
-      @bundle_type  = bundle_type
     end
 
     def sv_kind
@@ -1255,17 +1343,6 @@ module RSV
       @name   = name
       @params = params
       @fields = fields
-    end
-  end
-
-  class ElaboratedInterface
-    attr_reader :name, :params, :fields, :modports
-
-    def initialize(name, params:, fields:, modports:)
-      @name   = name
-      @params = params
-      @fields = fields
-      @modports = modports
     end
   end
 
@@ -1472,7 +1549,7 @@ module RSV
 
   def self.normalize_expr(operand)
     case operand
-    when SignalHandler, InstancePortHandler, InterfacePortHandler, RawExpr, LiteralExpr, BinaryExpr, UnaryExpr, IndexExpr,
+    when SignalHandler, InstancePortHandler, RawExpr, LiteralExpr, BinaryExpr, UnaryExpr, IndexExpr,
          RangeSelectExpr, IndexedPartSelectExpr, AsSintExpr, ClockSignal, ResetSignal,
          ParenExpr, FieldAccessExpr,
          MuxExpr, CatExpr, FillExpr, PackedCollectionExpr, MacroRef, GenvarRef, SvParamRef

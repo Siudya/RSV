@@ -278,20 +278,6 @@ module RSV
       declare_port(:inout, build_signal_spec(name, data_type, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
     end
 
-    # New API: `bus = intf("bus", MyIntf.new.slv)`
-    # Modport is read from the DataType (default "mst", call .slv for "slv").
-    def intf(name, intf_type)
-      raise ArgumentError, "intf expects an InterfaceDef DataType" unless intf_type.is_a?(DataType) && intf_type.instance_variable_get(:@_intf_def)
-
-      intf_def = intf_type.instance_variable_get(:@_intf_def)
-      modport = intf_type.instance_variable_get(:@_intf_modport) || "mst"
-      spec = SignalSpec.new(name, width: 1, signed: false)
-      intf_info = { klass: intf_def, modport: modport, type_name: intf_def.type_name }
-      @ports << PortDecl.new(:intf, spec, intf_type: intf_info)
-
-      InterfacePortHandler.new(name, intf_def, modport: modport)
-    end
-
     # ── Internal signal declarations ────────────────────────────────────────
 
     def wire(name, data_type, init: UNSET_INIT, attr: nil)
@@ -550,7 +536,11 @@ module RSV
     def declare_port(dir, spec, clock_type: false, reset_type: false, attr: nil)
       raise ArgumentError, "#{dir} does not support init" unless spec.init.nil?
 
-      @ports << PortDecl.new(dir, spec, attr: attr, bundle_type: spec.bundle_type)
+      if spec.bundle_type
+        return flatten_bundle_port(dir, spec, attr: attr)
+      end
+
+      @ports << PortDecl.new(dir, spec, attr: attr)
       handler = build_handler(spec, dir)
       return ClockSignal.new(handler) if clock_type
       return ResetSignal.new(handler) if reset_type
@@ -559,6 +549,10 @@ module RSV
     end
 
     def declare_local(kind, spec, clock_type: false, reset_type: false, attr: nil)
+      if spec.bundle_type
+        return flatten_bundle_local(kind, spec, attr: attr)
+      end
+
       @locals << build_local_decl(kind, spec, attr: attr)
       handler = build_handler(spec, kind)
       return ClockSignal.new(handler) if clock_type
@@ -567,13 +561,81 @@ module RSV
       handler
     end
 
+    def flatten_bundle_port(dir, spec, attr: nil)
+      children = {}
+      spec.bundle_type.fields.each do |f|
+        child_name = "#{spec.name}_#{f.name}"
+        dt = f.data_type
+        if dt.bundle_type
+          child_spec = SignalSpec.new(
+            child_name,
+            width: dt.width, signed: dt.signed,
+            packed_dims: dt.packed_dims,
+            unpacked_dims: spec.unpacked_dims + dt.unpacked_dims,
+            bundle_type: dt.bundle_type
+          )
+          children[f.name] = flatten_bundle_port(dir, child_spec, attr: attr)
+        else
+          child_spec = SignalSpec.new(
+            child_name,
+            width: dt.width, signed: dt.signed,
+            packed_dims: dt.packed_dims,
+            unpacked_dims: spec.unpacked_dims + dt.unpacked_dims
+          )
+          @ports << PortDecl.new(dir, child_spec, attr: attr)
+          children[f.name] = build_handler(child_spec, dir)
+        end
+      end
+      BundleSignalGroup.new(
+        spec.name,
+        bundle_type: spec.bundle_type,
+        children: children,
+        unpacked_dims: spec.unpacked_dims
+      )
+    end
+
+    def flatten_bundle_local(kind, spec, attr: nil)
+      children = {}
+      init_hash = spec.init.is_a?(Hash) ? spec.init : nil
+      spec.bundle_type.fields.each do |f|
+        child_name = "#{spec.name}_#{f.name}"
+        dt = f.data_type
+        field_init = init_hash ? init_hash[f.name] || init_hash[f.name.to_sym] : nil
+        if dt.bundle_type
+          child_spec = SignalSpec.new(
+            child_name,
+            width: dt.width, signed: dt.signed, init: field_init,
+            packed_dims: dt.packed_dims,
+            unpacked_dims: spec.unpacked_dims + dt.unpacked_dims,
+            bundle_type: dt.bundle_type
+          )
+          children[f.name] = flatten_bundle_local(kind, child_spec, attr: attr)
+        else
+          child_init = field_init || (spec.init.is_a?(Hash) ? nil : nil)
+          child_spec = SignalSpec.new(
+            child_name,
+            width: dt.width, signed: dt.signed, init: child_init,
+            packed_dims: dt.packed_dims,
+            unpacked_dims: spec.unpacked_dims + dt.unpacked_dims
+          )
+          @locals << build_local_decl(kind, child_spec, attr: attr)
+          children[f.name] = build_handler(child_spec, kind)
+        end
+      end
+      BundleSignalGroup.new(
+        spec.name,
+        bundle_type: spec.bundle_type,
+        children: children,
+        unpacked_dims: spec.unpacked_dims
+      )
+    end
+
     def build_local_decl(kind, spec, attr: nil)
-      bt = spec.bundle_type
       case kind
       when :reg
-        LocalDecl.new(kind, spec, init: nil, reset_init: spec.init, attr: attr, bundle_type: bt)
+        LocalDecl.new(kind, spec, init: nil, reset_init: spec.init, attr: attr)
       else
-        LocalDecl.new(kind, spec, attr: attr, bundle_type: bt)
+        LocalDecl.new(kind, spec, attr: attr)
       end
     end
 
@@ -672,14 +734,9 @@ module RSV
 
     # ── Assignment & auto-connection ──────────────────────────────────────
 
-    # Central assignment dispatcher. Routes to interface interconnect,
-    # instance port auto-wiring, or plain continuous assignment.
+    # Central assignment dispatcher. Routes to
+    # instance port auto-wiring or plain continuous assignment.
     def append_assignment(lhs, rhs)
-      # Interface interconnect: mst <= slv or slv >= mst
-      if lhs.is_a?(InterfacePortHandler) && rhs.is_a?(InterfacePortHandler)
-        return connect_interfaces(lhs, rhs)
-      end
-
       lhs_port = instance_port_endpoint(lhs)
       rhs_port = instance_port_endpoint(rhs)
 
@@ -699,34 +756,6 @@ module RSV
       stmt = AssignStmt.new(RSV.normalize_expr(lhs), RSV.normalize_expr(rhs))
       @stmts << stmt
       stmt
-    end
-
-    def connect_interfaces(lhs, rhs)
-      lhs_is_mst = lhs.modport == "mst"
-      rhs_is_mst = rhs.modport == "mst"
-      lhs_is_slv = lhs.modport == "slv"
-      rhs_is_slv = rhs.modport == "slv"
-
-      unless (lhs_is_mst && rhs_is_slv) || (lhs_is_slv && rhs_is_mst)
-        raise ArgumentError, "interface interconnect requires one mst and one slv (got #{lhs.modport} and #{rhs.modport})"
-      end
-
-      mst_h = lhs_is_mst ? lhs : rhs
-      slv_h = lhs_is_mst ? rhs : lhs
-
-      # mst output → module drives mst field, reads slv field
-      # mst input  → module drives slv field, reads mst field
-      mst_h.intf_def.fields.each do |f|
-        fname = f[:name]
-        mst_field = FieldAccessExpr.new(mst_h, fname)
-        slv_field = FieldAccessExpr.new(slv_h, fname)
-        if f[:dir] == "output"
-          stmt = AssignStmt.new(mst_field, slv_field)
-        else
-          stmt = AssignStmt.new(slv_field, mst_field)
-        end
-        @stmts << stmt
-      end
     end
 
     def instance_port_endpoint(operand)

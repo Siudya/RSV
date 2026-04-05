@@ -248,15 +248,10 @@ inferred width and computed init value:
   `[31:0]` bit vector and connected directly.
 - Unpacked array ports (e.g. `mem(3, uint(16))`) are expanded to individual
   scalar ports (`port_0`, `port_1`, ...) and reassembled via SV array wires.
-- Interface ports are expanded: each interface field becomes a flat Verilog port
-  (`port_field`). The wrapper internally instantiates the SV interface and wires
-  flat ports to interface fields, respecting modport direction (mst/slv).
-- Bundle (struct) ports are expanded: each struct field becomes a flat port
-  (`port_field`). Nested bundles are recursively flattened.
-- `mem(N, BundleType)` ports expand both the unpacked dimension and the struct
-  fields: `port_0_field`, `port_1_field`, etc.
-- Interface fields that are bundle-typed are recursively flattened:
-  `port_payload_r`, `port_payload_g`, etc.
+- Bundle ports are already flattened at declaration time: each bundle field
+  becomes a separate port (`port_field`). Nested bundles are recursively
+  flattened (`port_inner_field`).
+- `mem(N, BundleType)` ports: each flattened field carries the unpacked dimension.
 - A custom wrapper name can be specified: `v_wrapper(wrapper_name: "my_top")`.
 - The wrapper output can be written to file: `v_wrapper("path/to/file.sv")`.
 - All port widths must be integer constants (not `SvParamRef`) for flattening.
@@ -275,52 +270,28 @@ inferred width and computed init value:
 - Example: `sv_plugin '$display("val=%h", sig);'`
 - Example: see `examples/sv_plugin_demo.rb`.
 
-== Bundle (Struct)
+== Bundle
 
-- Subclass `RSV::BundleDef` to define a packed struct.
+- Subclass `RSV::BundleDef` to define a bundle type.
 - Implement field declarations in `build(...)`.
-- `field(name, type)`: declares a struct member. The type can be any RSV data
+- `field(name, type)`: declares a bundle member. The type can be any RSV data
   type (`bit`, `uint`, `sint`, another bundle, `arr(...)`, `mem(...)`).
   Returns a field handle for use in the Ruby scope. The Ruby variable name
   may differ from the SV field name for encryption-friendly naming.
 - `MyBundle.new` returns a `DataType` usable with `input`, `output`, `wire`,
   `reg`, `arr`, `mem`, etc.
-- Bundle types emit as `typedef struct packed { ... }` before the module body,
-  guarded by ifndef to allow safe multi-file compilation.
-- Nested bundles are supported: `field "inner", OtherBundle.new`.
+- Bundle fields are flattened to individual signals at declaration time.
+  E.g. `reg("px", Pixel.new)` produces `px_r`, `px_g`, `px_b`.
+- Nested bundles are recursively flattened: `outer_inner_field`.
 - Parameterized bundles support `sv_param` at class level. Curried call:
   `MyBundle.new.(W: 16)`. Different parameter values produce different
   type names via automatic dedup.
 - Partial reset: `reg("r", bundle_t, init: { "field" => 0 })` only generates
   reset assignments for the listed fields in `always_ff`.
 - Full reset: provide all field names in the init hash.
-- Field access: `handler.field_name` returns a `FieldAccessExpr` usable on
-  both sides of assignments. E.g., `r.valid <= 1`, `o <= r.data`.
-- Array indexing preserves bundle type: `fifo[0].data` works on
+- Field access: `handler.field_name` returns the flattened signal handler.
+  E.g., `r.valid <= 1`, `o <= r.data`.
+- Whole-bundle assignment: `out <= reg` expands to per-field assignments.
+- Array indexing preserves bundle grouping: `fifo[0].data` works on
   `mem(N, bundle_t)`.
-- Example: see `examples/bundle_and_interface.rb` file.
-
-== Interface
-
-- Subclass `RSV::InterfaceDef` to define a SystemVerilog interface.
-- `output(name, type)`: declares an output signal (from the master's
-  perspective). Returns a field handle.
-- `input(name, type)`: declares an input signal (from the master's
-  perspective). Returns a field handle.
-- Modports `mst` and `slv` are auto-generated: `mst` keeps declared
-  directions, `slv` reverses them.
-- Struct (bundle) fields are supported: `output "payload", MyBundle.new`.
-- Interface types emit as `interface ... endinterface` with the struct typedefs
-  included and both modports auto-synthesized.
-- Parameterized interfaces: meta parameters in `build(addr_w: 32, data_w: 32)`.
-  `sv_param` at class level also supported.
-- `intf_def.to_sv(path)`: emits the interface SV text.
-- Module IO integration: `intf(name, IntfClass.new)` declares a master modport
-  port; `intf(name, IntfClass.new.slv)` declares a slave modport port.
-  Emits `IntfName.mst port_name` or `IntfName.slv port_name`.
-- The returned handler supports field access: `bus.data`, `bus.ready`.
-- Whole-interface interconnect: `mst <= slv` or `slv >= mst` expands to
-  per-field `assign` statements with correct direction based on modport.
-  Both sides must have opposite modports (one mst, one slv).
-- Individual field assignment: `bus.data <= signal` or `signal <= bus.data`.
 - Example: see `examples/bundle_and_interface.rb` file.

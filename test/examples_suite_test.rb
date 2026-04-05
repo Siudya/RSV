@@ -54,20 +54,25 @@ class ExamplesSuiteTest < Minitest::Test
       lint_files: ["build/rtl/curried_param_counter.sv", "build/rtl/curried_param_counter_1.sv", "build/rtl/curried_top.sv"]
     },
     "verilog_wrapper.rb" => {
-      outputs: ["inner_module.sv", "inner_module_wrapper.sv"],
-      lint_files: ["build/rtl/inner_module.sv", "build/rtl/inner_module_wrapper.sv"]
+      outputs: ["inner_module.sv", "inner_module_wrapper.sv", "bundle_module.sv", "bundle_module_wrapper.sv",
+                "mem_bundle_module.sv", "mem_bundle_module_wrapper.sv"],
+      lint_files: ["-Wno-MULTITOP",
+                   "build/rtl/inner_module.sv", "build/rtl/inner_module_wrapper.sv",
+                   "build/rtl/bundle_module.sv", "build/rtl/bundle_module_wrapper.sv",
+                   "build/rtl/mem_bundle_module.sv", "build/rtl/mem_bundle_module_wrapper.sv"]
     },
     "sv_plugin_demo.rb" => {
       outputs: ["sv_plugin_demo.sv"],
       lint_files: ["build/rtl/sv_plugin_demo.sv"]
     },
     "bundle_and_interface.rb" => {
-      outputs: ["pixel_processor.sv", "stream_intf.sv", "stream_sink.sv", "simple_bus.sv", "bus_slave.sv"],
+      outputs: ["pixel_processor.sv", "packet_router.sv", "pipe_reg_pixel.sv", "pipe_reg_pkt.sv"],
       lint_files: [
         "-Wno-MULTITOP",
         "build/rtl/pixel_processor.sv",
-        "build/rtl/stream_intf.sv", "build/rtl/stream_sink.sv",
-        "build/rtl/simple_bus.sv", "build/rtl/bus_slave.sv"
+        "build/rtl/packet_router.sv",
+        "build/rtl/pipe_reg_pixel.sv",
+        "build/rtl/pipe_reg_pkt.sv"
       ]
     },
     "case_demo.rb" => {

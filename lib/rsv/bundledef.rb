@@ -144,7 +144,11 @@ module RSV
           dt.unpacked_dims.each { |d| dim_str += "[#{RSV.format_dim(d)}]" }
           lines << "  #{dt.bundle_type.type_name} #{f.name}#{dim_str};"
         else
-          lines << "  #{Emitter.format_field_decl(f)};"
+          signed_str = dt.signed ? "signed " : ""
+          w = dt.width
+          dim_str = w.is_a?(Integer) && w > 1 ? "[#{w - 1}:0] " : (w.is_a?(String) ? "[#{w}-1:0] " : "")
+          unpacked = dt.unpacked_dims.map { |d| "[#{RSV.format_dim(d)}]" }.join
+          lines << "  logic #{signed_str}#{dim_str}#{f.name}#{unpacked};"
         end
       end
       lines << "} #{type_name};"

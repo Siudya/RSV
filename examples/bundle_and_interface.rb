@@ -2,7 +2,7 @@ $LOAD_PATH.unshift(File.join(__dir__, "..", "lib"))
 require "rsv"
 require "fileutils"
 
-# ── Bundle (Struct) Definitions ──────────────────────────────────────────────
+# ── Bundle Definitions ──────────────────────────────────────────────
 
 # Simple bundle
 class Pixel < RSV::BundleDef
@@ -32,31 +32,7 @@ class FrameHeader < RSV::BundleDef
   end
 end
 
-# ── Interface Definitions ────────────────────────────────────────────────────
-
-# Stream interface — directions are from master's perspective.
-# mst/slv modports are auto-generated.
-class StreamIntf < RSV::InterfaceDef
-  def build(payload_t:)
-    payload = output("payload", payload_t)
-    valid   = output("valid",   bit)
-    ready   = input("ready",    bit)
-  end
-end
-
-# AXI-like interface with meta-param widths
-class SimpleBus < RSV::InterfaceDef
-  def build(addr_w: 32, data_w: 32)
-    addr  = output("addr",   uint(addr_w))
-    wdata = output("wdata",  uint(data_w))
-    rdata = input("rdata",   uint(data_w))
-    wen   = output("wen",    bit)
-    ren   = output("ren",    bit)
-    ready = input("ready",   bit)
-  end
-end
-
-# ── Modules Using Bundles & Interfaces ───────────────────────────────────────
+# ── Modules Using Bundles ───────────────────────────────────────────
 
 # Demonstrates bundle basics, partial reset, nested bundle, mem, and sv_param
 class PixelProcessor < RSV::ModuleDef
@@ -95,60 +71,6 @@ class PixelProcessor < RSV::ModuleDef
       px_buf.g <= fifo[0].g
       px_buf.b <= fifo[0].b
     end
-  end
-end
-
-# Parameterized interface — payload type is passed as a meta parameter
-class StreamSink < RSV::ModuleDef
-  def build
-    clk = input("clk", clock)
-    rst = input("rst", reset)
-    # StreamIntf parameterized with Pixel bundle as payload — .slv for slave modport
-    stream = intf("stream", StreamIntf.new(payload_t: Pixel.new).slv)
-    pix = output("pixel_out", Pixel.new)
-    rdy = output("ready_out", bit)
-
-    pix <= stream.payload
-    rdy <= stream.ready
-  end
-end
-
-# Meta-param interface — addr/data widths set at elaboration time
-class BusSlave < RSV::ModuleDef
-  def build
-    clk  = input("clk", clock)
-    rst  = input("rst", reset)
-    bus  = intf("bus", SimpleBus.new(addr_w: 16, data_w: 32).slv)
-    data = output("reg_data", uint(32))
-
-    data <= bus.rdata
-  end
-end
-
-# ── Interface Interconnect ───────────────────────────────────────────────────
-
-# Whole-interface interconnect: mst <= slv expands to per-field assign
-class StreamBridge < RSV::ModuleDef
-  def build
-    m = intf("m_stream", StreamIntf.new(payload_t: Pixel.new))
-    s = intf("s_stream", StreamIntf.new(payload_t: Pixel.new).slv)
-    m <= s
-  end
-end
-
-# Individual field assignment on interface ports
-class StreamAdapter < RSV::ModuleDef
-  def build
-    clk = input("clk", clock)
-    rst = input("rst", reset)
-    s = intf("stream", StreamIntf.new(payload_t: Pixel.new).slv)
-    px_out   = output("px_out",   Pixel.new)
-    v_out    = output("v_out",    bit)
-    rdy_in   = input("rdy_in",   bit)
-
-    px_out <= s.payload
-    v_out  <= s.valid
-    s.ready <= rdy_in
   end
 end
 
@@ -198,17 +120,8 @@ end
 outdir = File.join(__dir__, "..", "build", "rtl")
 FileUtils.mkdir_p(outdir)
 
-# Emit interface files
-stream_intf = StreamIntf.new(payload_t: Pixel.new)
-stream_def = stream_intf.instance_variable_get(:@_intf_def)
-File.write(File.join(outdir, "stream_intf.sv"), stream_def.to_sv)
-
-bus_intf = SimpleBus.new(addr_w: 16, data_w: 32)
-bus_def = bus_intf.instance_variable_get(:@_intf_def)
-File.write(File.join(outdir, "simple_bus.sv"), bus_def.to_sv)
-
 # Emit modules
-[PixelProcessor, StreamSink, BusSlave, StreamBridge, StreamAdapter].each do |klass|
+[PixelProcessor].each do |klass|
   mod = klass.new
   name = mod.module_name.gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase
   File.write(File.join(outdir, "#{name}.sv"), mod.to_sv)

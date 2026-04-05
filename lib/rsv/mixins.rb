@@ -2,7 +2,7 @@
 
 module RSV
   # ── Shared type constructor methods ──────────────────────────────────────
-  # Included by ModuleDef, BundleDef, and InterfaceDef.
+  # Included by ModuleDef and BundleDef.
   module TypeConstructors
     def bit(init = nil, **kwargs)
       init = kwargs[:init] if kwargs.key?(:init)
@@ -30,7 +30,7 @@ module RSV
 
   # ── Shared sv_param support ──────────────────────────────────────────────
   # Class-level and instance-level helpers for SV parameter handling.
-  # Include in BundleDef, InterfaceDef, ModuleDef.
+  # Include in BundleDef, ModuleDef.
   module SvParamSupport
     def self.included(base)
       base.extend(ClassMethods)

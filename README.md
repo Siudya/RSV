@@ -5,7 +5,7 @@ class-based module API.
 
 RSV covers class-based module construction, anonymous `bit` / `uint` / `sint`
 / `arr` / `mem` types, procedural blocks, generate blocks, macro helpers,
-`BundleDef` (struct) and `InterfaceDef` (interface) constructs,
+`BundleDef` (bundle type, flattened to individual signals),
 imported black-box modules, Verilog wrapper emission, and inline
 SystemVerilog escape hatches.
 
@@ -85,7 +85,7 @@ This generates `build/rsv_doc.pdf`.
 | Expressions | arithmetic, compare, logical, reduction, shifts, `mux`, `cat`, `fill`, `$signed` |
 | Utilities | `log2ceil`, `pop_count`, `mux1h`, `muxp` |
 | Elaboration-time features | `generate_for`, `generate_if`, `definition` / `instance`, curried `sv_param` |
-| Struct & Interface | `BundleDef` (packed struct typedef), `InterfaceDef` (interface + modport), `intf` |
+| Bundle types | `BundleDef` (flattened to individual signals at declaration time) |
 | SV integration | macro directives, imported SV module signatures, inline `sv_plugin`, Verilog wrapper |
 | Examples | `xmake rtl -l` lists runnable examples with aliases and feature summaries |
 

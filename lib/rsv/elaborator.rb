@@ -27,13 +27,11 @@ module RSV
         signed: local.signed,
         init: local.init,
         packed_dims: local.packed_dims,
-        unpacked_dims: local.unpacked_dims,
-        bundle_type: local.respond_to?(:bundle_type) ? local.bundle_type : nil
+        unpacked_dims: local.unpacked_dims
       )
       return ConstDecl.new(spec, init: local.init, attr: local.attr) if local.is_a?(ConstDecl)
 
-      LocalDecl.new(local.sv_kind, spec, init: local.init, reset_init: local.reset_init, attr: local.attr,
-                     bundle_type: local.respond_to?(:bundle_type) ? local.bundle_type : nil)
+      LocalDecl.new(local.sv_kind, spec, init: local.init, reset_init: local.reset_init, attr: local.attr)
     end
 
     def elaborate_stmt(stmt)
@@ -162,20 +160,8 @@ module RSV
         signed: local.signed,
         kind: :logic,
         packed_dims: local.packed_dims,
-        unpacked_dims: local.unpacked_dims,
-        bundle_type: local.respond_to?(:bundle_type) ? local.bundle_type : nil
+        unpacked_dims: local.unpacked_dims
       )
-
-      # Partial bundle reset: only reset named fields
-      if local.reset_init.is_a?(Hash) && local.respond_to?(:bundle_type) && local.bundle_type
-        return local.reset_init.flat_map do |field_name, value|
-          field_lhs = FieldAccessExpr.new(lhs, field_name.to_s)
-          fd = local.bundle_type.fields.find { |f| f.name == field_name.to_s }
-          fw = fd ? fd.data_type.width : local.width
-          field_rhs = elaborate_expr(RSV.reset_init_expr(value, fw), target_width: fw)
-          [NbAssign.new(field_lhs, field_rhs)]
-        end
-      end
 
       rhs = elaborate_expr(RSV.reset_init_expr(local.reset_init, local.width), target_width: local.width)
       dims = local.unpacked_dims + local.packed_dims

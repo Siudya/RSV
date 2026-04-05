@@ -105,15 +105,7 @@ module RSV
       when SignalHandler, IndexExpr, RangeSelectExpr, IndexedPartSelectExpr
         expr.base_name
       when FieldAccessExpr
-        base = assigned_base_name(expr.base)
-        base_expr = RSV.normalize_expr(expr.base)
-        if base_expr.is_a?(InterfacePortHandler)
-          "#{base}.#{expr.field_name}"
-        else
-          base
-        end
-      when InterfacePortHandler
-        expr.name
+        assigned_base_name(expr.base)
       when RawExpr
         raw_expr_base_name(expr.source)
       else
