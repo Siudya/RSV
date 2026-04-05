@@ -540,6 +540,49 @@ class HandlerDslTest < Minitest::Test
     assert_includes wrapper, "module my_top ("
   end
 
+  # --- sv_plugin tests ---
+
+  def test_sv_plugin_module_level
+    klass = module_class("PluginMod") do
+      input("a", uint(8))
+      sv_plugin "// custom comment"
+      sv_plugin "assign foo = bar;"
+    end
+    mod = klass.new("plugin_mod")
+    sv = mod.to_sv
+    assert_includes sv, "  // custom comment"
+    assert_includes sv, "  assign foo = bar;"
+  end
+
+  def test_sv_plugin_multiline
+    klass = module_class("PluginMulti") do
+      input("clk", clock)
+      sv_plugin "always @(posedge clk) begin\n  $display(\"hello\");\nend"
+    end
+    mod = klass.new("plugin_multi")
+    sv = mod.to_sv
+    assert_includes sv, "  always @(posedge clk) begin"
+    assert_includes sv, "    $display(\"hello\");"
+    assert_includes sv, "  end"
+  end
+
+  def test_sv_plugin_inside_always_ff
+    klass = module_class("PluginProc") do
+      clk = input("clk", clock)
+      rst = input("rst", reset)
+      a = input("a", uint(8))
+      r = reg("r", uint(8), init: 0)
+      with_clk_and_rst(clk, rst)
+      always_ff do
+        sv_plugin '$display("r=%h", r);'
+        r <= a
+      end
+    end
+    mod = klass.new("plugin_proc")
+    sv = mod.to_sv
+    assert_includes sv, '$display("r=%h", r);'
+  end
+
   private
 
   def module_class(name, &build_block)

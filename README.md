@@ -68,6 +68,7 @@ ruby examples/macro_demo.rb
 ruby examples/generate_demo.rb
 ruby examples/curried_params.rb
 ruby examples/verilog_wrapper.rb
+ruby examples/sv_plugin_demo.rb
 ```
 
 These examples print generated SystemVerilog with `to_sv("-")` and write the
@@ -86,6 +87,7 @@ of one module class, it also writes the deduplicated dependency modules there.
 - `generate_demo.rb`: generate-for and generate-if blocks
 - `curried_params.rb`: sv_param and curried parameter application
 - `verilog_wrapper.rb`: Verilog-compatible wrapper with flattened ports
+- `sv_plugin_demo.rb`: inline SystemVerilog code embedding with `sv_plugin`
 
 Use xmake automation:
 

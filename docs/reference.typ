@@ -229,3 +229,16 @@ inferred width and computed init value:
 - The wrapper output can be written to file: `v_wrapper("path/to/file.sv")`.
 - All port widths must be integer constants (not `SvParamRef`) for flattening.
 - Example: see `examples/verilog_wrapper.rb`.
+
+== Inline SystemVerilog (sv\_plugin)
+
+- `sv_plugin(code)` embeds raw SystemVerilog code at the current position.
+- Usable at module level (emits alongside `assign`, `always`, etc.) and
+  inside procedural blocks (`always_ff`, `always_comb`, `always_latch`).
+- Multi-line strings (heredocs) are supported; each line is indented to
+  match the surrounding context.
+- Typical uses: assertions, `$display` debug statements, `function`/`task`
+  definitions, vendor-specific pragmas, or any SV construct not yet
+  supported by the RSV DSL.
+- Example: `sv_plugin '$display("val=%h", sig);'`
+- Example: see `examples/sv_plugin_demo.rb`.

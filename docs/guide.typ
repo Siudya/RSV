@@ -224,6 +224,7 @@ end
 - `examples/generate_demo.rb` demonstrates generate-for and generate-if blocks.
 - `examples/curried_params.rb` demonstrates sv_param and curried parameters.
 - `examples/verilog_wrapper.rb` demonstrates Verilog-compatible wrapper generation.
+- `examples/sv_plugin_demo.rb` demonstrates inline SystemVerilog code embedding.
 - `xmake rtl -f counter` runs `examples/counter.rb`.
 - `xmake rtl -f name -d dir` runs `dir/name.rb`, with `dir` defaulting to
   `examples`.

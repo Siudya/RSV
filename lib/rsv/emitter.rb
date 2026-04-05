@@ -229,6 +229,8 @@ module RSV
         emit_macro_cond("`ifdef", stmt, level)
       when SvIfndef
         emit_macro_cond("`ifndef", stmt, level)
+      when SvPlugin
+        emit_sv_plugin(stmt, level)
       else
         ["#{ind(level)}// unknown statement: #{stmt.class}"]
       end
@@ -317,6 +319,10 @@ module RSV
       label ? " : #{label}" : ""
     end
 
+    def emit_sv_plugin(stmt, level)
+      stmt.code.lines.map { |line| "#{ind(level)}#{line.chomp}" }
+    end
+
     def emit_proc_stmt(stmt, level)
       case stmt
       when NbAssign
@@ -329,6 +335,8 @@ module RSV
         emit_for_stmt(stmt, level)
       when MuxCaseStmt
         emit_mux_case_inline(stmt, level)
+      when SvPlugin
+        emit_sv_plugin(stmt, level)
       else
         ["#{ind(level)}// unknown proc stmt: #{stmt.class}"]
       end

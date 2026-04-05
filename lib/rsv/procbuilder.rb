@@ -89,6 +89,10 @@ module RSV
       MacroRef.new(name.to_s)
     end
 
+    def sv_plugin(code)
+      @stmts << SvPlugin.new(code.to_s)
+    end
+
     private
 
     def append_assignment(lhs, rhs)

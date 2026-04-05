@@ -194,6 +194,19 @@ Verilog 兼容 wrapper 产生器。
   - unpacked 数组端口展开为独立标量端口
 - 输出: `to_sv(path)`, `v_wrapper(path)`
 
+== sv_plugin_demo.rb
+
+内嵌原始 SystemVerilog 代码。
+
+- 端口声明: `input`, `output`
+- 类型构造: `clock`, `reset`, `uint`
+- 局部声明: `reg`(含初始值)
+- sv\_plugin（模块级）: 内嵌 assertion 块、function 定义、assign 语句
+- sv\_plugin（过程级）: 在 `always_ff` 内嵌 `$display` 调试语句
+- 多行 heredoc: 使用 `<<~SV ... SV` 嵌入多行代码
+- 赋值: `<=`
+- 时序逻辑: `always_ff`, `with_clk_and_rst`
+
 == imported_counter.sv
 
 供 `import_demo.rb` 使用的外部 SystemVerilog 参考模块，不含 RSV 代码。
@@ -235,6 +248,7 @@ Verilog 兼容 wrapper 产生器。
   [generate-if + 局部 const], [generate\_demo],
   [`sv_param` 柯里化参数], [curried\_params],
   [`v_wrapper` Verilog wrapper], [verilog\_wrapper],
+  [`sv_plugin` 内嵌 SV 代码], [sv\_plugin\_demo],
   [流式 API (`sv_map` 等)], [storage\_streams],
   [`attr:` 硬件属性], [（见 test/handler\_dsl\_test.rb 中的单元测试）],
 )

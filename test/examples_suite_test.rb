@@ -56,6 +56,10 @@ class ExamplesSuiteTest < Minitest::Test
     "verilog_wrapper.rb" => {
       outputs: ["inner_module.sv", "inner_module_wrapper.sv"],
       lint_files: ["build/rtl/inner_module.sv", "build/rtl/inner_module_wrapper.sv"]
+    },
+    "sv_plugin_demo.rb" => {
+      outputs: ["sv_plugin_demo.sv"],
+      lint_files: ["build/rtl/sv_plugin_demo.sv"]
     }
   }.freeze
 

@@ -1142,6 +1142,9 @@ module RSV
   SvIfdef      = Struct.new(:macro_name, :body, :elsif_clauses, :else_body)
   SvIfndef     = Struct.new(:macro_name, :body, :elsif_clauses, :else_body)
 
+  # Inline SystemVerilog code fragment
+  SvPlugin     = Struct.new(:code)
+
   # Expression that references a macro value: `MACRO_NAME
   class MacroRef
     include ExprOps
