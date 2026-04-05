@@ -2,32 +2,7 @@
 
 module RSV
   # Curried builder for bundles with sv_param declarations.
-  class CurriedBundleBuilder
-    def initialize(klass, *args, **kwargs)
-      @klass = klass
-      @args = args
-      @kwargs = kwargs
-      @sv_param_overrides = nil
-      @result = nil
-    end
-
-    def call(**kwargs)
-      if @sv_param_overrides.nil?
-        @sv_param_overrides = kwargs
-        self
-      else
-        finalize(**kwargs)
-      end
-    end
-
-    def method_missing(name, *args, **kwargs, &block)
-      finalize.send(name, *args, **kwargs, &block)
-    end
-
-    def respond_to_missing?(name, include_private = false)
-      true
-    end
-
+  class CurriedBundleBuilder < CurriedBuilderBase
     private
 
     def finalize(**meta_params)
@@ -53,6 +28,10 @@ module RSV
   #   dat_t = MyBundle.new
   #   r = reg("my_reg", dat_t)
   class BundleDef
+    include TypeConstructors
+    include SvParamSupport
+    include TypeVariantRegistry
+
     attr_reader :fields, :params, :type_name
 
     class << self
@@ -74,33 +53,8 @@ module RSV
         bundle.send(:to_data_type)
       end
 
-      def sv_param(name, default_value)
-        sv_param_defs << { name: name.to_s, default: default_value }
-        SvParamRef.new(name.to_s)
-      end
-
-      def sv_param_defs
-        @sv_param_defs ||= []
-      end
-
       def bundle_def_instance
         @bundle_def_instance
-      end
-
-      private
-
-      def resolve_registered_type_name(base_name, sv_signature)
-        variants = type_variant_registry[base_name]
-        existing = variants.find { |entry| entry[:sv_signature] == sv_signature }
-        return existing[:type_name] if existing
-
-        type_name = variants.empty? ? base_name : "#{base_name}_#{variants.length}"
-        variants << { type_name: type_name, sv_signature: sv_signature }
-        type_name
-      end
-
-      def type_variant_registry
-        @type_variant_registry ||= Hash.new { |hash, key| hash[key] = [] }
       end
     end
 
@@ -122,30 +76,6 @@ module RSV
     def build(*args, **kwargs)
     end
 
-    # Type constructors (same as ModuleDef)
-    def bit(init = nil, **kwargs)
-      init = kwargs[:init] if kwargs.key?(:init)
-      DataType.new(width: 1, init: init)
-    end
-
-    def bits(width = 1, init = nil, **kwargs)
-      width = kwargs[:width] if kwargs.key?(:width)
-      init = kwargs[:init] if kwargs.key?(:init)
-      DataType.new(width: width, signed: false, init: init)
-    end
-
-    def uint(width = 1, init = nil, signed: false, **kwargs)
-      width = kwargs[:width] if kwargs.key?(:width)
-      init = kwargs[:init] if kwargs.key?(:init)
-      DataType.new(width: width, signed: signed, init: init)
-    end
-
-    def sint(width = 1, init = nil, **kwargs)
-      width = kwargs[:width] if kwargs.key?(:width)
-      init = kwargs[:init] if kwargs.key?(:init)
-      DataType.new(width: width, signed: true, init: init)
-    end
-
     def arr(*dims_and_target)
       compose_data_type(*dims_and_target, storage: :packed)
     end
@@ -162,25 +92,7 @@ module RSV
 
     private
 
-    def apply_sv_param_defs
-      overrides = @_sv_param_overrides || {}
-      self.class.sv_param_defs.each do |pd|
-        key_sym = pd[:name].to_sym
-        key_str = pd[:name].to_s
-        value = overrides.fetch(key_sym, overrides.fetch(key_str, pd[:default]))
-        type = infer_sv_param_type(value)
-        @params << ParamDecl.new(pd[:name], value, type)
-      end
-    end
-
-    def infer_sv_param_type(value)
-      case value
-      when Integer then "int"
-      when String then "string"
-      else "int"
-      end
-    end
-
+    # Resolve SvParamRef values in field widths/dims after build.
     def resolve_sv_param_refs!
       return if @params.empty?
 
@@ -205,15 +117,6 @@ module RSV
       end
     end
 
-    def resolve_param_value(val, param_map)
-      case val
-      when SvParamRef
-        param_map.fetch(val.name, val)
-      else
-        val
-      end
-    end
-
     def finalize_type_name!
       return @type_name if @type_name_finalized
 
@@ -227,7 +130,6 @@ module RSV
 
     def default_type_name
       n = self.class.name.to_s.split("::").last
-      # Convert PascalCase to snake_case and append _t
       n.gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase + "_t"
     end
 

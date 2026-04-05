@@ -70,35 +70,14 @@ module RSV
 
   # Curried builder for modules with sv_param declarations.
   # Chains: ModuleClass.new("name").(sv_params).(meta_params)
-  class CurriedModuleBuilder
+  class CurriedModuleBuilder < CurriedBuilderBase
     def initialize(klass, *args, **kwargs, &block)
-      @klass = klass
-      @args = args
-      @kwargs = kwargs
+      super(klass, *args, **kwargs)
       @block = block
-      @sv_param_overrides = nil
-      @result = nil
-    end
-
-    def call(**kwargs)
-      if @sv_param_overrides.nil?
-        @sv_param_overrides = kwargs
-        self
-      else
-        finalize(**kwargs)
-      end
     end
 
     def to_sv(output = nil)
       finalize.to_sv(output)
-    end
-
-    def method_missing(name, *args, **kwargs, &block)
-      finalize.send(name, *args, **kwargs, &block)
-    end
-
-    def respond_to_missing?(name, include_private = false)
-      true
     end
 
     private
@@ -192,15 +171,6 @@ module RSV
         definition_handle_registry[definition.module_name] ||= ModuleDefinitionHandle.new(definition)
       end
 
-      def sv_param(name, default_value)
-        sv_param_defs << { name: name.to_s, default: default_value }
-        SvParamRef.new(name.to_s)
-      end
-
-      def sv_param_defs
-        @sv_param_defs ||= []
-      end
-
       private
 
       def resolve_registered_module_name(base_name, sv_signature)
@@ -273,28 +243,8 @@ module RSV
       @params << ParamDecl.new(name, value, type)
     end
 
-    def bit(init = nil, **kwargs)
-      init = kwargs[:init] if kwargs.key?(:init)
-      DataType.new(width: 1, init: init)
-    end
-
-    def bits(width = 1, init = nil, **kwargs)
-      width = kwargs[:width] if kwargs.key?(:width)
-      init = kwargs[:init] if kwargs.key?(:init)
-      DataType.new(width: width, signed: false, init: init)
-    end
-
-    def uint(width = 1, init = nil, signed: false, **kwargs)
-      width = kwargs[:width] if kwargs.key?(:width)
-      init = kwargs[:init] if kwargs.key?(:init)
-      DataType.new(width: width, signed: signed, init: init)
-    end
-
-    def sint(width = 1, init = nil, **kwargs)
-      width = kwargs[:width] if kwargs.key?(:width)
-      init = kwargs[:init] if kwargs.key?(:init)
-      DataType.new(width: width, signed: true, init: init)
-    end
+    include TypeConstructors
+    include SvParamSupport
 
     def clock(init = nil, **kwargs)
       init = kwargs[:init] if kwargs.key?(:init)
@@ -340,19 +290,6 @@ module RSV
       @ports << PortDecl.new(:intf, spec, intf_type: intf_info)
 
       InterfacePortHandler.new(name, intf_def, modport: modport)
-    end
-
-    # Deprecated: use intf() instead.
-    def interface_port(name, intf_type, modport: nil)
-      raise ArgumentError, "interface_port expects an InterfaceDef DataType" unless intf_type.is_a?(DataType) && intf_type.instance_variable_get(:@_intf_def)
-
-      intf_def = intf_type.instance_variable_get(:@_intf_def)
-      modport_str = modport&.to_s || intf_type.instance_variable_get(:@_intf_modport) || "mst"
-      spec = SignalSpec.new(name, width: 1, signed: false)
-      intf_info = { klass: intf_def, modport: modport_str, type_name: intf_def.type_name }
-      @ports << PortDecl.new(:intf, spec, intf_type: intf_info)
-
-      InterfacePortHandler.new(name, intf_def, modport: modport_str)
     end
 
     # ── Internal signal declarations ────────────────────────────────────────
@@ -697,25 +634,6 @@ module RSV
       self.class.name.to_s.split("::").last
     end
 
-    def apply_sv_param_defs
-      overrides = @_sv_param_overrides || {}
-      self.class.sv_param_defs.each do |pd|
-        key_sym = pd[:name].to_sym
-        key_str = pd[:name].to_s
-        value = overrides.fetch(key_sym, overrides.fetch(key_str, pd[:default]))
-        type = infer_sv_param_type(value)
-        @params << ParamDecl.new(pd[:name], value, type)
-      end
-    end
-
-    def infer_sv_param_type(value)
-      case value
-      when Integer then "int"
-      when String then "string"
-      else "int"
-      end
-    end
-
     def finalize_module_name!
       return @name if @module_name_finalized
 
@@ -744,6 +662,10 @@ module RSV
       name.gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase
     end
 
+    # ── Assignment & auto-connection ──────────────────────────────────────
+
+    # Central assignment dispatcher. Routes to interface interconnect,
+    # instance port auto-wiring, or plain continuous assignment.
     def append_assignment(lhs, rhs)
       # Interface interconnect: mst <= slv or slv >= mst
       if lhs.is_a?(InterfacePortHandler) && rhs.is_a?(InterfacePortHandler)

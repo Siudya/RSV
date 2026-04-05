@@ -83,7 +83,7 @@ This generates `build/rsv_doc.pdf`.
 | Data shapes | packed `arr`, unpacked `mem`, mixed shapes, indexing and slices |
 | Expressions | arithmetic, compare, logical, reduction, shifts, `mux`, `cat`, `fill`, `$signed` |
 | Elaboration-time features | `generate_for`, `generate_if`, `definition` / `instance`, curried `sv_param` |
-| Struct & Interface | `BundleDef` (packed struct typedef), `InterfaceDef` (interface + modport), `interface_port` |
+| Struct & Interface | `BundleDef` (packed struct typedef), `InterfaceDef` (interface + modport), `intf` |
 | SV integration | macro directives, imported SV module signatures, inline `sv_plugin`, Verilog wrapper |
 | Examples | `xmake rtl -l` lists runnable examples with aliases and feature summaries |
 

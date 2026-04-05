@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative "rsv/mixins"
 require_relative "rsv/nodes"
 require_relative "rsv/procbuilder"
 require_relative "rsv/validator"

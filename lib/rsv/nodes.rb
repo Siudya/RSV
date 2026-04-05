@@ -1,6 +1,10 @@
 # frozen_string_literal: true
 
 module RSV
+  # ════════════════════════════════════════════════════════════════════════════
+  # Expression operator mixins
+  # ════════════════════════════════════════════════════════════════════════════
+
   module ExprOps
     def +(other)
       BinaryExpr.new(self, :+, RSV.normalize_expr(other))
@@ -159,6 +163,10 @@ module RSV
     end
   end
 
+  # ════════════════════════════════════════════════════════════════════════════
+  # Assignment operators (<= / >=)
+  # ════════════════════════════════════════════════════════════════════════════
+
   module AssignableExpr
     def <=(rhs)
       builder = RSV.current_procedural_builder
@@ -180,6 +188,10 @@ module RSV
       mod.send(:append_assignment, lhs, self)
     end
   end
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # Data types and type factories
+  # ════════════════════════════════════════════════════════════════════════════
 
   class DataTypeFactory
     def initialize(module_def, storage)
@@ -364,6 +376,10 @@ module RSV
     end
   end
 
+  # ════════════════════════════════════════════════════════════════════════════
+  # Expression nodes
+  # ════════════════════════════════════════════════════════════════════════════
+
   # Wrapper that emits `$signed(xxx)` for unsigned-to-signed cast.
   class AsSintExpr
     include ExprOps
@@ -383,6 +399,7 @@ module RSV
   class ClockSignal
     include ExprOps
     include AssignableExpr
+    include HandlerDelegation
 
     attr_reader :handler, :negated
 
@@ -394,23 +411,13 @@ module RSV
     def neg
       ClockSignal.new(@handler, negated: true)
     end
-
-    def name;         @handler.name end
-    def width;        @handler.width end
-    def signed;       @handler.signed end
-    def kind;         @handler.kind end
-    def init;         @handler.init end
-    def packed_dims;   @handler.packed_dims end
-    def unpacked_dims; @handler.unpacked_dims end
-    def base_name;     @handler.base_name end
-    def to_s;         @handler.to_s end
-    def element_width;  @handler.element_width end
   end
 
   # Reset type marker for negedge / active-low support.
   class ResetSignal
     include ExprOps
     include AssignableExpr
+    include HandlerDelegation
 
     attr_reader :handler, :negated
 
@@ -422,17 +429,6 @@ module RSV
     def neg
       ResetSignal.new(@handler, negated: true)
     end
-
-    def name;         @handler.name end
-    def width;        @handler.width end
-    def signed;       @handler.signed end
-    def kind;         @handler.kind end
-    def init;         @handler.init end
-    def packed_dims;   @handler.packed_dims end
-    def unpacked_dims; @handler.unpacked_dims end
-    def base_name;     @handler.base_name end
-    def to_s;         @handler.to_s end
-    def element_width;  @handler.element_width end
   end
 
   # Bit concatenation: {a, b, c}
@@ -867,6 +863,10 @@ module RSV
     end
   end
 
+  # ════════════════════════════════════════════════════════════════════════════
+  # Signal handlers — opaque handles for hardware signals
+  # ════════════════════════════════════════════════════════════════════════════
+
   # Opaque handle returned from declarations and used to reference a signal.
   class SignalHandler
     include ExprOps
@@ -1094,6 +1094,10 @@ module RSV
     end
   end
 
+  # ════════════════════════════════════════════════════════════════════════════
+  # Declaration nodes — ports, locals, constants, parameters
+  # ════════════════════════════════════════════════════════════════════════════
+
   # Represents an input / output / inout port declaration.
   class PortDecl
     attr_reader :dir, :name, :width, :signed, :packed_dims, :unpacked_dims, :raw_type, :attr, :bundle_type, :intf_type
@@ -1181,6 +1185,10 @@ module RSV
     end
   end
 
+  # ════════════════════════════════════════════════════════════════════════════
+  # Elaborated (flattened) output structures
+  # ════════════════════════════════════════════════════════════════════════════
+
   class ElaboratedModule
     attr_reader :name, :params, :ports, :locals, :stmts
 
@@ -1213,6 +1221,10 @@ module RSV
       @modports = modports
     end
   end
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # Statement nodes — assignments, always blocks, control flow, instances
+  # ════════════════════════════════════════════════════════════════════════════
 
   # Continuous assignment: assign <lhs> = <rhs>;
   AssignStmt     = Struct.new(:lhs, :rhs)
@@ -1278,6 +1290,10 @@ module RSV
 
   # Inline SystemVerilog code fragment
   SvPlugin     = Struct.new(:code)
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # Macro, generate, and parameter reference nodes
+  # ════════════════════════════════════════════════════════════════════════════
 
   # Expression that references a macro value: `MACRO_NAME
   class MacroRef
@@ -1361,6 +1377,10 @@ module RSV
       @name
     end
   end
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # Module-level utility methods
+  # ════════════════════════════════════════════════════════════════════════════
 
   def self.normalize_signal_spec(signal)
     return signal if signal.is_a?(SignalSpec)

@@ -1,33 +1,10 @@
 # frozen_string_literal: true
 
+require "fileutils"
+
 module RSV
   # Curried builder for interfaces with sv_param declarations.
-  class CurriedInterfaceBuilder
-    def initialize(klass, *args, **kwargs)
-      @klass = klass
-      @args = args
-      @kwargs = kwargs
-      @sv_param_overrides = nil
-      @result = nil
-    end
-
-    def call(**kwargs)
-      if @sv_param_overrides.nil?
-        @sv_param_overrides = kwargs
-        self
-      else
-        finalize(**kwargs)
-      end
-    end
-
-    def method_missing(name, *args, **kwargs, &block)
-      finalize.send(name, *args, **kwargs, &block)
-    end
-
-    def respond_to_missing?(name, include_private = false)
-      true
-    end
-
+  class CurriedInterfaceBuilder < CurriedBuilderBase
     private
 
     def finalize(**meta_params)
@@ -58,6 +35,10 @@ module RSV
   #   # In a module:
   #   bus = intf("bus", AXILite.new(addr_w: 16).slv)
   class InterfaceDef
+    include TypeConstructors
+    include SvParamSupport
+    include TypeVariantRegistry
+
     attr_reader :fields, :params, :modports, :type_name
 
     class << self
@@ -78,31 +59,6 @@ module RSV
         intf.send(:finalize_type_name!)
         intf.send(:to_data_type)
       end
-
-      def sv_param(name, default_value)
-        sv_param_defs << { name: name.to_s, default: default_value }
-        SvParamRef.new(name.to_s)
-      end
-
-      def sv_param_defs
-        @sv_param_defs ||= []
-      end
-
-      private
-
-      def resolve_registered_type_name(base_name, sv_signature)
-        variants = type_variant_registry[base_name]
-        existing = variants.find { |entry| entry[:sv_signature] == sv_signature }
-        return existing[:type_name] if existing
-
-        type_name = variants.empty? ? base_name : "#{base_name}_#{variants.length}"
-        variants << { type_name: type_name, sv_signature: sv_signature }
-        type_name
-      end
-
-      def type_variant_registry
-        @type_variant_registry ||= Hash.new { |hash, key| hash[key] = [] }
-      end
     end
 
     def initialize(*args, **kwargs)
@@ -122,30 +78,6 @@ module RSV
     end
 
     def build(*args, **kwargs)
-    end
-
-    # Type constructors
-    def bit(init = nil, **kwargs)
-      init = kwargs[:init] if kwargs.key?(:init)
-      DataType.new(width: 1, init: init)
-    end
-
-    def bits(width = 1, init = nil, **kwargs)
-      width = kwargs[:width] if kwargs.key?(:width)
-      init = kwargs[:init] if kwargs.key?(:init)
-      DataType.new(width: width, signed: false, init: init)
-    end
-
-    def uint(width = 1, init = nil, signed: false, **kwargs)
-      width = kwargs[:width] if kwargs.key?(:width)
-      init = kwargs[:init] if kwargs.key?(:init)
-      DataType.new(width: width, signed: signed, init: init)
-    end
-
-    def sint(width = 1, init = nil, **kwargs)
-      width = kwargs[:width] if kwargs.key?(:width)
-      init = kwargs[:init] if kwargs.key?(:init)
-      DataType.new(width: width, signed: true, init: init)
     end
 
     # Declare an output signal (from the master's perspective).
@@ -175,6 +107,7 @@ module RSV
 
     private
 
+    # Auto-generate "mst" (as-declared) and "slv" (reversed) modports.
     def synthesize_modports!
       @modports = []
       mst_ports = @fields.map { |f| { name: f[:name], dir: f[:dir] } }
@@ -187,25 +120,7 @@ module RSV
       dir == "output" ? "input" : "output"
     end
 
-    def apply_sv_param_defs
-      overrides = @_sv_param_overrides || {}
-      self.class.sv_param_defs.each do |pd|
-        key_sym = pd[:name].to_sym
-        key_str = pd[:name].to_s
-        value = overrides.fetch(key_sym, overrides.fetch(key_str, pd[:default]))
-        type = infer_sv_param_type(value)
-        @params << ParamDecl.new(pd[:name], value, type)
-      end
-    end
-
-    def infer_sv_param_type(value)
-      case value
-      when Integer then "int"
-      when String then "string"
-      else "int"
-      end
-    end
-
+    # Resolve SvParamRef values in field widths/dims after build.
     def resolve_sv_param_refs!
       return if @params.empty?
 
@@ -227,15 +142,6 @@ module RSV
         else
           f
         end
-      end
-    end
-
-    def resolve_param_value(val, param_map)
-      case val
-      when SvParamRef
-        param_map.fetch(val.name, val)
-      else
-        val
       end
     end
 
