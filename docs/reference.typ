@@ -234,6 +234,15 @@ inferred width and computed init value:
   `[31:0]` bit vector and connected directly.
 - Unpacked array ports (e.g. `mem(3, uint(16))`) are expanded to individual
   scalar ports (`port_0`, `port_1`, ...) and reassembled via SV array wires.
+- Interface ports are expanded: each interface field becomes a flat Verilog port
+  (`port_field`). The wrapper internally instantiates the SV interface and wires
+  flat ports to interface fields, respecting modport direction (mst/slv).
+- Bundle (struct) ports are expanded: each struct field becomes a flat port
+  (`port_field`). Nested bundles are recursively flattened.
+- `mem(N, BundleType)` ports expand both the unpacked dimension and the struct
+  fields: `port_0_field`, `port_1_field`, etc.
+- Interface fields that are bundle-typed are recursively flattened:
+  `port_payload_r`, `port_payload_g`, etc.
 - A custom wrapper name can be specified: `v_wrapper(wrapper_name: "my_top")`.
 - The wrapper output can be written to file: `v_wrapper("path/to/file.sv")`.
 - All port widths must be integer constants (not `SvParamRef`) for flattening.

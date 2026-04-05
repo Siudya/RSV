@@ -5,6 +5,31 @@ require "minitest/autorun"
 $LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
 require "rsv"
 
+# Test helper classes for v_wrapper interface/bundle tests
+class WrapTestPixel < RSV::BundleDef
+  def build
+    field("r", uint(8))
+    field("g", uint(8))
+    field("b", uint(8))
+  end
+end
+
+class WrapTestIntf < RSV::InterfaceDef
+  def build
+    output("data", uint(8))
+    output("valid", bit)
+    input("ready", bit)
+  end
+end
+
+class WrapTestStreamIntf < RSV::InterfaceDef
+  def build
+    output("payload", WrapTestPixel.new)
+    output("valid", bit)
+    input("ready", bit)
+  end
+end
+
 # Test helper classes for sv_param tests (constants can't be set inside Class.new blocks)
 class SvParamTestModule < RSV::ModuleDef
   WIDTH = sv_param("WIDTH", 8)
@@ -581,6 +606,116 @@ class HandlerDslTest < Minitest::Test
     mod = klass.new("plugin_proc")
     sv = mod.to_sv
     assert_includes sv, '$display("r=%h", r);'
+  end
+
+  # --- v_wrapper interface/bundle tests ---
+
+  def test_v_wrapper_intf_port
+    klass = module_class("WrapIntf") do
+      bus = intf("bus", WrapTestIntf.new.slv)
+      o = output("dout", uint(8))
+      o <= bus.data[7, 0]
+    end
+    mod = klass.new("wrap_intf")
+    wrapper = mod.v_wrapper
+    # Interface fields should be expanded into flat ports
+    assert_includes wrapper, "input  [   7:0] bus_data"
+    assert_includes wrapper, "input         bus_valid"
+    assert_includes wrapper, "output        bus_ready"
+    # SV wiring
+    assert_includes wrapper, "wrap_test_intf bus_sv();"
+    assert_includes wrapper, "assign bus_sv.data = bus_data;"
+    assert_includes wrapper, "assign bus_sv.valid = bus_valid;"
+    assert_includes wrapper, "assign bus_ready = bus_sv.ready;"
+    # Inner module connection
+    assert_includes wrapper, ".bus(bus_sv)"
+  end
+
+  def test_v_wrapper_intf_mst_port
+    klass = module_class("WrapIntfMst") do
+      bus = intf("m_bus", WrapTestIntf.new)
+      i = input("din", uint(8))
+      bus.data <= i
+    end
+    mod = klass.new("wrap_intf_mst")
+    wrapper = mod.v_wrapper
+    # mst: output fields are outputs, input fields are inputs
+    assert_includes wrapper, "output [   7:0] m_bus_data"
+    assert_includes wrapper, "output        m_bus_valid"
+    assert_includes wrapper, "input         m_bus_ready"
+  end
+
+  def test_v_wrapper_bundle_port
+    klass = module_class("WrapBundle") do
+      p_in = input("px", WrapTestPixel.new)
+      p_out = output("px_out", WrapTestPixel.new)
+      p_out <= p_in
+    end
+    mod = klass.new("wrap_bundle")
+    wrapper = mod.v_wrapper
+    # Bundle fields expanded
+    assert_includes wrapper, "input  [   7:0] px_r"
+    assert_includes wrapper, "input  [   7:0] px_g"
+    assert_includes wrapper, "input  [   7:0] px_b"
+    assert_includes wrapper, "output [   7:0] px_out_r"
+    assert_includes wrapper, "output [   7:0] px_out_g"
+    assert_includes wrapper, "output [   7:0] px_out_b"
+    # SV wiring
+    assert_includes wrapper, "wrap_test_pixel_t px_sv;"
+    assert_includes wrapper, "assign px_sv.r = px_r;"
+    assert_includes wrapper, "assign px_out_r = px_out_sv.r;"
+    # Inner module connection
+    assert_includes wrapper, ".px(px_sv)"
+    assert_includes wrapper, ".px_out(px_out_sv)"
+  end
+
+  def test_v_wrapper_mem_bundle_port
+    klass = module_class("WrapMemBundle") do
+      fifo_in = input("fifo", mem(2, WrapTestPixel.new))
+      o = output("o", uint(8))
+      o <= fifo_in[0].r
+    end
+    mod = klass.new("wrap_mem_bundle")
+    wrapper = mod.v_wrapper
+    # mem(2, pixel) → fifo_0_r, fifo_0_g, fifo_0_b, fifo_1_r, ...
+    assert_includes wrapper, "input  [   7:0] fifo_0_r"
+    assert_includes wrapper, "input  [   7:0] fifo_0_g"
+    assert_includes wrapper, "input  [   7:0] fifo_1_b"
+    assert_includes wrapper, "wrap_test_pixel_t fifo_sv [0:1];"
+    assert_includes wrapper, "assign fifo_sv[0].r = fifo_0_r;"
+    assert_includes wrapper, "assign fifo_sv[1].b = fifo_1_b;"
+  end
+
+  def test_v_wrapper_intf_with_bundle_field
+    klass = module_class("WrapIntfBundle") do
+      s = intf("s", WrapTestStreamIntf.new.slv)
+      o = output("dout", uint(1))
+      o <= s.valid
+    end
+    mod = klass.new("wrap_intf_bundle")
+    wrapper = mod.v_wrapper
+    # Interface with bundle payload: s_payload_r, s_payload_g, s_payload_b, s_valid, s_ready
+    assert_includes wrapper, "input  [   7:0] s_payload_r"
+    assert_includes wrapper, "input  [   7:0] s_payload_g"
+    assert_includes wrapper, "input  [   7:0] s_payload_b"
+    assert_includes wrapper, "input         s_valid"
+    assert_includes wrapper, "output        s_ready"
+    # Wiring
+    assert_includes wrapper, "assign s_sv.payload.r = s_payload_r;"
+    assert_includes wrapper, "assign s_ready = s_sv.ready;"
+  end
+
+  def test_v_wrapper_packed_arr_bundle
+    klass = module_class("WrapPackedBundle") do
+      d = input("d", arr(4, uint(8)))
+      r = output("r", uint(1))
+      r <= d[0][0]
+    end
+    mod = klass.new("wrap_packed_bundle")
+    wrapper = mod.v_wrapper
+    # Packed arr flattens to flat bit vector (existing behavior)
+    assert_includes wrapper, "[  31:0] d"
+    assert_includes wrapper, ".d(d)"
   end
 
   private

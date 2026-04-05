@@ -213,10 +213,12 @@ SystemVerilog parameter 与柯里化参数。
 
 == verilog_wrapper.rb
 
-Verilog 兼容 wrapper 产生器。
+Verilog 兼容 wrapper 产生器，展示所有端口类型的展开。
 
-- 端口声明: `input`, `output`
-- 类型构造: `clock`, `reset`, `arr`, `mem`, `uint`
+- 端口声明: `input`, `output`, `intf`
+- 类型构造: `clock`, `reset`, `arr`, `mem`, `uint`, `bit`
+- Bundle 定义: `BundleDef` + `field` 声明
+- Interface 定义: `InterfaceDef` + `output`/`input` 方向声明
 - 局部声明: `reg`(含初始值)
 - 赋值: `<=`
 - 数组/存储器索引: `[]`
@@ -225,6 +227,10 @@ Verilog 兼容 wrapper 产生器。
 - Verilog wrapper: `v_wrapper(path, wrapper_name:)` 生成端口打平的 Verilog 兼容顶层
   - packed 数组端口打平为位向量直连
   - unpacked 数组端口展开为独立标量端口
+  - interface 端口展开为各字段的平坦端口，内部例化 interface 连线
+  - bundle (struct) 端口展开为各字段的平坦端口，支持嵌套递归展开
+  - `mem(N, Bundle)` 端口同时展开维度和字段
+  - interface 含 bundle 字段时递归展开 payload
 - 输出: `to_sv(path)`, `v_wrapper(path)`
 
 == sv_plugin_demo.rb
@@ -304,6 +310,10 @@ Bundle (struct) 与 Interface 综合演示。
   [generate-if + 局部 const], [generate\_demo],
   [`sv_param` 柯里化参数], [curried\_params],
   [`v_wrapper` Verilog wrapper], [verilog\_wrapper],
+  [`v_wrapper` Interface 端口展开], [verilog\_wrapper],
+  [`v_wrapper` Bundle 端口展开], [verilog\_wrapper],
+  [`v_wrapper` mem(N, Bundle) 展开], [verilog\_wrapper],
+  [`v_wrapper` Interface 含 Bundle 展开], [verilog\_wrapper],
   [`sv_plugin` 内嵌 SV 代码], [sv\_plugin\_demo],
   [流式 API (`sv_map` 等)], [storage\_streams],
   [`attr:` 硬件属性], [（见 test/handler\_dsl\_test.rb 中的单元测试）],
