@@ -122,7 +122,6 @@
 / `svcasex(expr, unique: false, priority: false) { ... }`: casex statement.
 / `lhs <= rhs`: left assignment.
 / `rhs >= lhs`: right assignment.
-/ `if_stmt / elsif_stmt / else_stmt`: lower-level procedural control helpers.
 / `to_sv(path = nil)`: returns the generated SV text. Use `to_sv("-")` to write
   to stdout, or `to_sv("build/rtl/foo.sv")` to write to a file.
 

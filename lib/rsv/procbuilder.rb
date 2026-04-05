@@ -22,41 +22,35 @@ module RSV
     end
 
     # if (<cond>) begin ... end
-    def if_stmt(cond, qualifier: nil, &block)
+    def svif(cond, unique: false, priority: false, &block)
+      qual = unique ? :unique : (priority ? :priority : nil)
       builder = ProceduralBuilder.new(assign_context: @assign_context)
       builder.build(&block)
-      stmt    = IfStmt.new(RSV.normalize_expr(cond), builder.stmts, qualifier: qualifier)
+      stmt    = IfStmt.new(RSV.normalize_expr(cond), builder.stmts, qualifier: qual)
       @stmts << stmt
       @last_if = stmt
       IfChain.new(self, stmt)
     end
 
-    def svif(cond, unique: false, priority: false, &block)
-      qual = unique ? :unique : (priority ? :priority : nil)
-      if_stmt(cond, qualifier: qual, &block)
-    end
-
-    # else if (<cond>) begin ... end  — must follow if_stmt or elsif_stmt
-    def elsif_stmt(cond, &block)
-      raise "elsif_stmt called without a preceding if_stmt" unless @last_if
+    # else if (<cond>) begin ... end  — must follow svif or svelif
+    def svelif(cond, &block)
+      raise "svelif called without a preceding svif" unless @last_if
 
       builder = ProceduralBuilder.new(assign_context: @assign_context)
       builder.build(&block)
       @last_if.add_elsif(RSV.normalize_expr(cond), builder.stmts)
       IfChain.new(self, @last_if)
     end
-    alias svelif elsif_stmt
 
-    # else begin ... end  — must follow if_stmt or elsif_stmt
-    def else_stmt(&block)
-      raise "else_stmt called without a preceding if_stmt" unless @last_if
+    # else begin ... end  — must follow svif or svelif
+    def svelse(&block)
+      raise "svelse called without a preceding svif" unless @last_if
 
       builder = ProceduralBuilder.new(assign_context: @assign_context)
       builder.build(&block)
       @last_if.set_else(builder.stmts)
       @last_if = nil
     end
-    alias svelse else_stmt
 
     # case (expr) ... endcase
     def svcase(expr, unique: false, priority: false, &block)

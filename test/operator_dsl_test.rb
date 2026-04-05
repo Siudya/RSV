@@ -53,7 +53,7 @@ class OperatorDslTest < Minitest::Test
         svif(a.le(b)) do
           tmp <= a
         end
-        else_stmt do
+        svelse do
           tmp <= b
         end
       end

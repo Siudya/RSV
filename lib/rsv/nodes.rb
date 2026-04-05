@@ -1460,10 +1460,6 @@ module RSV
     end
   end
 
-  class << self
-    alias normalize_operand normalize_expr
-  end
-
   def self.binary_expr_width(op, lhs_width, rhs_width)
     case op
     when :<, :<=, :>, :>=, :==, :!=, :logic_and, :logic_or
