@@ -35,15 +35,15 @@
   handler supports `.neg` for active-low resets:
   `with_clk_and_rst(clk, rst.neg)` → `always_ff @(... negedge rst)` and
   `if (!rst)`.
-/ `input(name, type)`: declares an input port and returns a handler.
-/ `output(name, type)`: declares an output port and returns a handler.
-/ `inout(name, type)`: declares an inout port and returns a handler.
-/ `wire(name, type, init:)`: declares a combinational RSV signal and returns a
+/ `input(name, type, attr:)`: declares an input port and returns a handler.
+/ `output(name, type, attr:)`: declares an output port and returns a handler.
+/ `inout(name, type, attr:)`: declares an inout port and returns a handler.
+/ `wire(name, type, init:, attr:)`: declares a combinational RSV signal and returns a
   handler. It emits as SV `logic`.
-/ `reg(name, type, init:)`: declares a resettable register-like signal. It emits
+/ `reg(name, type, init:, attr:)`: declares a resettable register-like signal. It emits
   `logic` in SystemVerilog and uses `init` for reset injection in
   domain-driven `always_ff`.
-/ `const(name, type)`: declares a constant. The data type must carry an init
+/ `const(name, type, attr:)`: declares a constant. The data type must carry an init
   value (e.g. `sint(16, 0x57)`). Emits as SV `localparam`. The returned handler
   can be used in expressions but cannot appear on the left side of an
   assignment.
@@ -172,3 +172,15 @@ inferred width and computed init value:
 - Public DSL entry points use snake_case.
 - Local RSV `wire`/`reg` declarations are emitted as aligned SV `logic`
   declarations.
+
+== Attributes
+
+- Ports and local declarations accept an optional `attr:` hash.
+- Each key is the attribute name; its value is either a string expression or
+  `nil` (for standalone attributes).
+- Example: `wire("sig", uint(8), attr: { "mark_debug" => "\"true\"" })`
+  emits `(* mark_debug = "true" *) logic [7:0] sig;`.
+- Example: `output("dout", uint(8), attr: { "keep" => nil })`
+  emits `(* keep *) output logic [7:0] dout`.
+- Multiple attributes may be combined: `attr: { "a" => nil, "b" => "1" }`
+  emits `(* a, b = 1 *)`.

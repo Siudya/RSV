@@ -96,7 +96,7 @@ module RSV
         dims = packed_decl_dims(port.width, port.packed_dims)
         type_part = "logic #{signed_str}#{dims}".rstrip
         name_part = "#{port.name}#{unpacked_decl_dims(port.unpacked_dims)}"
-        { dir: port.dir.to_s, type: type_part, name: name_part }
+        { dir: port.dir.to_s, type: type_part, name: name_part, attr: port.attr }
       end
 
       max_dir = entries.map { |entry| entry[:dir].length }.max
@@ -106,7 +106,8 @@ module RSV
         comma = idx < entries.size - 1 ? "," : ""
         dir = entry[:dir].ljust(max_dir)
         type = entry[:type].ljust(max_type)
-        "#{ind(1)}#{dir} #{type} #{entry[:name]}#{comma}"
+        attr_str = emit_attr(entry[:attr])
+        "#{ind(1)}#{attr_str}#{dir} #{type} #{entry[:name]}#{comma}"
       end
     end
 
@@ -123,7 +124,8 @@ module RSV
           packed: packed_field.join(" "),
           name: "#{sig.name}#{unpacked_decl_dims(sig.unpacked_dims)}",
           init: init_value,
-          force_init: is_const
+          force_init: is_const,
+          attr: sig.respond_to?(:attr) ? sig.attr : nil
         }
       end
 
@@ -134,12 +136,13 @@ module RSV
       entries.map do |entry|
         prefix = entry[:kind].ljust(max_kind)
         prefix = "#{prefix} #{entry[:packed].ljust(max_packed)}" if max_packed.positive?
+        attr_str = emit_attr(entry[:attr])
 
         if entry[:init]
           name_part = entry[:name].ljust(max_name)
-          "#{ind(level)}#{prefix} #{name_part} = #{entry[:init]};"
+          "#{ind(level)}#{attr_str}#{prefix} #{name_part} = #{entry[:init]};"
         else
-          "#{ind(level)}#{prefix} #{entry[:name]};"
+          "#{ind(level)}#{attr_str}#{prefix} #{entry[:name]};"
         end
       end
     end
@@ -149,6 +152,15 @@ module RSV
       return init.to_s unless init.is_a?(Integer) && width.is_a?(Integer) && init >= 0
 
       "#{width}'h#{init.to_s(16)}"
+    end
+
+    def emit_attr(attr)
+      return "" if attr.nil? || attr.empty?
+
+      parts = attr.map do |key, val|
+        val.nil? ? key.to_s : "#{key} = #{val}"
+      end
+      "(* #{parts.join(", ")} *) "
     end
 
     def emit_stmt(stmt, level)

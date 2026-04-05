@@ -984,9 +984,9 @@ module RSV
 
   # Represents an input / output / inout port declaration.
   class PortDecl
-    attr_reader :dir, :name, :width, :signed, :packed_dims, :unpacked_dims, :raw_type
+    attr_reader :dir, :name, :width, :signed, :packed_dims, :unpacked_dims, :raw_type, :attr
 
-    def initialize(dir, signal, raw_type: nil)
+    def initialize(dir, signal, raw_type: nil, attr: nil)
       @dir          = dir    # :input | :output | :inout
       @name         = signal.name
       @width        = signal.width  # Integer or String (e.g. "WIDTH")
@@ -994,6 +994,7 @@ module RSV
       @packed_dims   = signal.packed_dims.dup
       @unpacked_dims = signal.unpacked_dims.dup
       @raw_type      = raw_type
+      @attr          = attr  # Hash or nil: { "mark_debug" => "true" } or { "keep" => nil }
     end
 
     def append_dimensions!(packed: [], unpacked: [])
@@ -1017,15 +1018,16 @@ module RSV
 
   # Represents a localparam constant declaration.
   class ConstDecl
-    attr_reader :name, :width, :signed, :init, :packed_dims, :unpacked_dims
+    attr_reader :name, :width, :signed, :init, :packed_dims, :unpacked_dims, :attr
 
-    def initialize(signal, init:)
+    def initialize(signal, init:, attr: nil)
       @name         = signal.name
       @width        = signal.width
       @signed       = signal.signed
       @init         = init
       @packed_dims   = signal.packed_dims.dup
       @unpacked_dims = signal.unpacked_dims.dup
+      @attr          = attr
     end
 
     def sv_kind
@@ -1035,9 +1037,9 @@ module RSV
 
   # Represents a local wire / logic / reg signal declaration.
   class LocalDecl
-    attr_reader :kind, :name, :width, :signed, :init, :reset_init, :packed_dims, :unpacked_dims
+    attr_reader :kind, :name, :width, :signed, :init, :reset_init, :packed_dims, :unpacked_dims, :attr
 
-    def initialize(kind, signal, init: signal.init, reset_init: nil)
+    def initialize(kind, signal, init: signal.init, reset_init: nil, attr: nil)
       @kind         = kind
       @name         = signal.name
       @width        = signal.width
@@ -1046,6 +1048,7 @@ module RSV
       @reset_init    = reset_init
       @packed_dims   = signal.packed_dims.dup
       @unpacked_dims = signal.unpacked_dims.dup
+      @attr          = attr
     end
 
     def sv_kind

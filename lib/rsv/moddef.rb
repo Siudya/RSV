@@ -178,43 +178,43 @@ module RSV
       end
     end
 
-    def input(name, data_type, init: UNSET_INIT)
+    def input(name, data_type, init: UNSET_INIT, attr: nil)
       clock_type = data_type.instance_variable_get(:@_clock_type) || false
       reset_type = data_type.instance_variable_get(:@_reset_type) || false
-      declare_port(:input, build_signal_spec(name, data_type, init: init), clock_type: clock_type, reset_type: reset_type)
+      declare_port(:input, build_signal_spec(name, data_type, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
     end
 
-    def output(name, data_type, init: UNSET_INIT)
+    def output(name, data_type, init: UNSET_INIT, attr: nil)
       clock_type = data_type.instance_variable_get(:@_clock_type) || false
       reset_type = data_type.instance_variable_get(:@_reset_type) || false
-      declare_port(:output, build_signal_spec(name, data_type, init: init), clock_type: clock_type, reset_type: reset_type)
+      declare_port(:output, build_signal_spec(name, data_type, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
     end
 
-    def inout(name, data_type, init: UNSET_INIT)
+    def inout(name, data_type, init: UNSET_INIT, attr: nil)
       clock_type = data_type.instance_variable_get(:@_clock_type) || false
       reset_type = data_type.instance_variable_get(:@_reset_type) || false
-      declare_port(:inout, build_signal_spec(name, data_type, init: init), clock_type: clock_type, reset_type: reset_type)
+      declare_port(:inout, build_signal_spec(name, data_type, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
     end
 
     # ── Internal signal declarations ────────────────────────────────────────
 
-    def wire(name, data_type, init: UNSET_INIT)
+    def wire(name, data_type, init: UNSET_INIT, attr: nil)
       clock_type = data_type.instance_variable_get(:@_clock_type) || false
       reset_type = data_type.instance_variable_get(:@_reset_type) || false
-      declare_local(:wire, build_signal_spec(name, data_type, init: init), clock_type: clock_type, reset_type: reset_type)
+      declare_local(:wire, build_signal_spec(name, data_type, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
     end
 
-    def reg(name, data_type, init: UNSET_INIT)
+    def reg(name, data_type, init: UNSET_INIT, attr: nil)
       clock_type = data_type.instance_variable_get(:@_clock_type) || false
       reset_type = data_type.instance_variable_get(:@_reset_type) || false
-      declare_local(:reg, build_signal_spec(name, data_type, init: init), clock_type: clock_type, reset_type: reset_type)
+      declare_local(:reg, build_signal_spec(name, data_type, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
     end
 
-    def const(name, data_type)
+    def const(name, data_type, attr: nil)
       spec = build_signal_spec(name, data_type, init: data_type.init)
       raise ArgumentError, "const requires an init value" if spec.init.nil?
 
-      @locals << ConstDecl.new(spec, init: spec.init)
+      @locals << ConstDecl.new(spec, init: spec.init, attr: attr)
       build_handler(spec, :wire)
     end
 
@@ -363,10 +363,10 @@ module RSV
       )
     end
 
-    def declare_port(dir, spec, clock_type: false, reset_type: false)
+    def declare_port(dir, spec, clock_type: false, reset_type: false, attr: nil)
       raise ArgumentError, "#{dir} does not support init" unless spec.init.nil?
 
-      @ports << PortDecl.new(dir, spec)
+      @ports << PortDecl.new(dir, spec, attr: attr)
       handler = build_handler(spec, dir)
       return ClockSignal.new(handler) if clock_type
       return ResetSignal.new(handler) if reset_type
@@ -374,8 +374,8 @@ module RSV
       handler
     end
 
-    def declare_local(kind, spec, clock_type: false, reset_type: false)
-      @locals << build_local_decl(kind, spec)
+    def declare_local(kind, spec, clock_type: false, reset_type: false, attr: nil)
+      @locals << build_local_decl(kind, spec, attr: attr)
       handler = build_handler(spec, kind)
       return ClockSignal.new(handler) if clock_type
       return ResetSignal.new(handler) if reset_type
@@ -383,12 +383,12 @@ module RSV
       handler
     end
 
-    def build_local_decl(kind, spec)
+    def build_local_decl(kind, spec, attr: nil)
       case kind
       when :reg
-        LocalDecl.new(kind, spec, init: nil, reset_init: spec.init)
+        LocalDecl.new(kind, spec, init: nil, reset_init: spec.init, attr: attr)
       else
-        LocalDecl.new(kind, spec)
+        LocalDecl.new(kind, spec, attr: attr)
       end
     end
 

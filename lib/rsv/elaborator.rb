@@ -29,9 +29,9 @@ module RSV
         packed_dims: local.packed_dims,
         unpacked_dims: local.unpacked_dims
       )
-      return ConstDecl.new(spec, init: local.init) if local.is_a?(ConstDecl)
+      return ConstDecl.new(spec, init: local.init, attr: local.attr) if local.is_a?(ConstDecl)
 
-      LocalDecl.new(local.sv_kind, spec, init: local.init, reset_init: local.reset_init)
+      LocalDecl.new(local.sv_kind, spec, init: local.init, reset_init: local.reset_init, attr: local.attr)
     end
 
     def elaborate_stmt(stmt)

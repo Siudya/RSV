@@ -190,6 +190,37 @@ class HandlerDslTest < Minitest::Test
     assert_includes error.message, "const signal RO cannot be assigned"
   end
 
+  def test_attr_on_port
+    mod = module_class("AttrPort") do
+      input("clk", bit, attr: { "mark_debug" => "\"true\"" })
+      output("dout", uint(8), attr: { "keep" => nil })
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "(* mark_debug = \"true\" *) input"
+    assert_includes sv, "(* keep *) output"
+  end
+
+  def test_attr_on_local
+    mod = module_class("AttrLocal") do
+      wire("dbg_sig", uint(8), attr: { "mark_debug" => "\"true\"" })
+      reg("keep_reg", uint(4), attr: { "dont_touch" => nil, "keep" => nil })
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "(* mark_debug = \"true\" *) logic"
+    assert_includes sv, "(* dont_touch, keep *) logic"
+  end
+
+  def test_attr_on_const
+    mod = module_class("AttrConst") do
+      const("MY_CONST", uint(8, 0xFF), attr: { "synthesis" => "\"off\"" })
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "(* synthesis = \"off\" *) localparam"
+  end
+
   private
 
   def module_class(name, &build_block)
