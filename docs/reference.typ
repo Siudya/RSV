@@ -82,6 +82,9 @@
   For bundles, first-declared field at MSB; for mem, highest index at MSB.
   Returns a `CatExpr`. Usage: `packed <= pxl.as_uint`, `expr("p", mem.as_uint)`.
 / `bundle.get_width` / `mem.get_width`: total bit width including all dimensions.
+/ `mem.reverse`: create a reversed copy of a mem signal. Eagerly creates a temp
+  wire and `always_comb` with a for-loop reversal. For bundle mem, each leaf field
+  gets its own reversed wire. Returns a wire handler (or BundleSignalGroup).
 / `log2ceil(n)`: pure Ruby utility. Returns `ceil(log2(n))` — the minimum number
   of bits to address `n` items. Available in module `build` blocks and as `RSV.log2ceil(n)`.
 / `expr.sv_take(n)`: starts a stream view and keeps the first `n` elements.

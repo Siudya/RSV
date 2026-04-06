@@ -334,6 +334,17 @@ module RSV
       lines
     end
 
+    def emit_mem_reverse_stmt(stmt, level)
+      lhs = emit_expr(stmt.lhs)
+      src = emit_expr(stmt.src)
+      dim = stmt.dim
+      lines = []
+      lines << "#{ind(level)}for (int _rv_i = 0; _rv_i < #{dim}; _rv_i = _rv_i + 1) begin"
+      lines << "#{ind(level + 1)}#{lhs}[_rv_i] = #{src}[#{dim - 1} - _rv_i];"
+      lines << "#{ind(level)}end"
+      lines
+    end
+
     def emit_proc_stmt(stmt, level)
       case stmt
       when NbAssign
@@ -350,6 +361,8 @@ module RSV
         emit_mux_case_inline(stmt, level)
       when PopCountStmt
         emit_pop_count_stmt(stmt, level)
+      when MemReverseStmt
+        emit_mem_reverse_stmt(stmt, level)
       when SvPlugin
         emit_sv_plugin(stmt, level)
       else

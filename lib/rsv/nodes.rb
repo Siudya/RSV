@@ -546,6 +546,17 @@ module RSV
     end
   end
 
+  # Statement for mem reverse — emits a for-loop reversal.
+  class MemReverseStmt
+    attr_reader :lhs, :src, :dim
+
+    def initialize(lhs, src, dim:)
+      @lhs = lhs
+      @src = src
+      @dim = dim
+    end
+  end
+
   # A single field inside a BundleDef with direction.
   BundleFieldDef = Struct.new(:name, :data_type, :dir, keyword_init: true)
 
@@ -674,6 +685,14 @@ module RSV
         end
         CatExpr.new(parts)
       end
+    end
+
+    # Create a reversed copy of a mem(N, bundle) signal.
+    def reverse
+      raise ArgumentError, "reverse requires a mem bundle signal" if @unpacked_dims.empty?
+      mod = RSV.current_module_def
+      raise ArgumentError, "reverse requires a module context" unless mod
+      mod.send(:expand_bundle_reverse, self)
     end
 
     def to_s
@@ -1141,6 +1160,14 @@ module RSV
       total = @width
       @unpacked_dims.each { |d| total *= RSV.dimension_value(d) }
       total
+    end
+
+    # Create a reversed copy of a mem signal.
+    def reverse
+      raise ArgumentError, "reverse requires a mem signal" if @unpacked_dims.empty?
+      mod = RSV.current_module_def
+      raise ArgumentError, "reverse requires a module context" unless mod
+      mod.send(:expand_mem_reverse, self)
     end
 
     def method_missing(meth, *args, &blk)

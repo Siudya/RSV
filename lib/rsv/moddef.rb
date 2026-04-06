@@ -999,6 +999,31 @@ module RSV
       s ? sint(w) : uint(w)
     end
 
+    def expand_mem_reverse(handler)
+      dim = RSV.dimension_value(handler.unpacked_dims.first)
+      name = unique_auto_wire_name("#{handler.name}_reverse")
+      w = wire(name, compose_data_type(dim, handler.signed ? sint(handler.width) : uint(handler.width)))
+      stmt = MemReverseStmt.new(RSV.normalize_expr(w), handler, dim: dim)
+      @stmts << AlwaysComb.new([stmt])
+      w
+    end
+
+    def expand_bundle_reverse(bundle_group)
+      children = {}
+      bundle_group.children.each do |fname, child|
+        if child.is_a?(BundleSignalGroup)
+          children[fname] = expand_bundle_reverse(child)
+        else
+          children[fname] = expand_mem_reverse(child)
+        end
+      end
+      BundleSignalGroup.new(
+        "#{bundle_group.name}_reverse",
+        bundle_type: bundle_group.bundle_type,
+        children: children
+      )
+    end
+
     def resolved_instance_port_signal_spec(port_handler)
       port = port_handler.port
       params = port_handler.instance_handle.params

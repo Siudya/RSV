@@ -604,6 +604,42 @@ class NewTypesDslTest < Minitest::Test
     assert_includes sv, "assign out = {pxl_r, pxl_g, extra};"
   end
 
+  # ── mem reverse ──────────────────────────────────────────────────────────
+
+  def test_mem_reverse
+    mod = module_class("MemReverse") do
+      pos = wire("pos", mem(4, uint(8)))
+      pos.reverse
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "logic [7:0] pos[3:0]"
+    assert_includes sv, "logic [7:0] pos_reverse[3:0]"
+    assert_includes sv, "for (int _rv_i = 0; _rv_i < 4; _rv_i = _rv_i + 1) begin"
+    assert_includes sv, "pos_reverse[_rv_i] = pos[3 - _rv_i];"
+  end
+
+  def test_bundle_mem_reverse
+    pxl_cls = Class.new(RSV::BundleDef) do
+      define_singleton_method(:name) { "Pixel" }
+      def build
+        input("r", uint(8))
+        input("g", uint(8))
+      end
+    end
+
+    mod = module_class("BundleMemReverse") do
+      pxls = wire("pxls", mem(3, pxl_cls.new))
+      pxls.reverse
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "logic [7:0] pxls_r_reverse[2:0]"
+    assert_includes sv, "logic [7:0] pxls_g_reverse[2:0]"
+    assert_includes sv, "pxls_r_reverse[_rv_i] = pxls_r[2 - _rv_i];"
+    assert_includes sv, "pxls_g_reverse[_rv_i] = pxls_g[2 - _rv_i];"
+  end
+
   # ── fill ──────────────────────────────────────────────────────────────────
 
   def test_fill_emits_replication
