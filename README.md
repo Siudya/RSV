@@ -6,8 +6,9 @@ class-based module API.
 RSV covers class-based module construction, anonymous `bit` / `uint` / `sint`
 / `mem` types, procedural blocks, generate blocks, macro helpers,
 `BundleDef` (bundle type, flattened to individual signals),
-imported black-box modules, Verilog wrapper emission, and inline
-SystemVerilog escape hatches.
+imported black-box modules, Verilog wrapper emission, inline
+SystemVerilog escape hatches, automatic module deduplication, and a CLI
+entry point (`RSV::App`) for one-command SV export.
 
 ## Environment
 
@@ -28,10 +29,11 @@ cd RSV
 ## Quick start
 
 ```sh
-xmake rtl -l
-xmake rtl -f ctr
-xmake rtl -f syn
-xmake doc
+xmake rtl -l              # list examples
+xmake rtl -f ctr          # run counter example → build/rtl/
+xmake rtl -f syn          # run syntax showcase
+xmake doc                 # build PDF documentation
+ruby examples/counter.rb -o build/rtl   # direct Ruby invocation
 ```
 
 For VS Code, use `Ruby LSP` for syntax highlighting, completion, hover, and
@@ -88,6 +90,8 @@ This generates `build/rsv_doc.pdf`.
 | Bundle types | `BundleDef` (flattened to individual signals at declaration time) |
 | SV integration | macro directives, imported SV module signatures, inline `sv_plugin`, Verilog wrapper |
 | Examples | `xmake rtl -l` lists runnable examples with aliases and feature summaries |
+| CLI entry point | `RSV::App.main(top)` with `-o DIR` for file export, custom options via block form |
+| Auto deduplication | Global `ElaborationRegistry` deduplicates module templates; `RSV.export_all(dir)` |
 
 Imported SystemVerilog modules are supported as black-box signatures. RSV reads
 their module name, parameters, and ports, then lets you instantiate them from

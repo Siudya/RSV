@@ -106,8 +106,5 @@ class MuxCases < ModuleDef
 end
 
 mux_cases = MuxCases.new
-output_path = File.join(__dir__, "..", "build", "rtl", "mux_cases.sv")
 
-mux_cases.to_sv("-")
-mux_cases.to_sv(output_path)
-warn "Written to #{output_path}"
+RSV::App.main(mux_cases)

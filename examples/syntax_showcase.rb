@@ -162,8 +162,5 @@ class SyntaxShowcase < RSV::ModuleDef
 end
 
 syntax_showcase = SyntaxShowcase.new
-output_path = File.join(__dir__, "..", "build", "rtl", "syntax_showcase.sv")
 
-syntax_showcase.to_sv("-")
-syntax_showcase.to_sv(output_path)
-warn "Written to #{output_path}"
+RSV::App.main(syntax_showcase)

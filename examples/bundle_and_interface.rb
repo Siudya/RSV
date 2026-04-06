@@ -1,6 +1,5 @@
 $LOAD_PATH.unshift(File.join(__dir__, "..", "lib"))
 require "rsv"
-require "fileutils"
 
 # ── Bundle Definitions ──────────────────────────────────────────────
 
@@ -115,26 +114,11 @@ class PipeReg < RSV::ModuleDef
 end
 
 # ── Generate Output ──────────────────────────────────────────────────────────
-outdir = File.join(__dir__, "..", "build", "rtl")
-FileUtils.mkdir_p(outdir)
 
-# Emit modules
-[PixelProcessor].each do |klass|
-  mod = klass.new
-  name = mod.module_name.gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase
-  File.write(File.join(outdir, "#{name}.sv"), mod.to_sv)
-end
-
-# PacketRouter with meta-param pkt_w=32
+# Emit all top-level modules
+pixel_proc = PixelProcessor.new
 router = PacketRouter.new("PacketRouter", pkt_w: 32)
-File.write(File.join(outdir, "packet_router.sv"), router.to_sv)
-
-# Template module instantiated with different bundle types
 pipe_px = PipeReg.new(dat_t: Pixel.new, init_fields: { "r" => 0 })
-File.write(File.join(outdir, "pipe_reg_pixel.sv"), pipe_px.to_sv)
-
 pipe_pkt = PipeReg.new(dat_t: DataPacket.new(w: 32), init_fields: { "valid" => 0 })
-File.write(File.join(outdir, "pipe_reg_pkt.sv"), pipe_pkt.to_sv)
 
-puts "Generated:"
-Dir.glob(File.join(outdir, "*.sv")).sort.each { |f| puts "  #{f}" }
+RSV::App.main([pixel_proc, router, pipe_px, pipe_pkt])

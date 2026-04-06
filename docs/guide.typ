@@ -46,6 +46,10 @@ SystemVerilog.
 + While `mem(...)` dimensions remain, `sig[...]` only accepts a
   single index.
 + Emit the final module with `to_sv` or `to_sv(path)`.
++ Use `RSV::App.main(top)` as a one-liner CLI entry point, or
+  use the block form `RSV::App.main { |app| ... }` for custom options.
++ Run `ruby script.rb -o build/rtl` to export all deduplicated modules
+  to a directory, or omit `-o` to print the top module SV to stdout.
 
 == Two-pass elaboration
 
@@ -88,7 +92,7 @@ class Counter < RSV::ModuleDef
 end
 
 counter = Counter.new(width: 8)
-counter.to_sv("build/rtl/counter.sv")
+RSV::App.main(counter)
 ```
 
 == Generated SystemVerilog
@@ -323,3 +327,61 @@ out <= mb[1].g
 Width mismatch is handled automatically:
 - Source wider than target → truncate (keep LSBs)
 - Source narrower than target → zero-extend (pad MSBs)
+
+== CLI entry point: `RSV::App`
+
+`RSV::App` provides a unified command-line interface for RSV scripts. It
+supports a built-in `-o/--out-dir DIR` option for exporting deduplicated SV
+files to a directory, and allows user-defined options via `app.option(...)`.
+
+=== Simplest form
+
+```ruby
+counter = Counter.new(width: 8)
+RSV::App.main(counter)
+```
+
+Run with:
+
+```bash
+ruby counter.rb -o build/rtl      # → writes build/rtl/counter.sv
+ruby counter.rb                   # → prints SV to stdout
+```
+
+=== Custom options and build logic
+
+```ruby
+RSV::App.main do |app|
+  app.option(:width, "-w", "--width WIDTH", Integer, "Data width", default: 8)
+  app.build { |opts| Counter.new(width: opts[:width]) }
+end
+```
+
+=== Post-export callback
+
+```ruby
+RSV::App.main do |app|
+  app.build { |opts| [ModA.new, ModB.new] }
+  app.after_export do |opts, tops|
+    tops.each { |t| t.v_wrapper(File.join(opts[:out_dir], "#{t.module_name}_wrapper.sv")) } if opts[:out_dir]
+  end
+end
+```
+
+=== Multiple top modules
+
+```ruby
+RSV::App.main([PixelProcessor.new, PacketRouter.new])
+```
+
+== Automatic module deduplication
+
+When a `ModuleDef` subclass is elaborated, its SV body is automatically
+registered in a global `ElaborationRegistry`. If the same class is elaborated
+with the same parameters (producing identical SV), only one copy is stored.
+
+`RSV.export_all(dir)` writes one `.sv` file per unique module template.
+When using `RSV::App.main` with `-o DIR`, this is done automatically.
+
+Modules that have the same base class name but differ in elaborated SV bodies
+receive suffixed names (`_1`, `_2`, etc.) to avoid collisions.

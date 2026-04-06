@@ -55,9 +55,6 @@ class SvPluginDemo < ModuleDef
   end
 end
 
-output_path = File.join(__dir__, "..", "build", "rtl", "sv_plugin_demo.sv")
-
 demo = SvPluginDemo.new("sv_plugin_demo")
-demo.to_sv("-")
-demo.to_sv(output_path)
-warn "Written to #{output_path}"
+
+RSV::App.main(demo)

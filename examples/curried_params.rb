@@ -60,17 +60,6 @@ class TopCurried < ModuleDef
   end
 end
 
-def rtl_output_path(name)
-  File.join(__dir__, "..", "build", "rtl", "curried_#{name}.sv")
-end
-
 top = TopCurried.new("curried_top")
-top.to_sv("-")
-top.to_sv(rtl_output_path("top"))
 
-# Output submodule definitions
-ParamCounter.send(:definition_handle_registry).each do |name, handle|
-  handle.definition.to_sv(rtl_output_path(name))
-  warn "Written to #{rtl_output_path(name)}"
-end
-warn "Written to #{rtl_output_path('top')}"
+RSV::App.main(top)

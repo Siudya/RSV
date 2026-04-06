@@ -50,14 +50,5 @@ counter_defs = [
 ].uniq { |definition| definition.module_name }
 
 top = AutoDedupTop.new
-top_output_path = rtl_output_path(top.module_name)
 
-top.to_sv("-")
-counter_defs.each do |counter_def|
-  counter_def.to_sv(rtl_output_path(counter_def.module_name))
-end
-top.to_sv(top_output_path)
-counter_defs.each do |counter_def|
-  warn "Written to #{rtl_output_path(counter_def.module_name)}"
-end
-warn "Written to #{top_output_path}"
+RSV::App.main(top)

@@ -40,9 +40,4 @@ class Counter < RSV::ModuleDef
   end
 end
 
-counter = Counter.new(width: 8)
-output_path = File.join(__dir__, "..", "build", "rtl", "counter.sv")
-
-counter.to_sv("-")
-counter.to_sv(output_path)
-warn "Written to #{output_path}"
+RSV::App.main(Counter.new(width: 8))

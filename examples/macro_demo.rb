@@ -46,7 +46,5 @@ class MacroDemo < RSV::ModuleDef
 end
 
 mod = MacroDemo.new
-FileUtils.mkdir_p(File.join(__dir__, "..", "build", "rtl"))
-output_path = File.join(__dir__, "..", "build", "rtl", "macro_demo.sv")
-mod.to_sv(output_path)
-mod.to_sv("-")
+
+RSV::App.main(mod)

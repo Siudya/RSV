@@ -25,6 +25,7 @@ xmake rtl -f syn
   [`counter`], [`ctr`], [基础顺序计数器（meta_param 参数化）],
   [`curried_params`], [`cur`], [`meta_param` 参数化模块],
   [`generate_demo`], [`gen`], [generate 块、属性与多级流水],
+  [`global_dedup`], [`glb`], [全局自动去重与 `RSV.export_all` 一键导出],
   [`import_demo`], [`imp`], [导入外部 SystemVerilog 模块签名],
   [`macro_demo`], [`mac`], [宏定义、条件编译与宏引用],
   [`manual_dedup`], [`man`], [手动 `definition` / `instance` 去重],
@@ -34,6 +35,7 @@ xmake rtl -f syn
   [`storage_streams`], [`str`], [mem 形态、fill 与流式 API],
   [`sv_plugin_demo`], [`svp`], [内嵌原始 SystemVerilog 代码],
   [`syntax_showcase`], [`syn`], [操作符、切片、类型转换与过程块],
+  [`type_conv_demo`], [`tcv`], [`as_type` 在 scalar/bundle/mem 间相互转换],
   [`verilog_wrapper`], [`vwr`], [Verilog 兼容 wrapper 生成],
 )
 
@@ -289,7 +291,31 @@ Bundle 类型展开为扁平信号的综合演示。
 - Bundle 与 mem 组合: `mem(N, BundleType.new)` → 每个字段带 unpacked 维度
 - Bundle 整体赋值: `out <= reg` 展开为逐字段赋值
 - 模板化模块: Bundle 类型作为模块元参数传递
-- 输出: `to_sv(path)`
+- 输出: `RSV::App.main([...])` 多顶层模块
+
+== global_dedup.rb
+
+全局自动去重与 `RSV.export_all` 一键导出。
+
+- 多模块实例化: 不同参数产生不同变体
+- 同参数模块自动去重: 仅保留一份 SV 模板
+- 子模块 SV 在 `finalize_module_name!` 时自动注册到全局表
+- `RSV.export_all(dir)`: 一次性导出全部去重后的模块
+- 未连接端口: 自动标注 `/* unused port */`
+- `RSV::App.main(top)`: CLI 入口
+
+== type_conv_demo.rb
+
+`as_type` 类型转换 API 的综合演示。
+
+- scalar → scalar: 截断（保留 LSB）与零扩展（补 MSB）
+- uint → sint: 有符号重解释
+- uint → bundle: 按字段位宽切片重组
+- bundle → uint: 展平为 packed uint
+- uint → mem: 切片为数组元素
+- bundle → bundle: 跨类型转换（展平 + 重组）
+- uint → mem(bundle): 按元素大小切片为 bundle 数组
+- `RSV::App.main(top)`: CLI 入口
 
 == 特性覆盖矩阵
 
@@ -311,7 +337,7 @@ Bundle 类型展开为扁平信号的综合演示。
   [`pop_count`], [pop\_count\_demo], [`expression_test`],
   [`log2ceil`], [pop\_count\_demo], [`expression_test`],
   [`cat`/`fill`], [syntax\_showcase, storage\_streams], [`expression_test`],
-  [`as_uint`/`as_type`], [syntax\_showcase], [`expression_test`],
+  [`as_uint`/`as_type`], [syntax\_showcase, type\_conv\_demo], [`expression_test`],
   [`expr()`], [counter, syntax\_showcase], [`declaration_test`],
   [`.as_sint` 类型转换], [syntax\_showcase], [`type_system_test`],
   [`always_ff`/`always_comb`/`always_latch`], [syntax\_showcase 覆盖全部三种], [`sequential_test`],
@@ -319,9 +345,11 @@ Bundle 类型展开为扁平信号的综合演示。
   [`svcase`/`svcasez`/`svcasex`], [case\_demo], [`control_flow_test`],
   [`casez ? 通配符`], [case\_demo], [`control_flow_test`],
   [`unique`/`priority` 限定符], [case\_demo], [`control_flow_test`],
-  [模块实例化与端口连接], [auto\_dedup, manual\_dedup, import\_demo, curried\_params], [`module_structure_test`],
-  [子模块间自动布线], [auto\_dedup, manual\_dedup], [`module_structure_test`],
+  [模块实例化与端口连接], [auto\_dedup, manual\_dedup, import\_demo, curried\_params, global\_dedup], [`module_structure_test`],
+  [子模块间自动布线], [auto\_dedup, manual\_dedup, global\_dedup], [`module_structure_test`],
   [`definition`/`instance` 手动去重], [manual\_dedup], [`module_structure_test`],
+  [全局自动去重 `ElaborationRegistry`], [global\_dedup], [`module_structure_test`],
+  [`RSV::App` CLI 入口], [所有示例], [-],
   [`RSV.import_sv`], [import\_demo], [`integration_test`],
   [`sv_def`/`sv_ifdef`/`sv_ifndef` 等宏指令], [macro\_demo], [`macro_generate_test`],
   [`sv_dref` 宏引用], [macro\_demo], [`macro_generate_test`],
@@ -345,4 +373,5 @@ Bundle 类型展开为扁平信号的综合演示。
   [`iodecl`/`flip` 方向控制], [bundle\_and\_interface], [`bundle_test`],
   [数组 reverse], [-], [`array_memory_test`],
   [DataType 运行时算术], [-], [`type_system_test`],
+  [未连接端口标注 `/* unused port */`], [global\_dedup], [`integration_test`],
 )

@@ -66,33 +66,19 @@ class MemBundleModule < ModuleDef
   end
 end
 
-def rtl_output_path(name)
-  File.join(__dir__, "..", "build", "rtl", "#{name}.sv")
-end
+# ── Generate all modules + wrappers ──
 
-# ── Generate all wrappers ──
-
-# 1. Plain + packed/unpacked
 inner = InnerModule.new("inner_module")
-inner.to_sv(rtl_output_path("inner_module"))
-inner.v_wrapper(rtl_output_path("inner_module_wrapper"), wrapper_name: "inner_module_wrapper")
-
-# 2. Bundle port
 bundle_mod = BundleModule.new("bundle_module")
-bundle_mod.to_sv(rtl_output_path("bundle_module"))
-bundle_mod.v_wrapper(rtl_output_path("bundle_module_wrapper"), wrapper_name: "bundle_module_wrapper")
-
-# 3. mem(N, Bundle) port
 mem_mod = MemBundleModule.new("mem_bundle_module")
-mem_mod.to_sv(rtl_output_path("mem_bundle_module"))
-mem_mod.v_wrapper(rtl_output_path("mem_bundle_module_wrapper"), wrapper_name: "mem_bundle_module_wrapper")
 
-# Print summary to stdout
-puts "// Generated SV wrappers demonstrating:"
-puts "//   1. inner_module_wrapper       — unpacked mem arrays"
-puts "//   2. bundle_module_wrapper      — bundle (flat) ports"
-puts "//   3. mem_bundle_module_wrapper  — mem(2, Pixel) ports"
-puts ""
-
-# Print one wrapper as demonstration
-$stderr.puts mem_mod.v_wrapper(wrapper_name: "mem_bundle_module_wrapper")
+RSV::App.main do |app|
+  app.after_export do |opts, tops|
+    next unless opts[:out_dir]
+    tops.each do |t|
+      wrapper_name = "#{t.module_name}_wrapper"
+      t.v_wrapper(File.join(opts[:out_dir], "#{wrapper_name}.sv"), wrapper_name: wrapper_name)
+    end
+  end
+  app.build { |_opts| [inner, bundle_mod, mem_mod] }
+end

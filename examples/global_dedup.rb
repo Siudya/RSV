@@ -83,20 +83,8 @@ class GDeTop < ModuleDef
   end
 end
 
-# ---------- 构建 ----------
+# ---------- 构建与导出 ----------
 
 top = GDeTop.new
-top.to_sv("-")
 
-# ---------- 一键导出所有去重模块 ----------
-
-out_dir = File.join(__dir__, "..", "build", "rtl")
-exported = RSV.export_all(out_dir)
-
-warn ""
-warn "=== 全局去重导出结果 ==="
-warn "已注册模块数: #{RSV::ElaborationRegistry.size}"
-exported.each { |name| warn "  #{name}" }
-warn ""
-warn "说明: GDeCounter(width:8) 实例化了两次，但只导出一份 SV；"
-warn "      GDeCounter(width:16) 参数不同，导出为 GDeCounter_1。"
+RSV::App.main(top)

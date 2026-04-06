@@ -80,8 +80,5 @@ class StorageStreams < RSV::ModuleDef
 end
 
 storage_streams = StorageStreams.new
-output_path = File.join(__dir__, "..", "build", "rtl", "storage_streams.sv")
 
-storage_streams.to_sv("-")
-storage_streams.to_sv(output_path)
-warn "Written to #{output_path}"
+RSV::App.main(storage_streams)

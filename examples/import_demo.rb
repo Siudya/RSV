@@ -40,8 +40,5 @@ class ImportDemo < RSV::ModuleDef
 end
 
 import_demo = ImportDemo.new
-output_path = File.join(__dir__, "..", "build", "rtl", "import_demo.sv")
 
-import_demo.to_sv("-")
-import_demo.to_sv(output_path)
-warn "Written to #{output_path}"
+RSV::App.main(import_demo)

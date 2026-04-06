@@ -77,15 +77,18 @@ task("rtl")
       raise("rtl script not found: " .. script)
     end
 
-    os.execv(ruby.program, {"-Ilib", script})
+    local outdir = option.get("outdir") or "build/rtl"
+
+    os.execv(ruby.program, {"-Ilib", script, "-o", outdir})
   end)
 
   set_menu {
-    usage = "xmake rtl -f <name-or-alias> [-d dir] | xmake rtl -l",
+    usage = "xmake rtl -f <name-or-alias> [-d dir] [-o outdir] | xmake rtl -l",
     description = "Run a built-in example by name/alias or list built-in example features",
     options = {
       {"f", "script", "kv", nil, "Ruby script basename or built-in example alias"},
       {"d", "directory", "kv", "examples", "Directory that contains the Ruby script"},
+      {"o", "outdir", "kv", "build/rtl", "Output directory for generated SV files"},
       {"l", "list", "k", nil, "List built-in examples, aliases, and feature summaries"}
     }
   }

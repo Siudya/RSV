@@ -40,20 +40,8 @@ class ManualDedupTop < RSV::ModuleDef
   end
 end
 
-def rtl_output_path(module_name)
-  file_name = module_name.gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase
-  File.join(__dir__, "..", "build", "rtl", "#{file_name}.sv")
-end
-
 stage_a_def = ManualDedupCounter.definition(width: 8)
 stage_b_def = ManualDedupCounter.definition(width: 8)
 top = ManualDedupTop.new(stage_a_def: stage_a_def, stage_b_def: stage_b_def)
-top_output_path = rtl_output_path(top.module_name)
 
-top.to_sv("-")
-[stage_a_def, stage_b_def].uniq.each do |counter_def|
-  counter_def.to_sv(rtl_output_path(counter_def.module_name))
-end
-top.to_sv(top_output_path)
-warn "Written to #{rtl_output_path(stage_a_def.module_name)}"
-warn "Written to #{top_output_path}"
+RSV::App.main(top)

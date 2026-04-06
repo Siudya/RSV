@@ -46,16 +46,16 @@ class ExamplesSuiteTest < Minitest::Test
       lint_files: ["-DSIM", "build/rtl/macro_demo.sv"]
     },
     "generate_demo.rb" => {
-      outputs: ["generate_demo.sv", "PipeStage.sv"],
-      lint_files: ["build/rtl/PipeStage.sv", "build/rtl/generate_demo.sv"]
+      outputs: ["generate_demo.sv", "pipe_stage.sv"],
+      lint_files: ["build/rtl/pipe_stage.sv", "build/rtl/generate_demo.sv"]
     },
     "global_dedup.rb" => {
       outputs: ["gde_counter.sv", "gde_counter_1.sv", "gde_adder.sv", "gde_top.sv"],
       lint_files: ["-Wno-MULTITOP", "build/rtl/gde_counter.sv", "build/rtl/gde_counter_1.sv", "build/rtl/gde_adder.sv", "build/rtl/gde_top.sv"]
     },
     "curried_params.rb" => {
-      outputs: ["curried_top.sv", "curried_param_counter.sv", "curried_param_counter_1.sv"],
-      lint_files: ["build/rtl/curried_param_counter.sv", "build/rtl/curried_param_counter_1.sv", "build/rtl/curried_top.sv"]
+      outputs: ["curried_top.sv", "param_counter.sv", "param_counter_1.sv"],
+      lint_files: ["build/rtl/param_counter.sv", "build/rtl/param_counter_1.sv", "build/rtl/curried_top.sv"]
     },
     "verilog_wrapper.rb" => {
       outputs: ["inner_module.sv", "inner_module_wrapper.sv", "bundle_module.sv", "bundle_module_wrapper.sv",
@@ -70,13 +70,13 @@ class ExamplesSuiteTest < Minitest::Test
       lint_files: ["build/rtl/sv_plugin_demo.sv"]
     },
     "bundle_and_interface.rb" => {
-      outputs: ["pixel_processor.sv", "packet_router.sv", "pipe_reg_pixel.sv", "pipe_reg_pkt.sv"],
+      outputs: ["pixel_processor.sv", "packet_router.sv", "pipe_reg.sv", "pipe_reg_1.sv"],
       lint_files: [
         "-Wno-MULTITOP",
         "build/rtl/pixel_processor.sv",
         "build/rtl/packet_router.sv",
-        "build/rtl/pipe_reg_pixel.sv",
-        "build/rtl/pipe_reg_pkt.sv"
+        "build/rtl/pipe_reg.sv",
+        "build/rtl/pipe_reg_1.sv"
       ]
     },
     "case_demo.rb" => {
@@ -100,9 +100,9 @@ class ExamplesSuiteTest < Minitest::Test
     end
 
     EXAMPLES.each do |script, spec|
-      stdout, stderr, status = Open3.capture3("ruby", File.join("examples", script), chdir: PROJECT_ROOT)
+      stdout, stderr, status = Open3.capture3("ruby", "-Ilib", File.join("examples", script), "-o", BUILD_RTL_DIR, chdir: PROJECT_ROOT)
       assert status.success?, <<~MSG
-        expected `ruby examples/#{script}` to succeed
+        expected `ruby examples/#{script} -o #{BUILD_RTL_DIR}` to succeed
         stdout:
         #{stdout}
         stderr:

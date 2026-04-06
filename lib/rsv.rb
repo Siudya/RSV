@@ -12,6 +12,7 @@ require_relative "rsv/emitter"
 require_relative "rsv/svimport"
 require_relative "rsv/vwrapper"
 require_relative "rsv/registry"
+require_relative "rsv/app"
 
 # RSV — Ruby SystemVerilog Generator
 #

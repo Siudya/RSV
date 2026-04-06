@@ -100,17 +100,6 @@ end
 
 # ---------- Output ----------
 
-def rtl_output_path(name)
-  File.join(__dir__, "..", "build", "rtl", "#{name}.sv")
-end
-
 demo = GenerateDemo.new("generate_demo", depth: 3, data_w: 8, mode: 0, n_ch: 4)
-demo.to_sv("-")
-demo.to_sv(rtl_output_path("generate_demo"))
 
-# Emit PipeStage dependency (meta-param definition)
-PipeStage.send(:definition_handle_registry).each_value do |handle|
-  handle.to_sv(rtl_output_path(handle.module_name))
-end
-
-warn "Written to #{rtl_output_path('generate_demo')}"
+RSV::App.main(demo)

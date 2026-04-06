@@ -39,8 +39,5 @@ class PopCountDemo < ModuleDef
 end
 
 demo = PopCountDemo.new
-output_path = File.join(__dir__, "..", "build", "rtl", "pop_count_demo.sv")
 
-demo.to_sv("-")
-demo.to_sv(output_path)
-warn "Written to #{output_path}"
+RSV::App.main(demo)

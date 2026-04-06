@@ -100,8 +100,5 @@ class TypeConvDemo < ModuleDef
 end
 
 demo = TypeConvDemo.new
-output_path = File.join(__dir__, "..", "build", "rtl", "type_conv_demo.sv")
 
-demo.to_sv("-")
-demo.to_sv(output_path)
-warn "Written to #{output_path}"
+RSV::App.main(demo)
