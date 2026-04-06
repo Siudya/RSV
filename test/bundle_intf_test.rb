@@ -393,4 +393,52 @@ class BundleTest < Minitest::Test
     refute_match(/input.*pxl_r/, sv)
     refute_match(/output.*pxl_r/, sv)
   end
+
+  def test_iodecl_mem_bundle
+    mod_class = Class.new(RSV::ModuleDef) do
+      define_method(:build) do
+        fifo = iodecl("fifo", mem(8, TestPixel.new))
+        o = output("o", uint(8))
+        o <= fifo[0].r
+      end
+    end
+    sv = mod_class.new("TestMemBundle").to_sv
+    assert_match(/input\s+logic \[7:0\]\s+fifo_r\[7:0\]/, sv)
+    assert_match(/input\s+logic \[7:0\]\s+fifo_g\[7:0\]/, sv)
+    assert_match(/input\s+logic \[7:0\]\s+fifo_b\[7:0\]/, sv)
+    assert_match(/assign o = fifo_r\[0\]/, sv)
+  end
+
+  def test_iodecl_flip_mem_bundle
+    mod_class = Class.new(RSV::ModuleDef) do
+      define_method(:build) do
+        iodecl("fifo", flip(mem(4, TestPixel.new)))
+      end
+    end
+    sv = mod_class.new("TestFlipMemBundle").to_sv
+    assert_match(/output\s+logic \[7:0\]\s+fifo_r\[3:0\]/, sv)
+    assert_match(/output\s+logic \[7:0\]\s+fifo_g\[3:0\]/, sv)
+    assert_match(/output\s+logic \[7:0\]\s+fifo_b\[3:0\]/, sv)
+  end
+
+  def test_iodecl_mem_mixed_dirs_bundle
+    mixed_class = Class.new(RSV::BundleDef) do
+      define_singleton_method(:name) { "MixedMem" }
+      define_method(:build) do
+        input("valid", bit)
+        output("ready", bit)
+        input("data", uint(8))
+      end
+    end
+
+    mod_class = Class.new(RSV::ModuleDef) do
+      define_method(:build) do
+        iodecl("ch", mem(2, mixed_class.new))
+      end
+    end
+    sv = mod_class.new("TestMemMixed").to_sv
+    assert_match(/input\s+logic\s+ch_valid\[1:0\]/, sv)
+    assert_match(/output\s+logic\s+ch_ready\[1:0\]/, sv)
+    assert_match(/input\s+logic \[7:0\]\s+ch_data\[1:0\]/, sv)
+  end
 end
