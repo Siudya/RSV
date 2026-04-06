@@ -11,6 +11,23 @@ module RSV
       @assign_context = assign_context
     end
 
+    # Symbol 形式信号访问器委托到当前 ModuleDef
+    def method_missing(sym, *args, &block)
+      if args.empty? && block.nil?
+        mod = RSV.current_module_def
+        handler = mod&._resolve_signal(sym)
+        return handler if handler
+      end
+      super
+    end
+
+    def respond_to_missing?(sym, include_private = false)
+      mod = RSV.current_module_def
+      return true if mod&._resolve_signal(sym)
+
+      super
+    end
+
     def build(&block)
       return self unless block_given?
 

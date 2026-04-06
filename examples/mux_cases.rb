@@ -19,28 +19,28 @@ include RSV
 
 class Pixel < BundleDef
   def build
-    input("r", uint(8))
-    input("g", uint(8))
-    input("b", uint(8))
+    input :r, uint(8)
+    input :g, uint(8)
+    input :b, uint(8)
   end
 end
 
 class MuxCases < ModuleDef
   def build
-    clk = input("clk", clock)
-    rst = input("rst", reset)
+    input :clk, clock
+    input :rst, reset
 
-    ternary_sel = input("ternary_sel", bit)
-    sel_1h = input("sel_1h", uint(4))
-    sel_p = input("sel_p", uint(4))
-    a = input("a", uint(8))
-    b = input("b", uint(8))
-    dats = input("dats", mem(4, uint(8)))
+    input :ternary_sel, bit
+    input :sel_1h, uint(4)
+    input :sel_p, uint(4)
+    input :a, uint(8)
+    input :b, uint(8)
+    input :dats, mem(4, uint(8))
 
-    ternary_o = output("ternary_o", uint(8))
-    one_hot_o = output("one_hot_o", uint(8))
-    priority_lsb_o = output("priority_lsb_o", uint(8))
-    priority_msb_o = output("priority_msb_o", uint(8))
+    output :ternary_o, uint(8)
+    output :one_hot_o, uint(8)
+    output :priority_lsb_o, uint(8)
+    output :priority_msb_o, uint(8)
 
     # ── basic mux ────────────────────────────────────────────────────
     ternary_o <= mux(ternary_sel, a, b)
@@ -55,11 +55,11 @@ class MuxCases < ModuleDef
     # mux1h at module level creates a wire; reusable in assign and always_ff
     res = mux1h(sel_1h, dats)
 
-    res_wire = output("res_wire", uint(8))
+    output :res_wire, uint(8)
     res_wire <= res
 
-    res_reg = reg("res_reg", uint(8), init: 0)
-    res_reg_o = output("res_reg_o", uint(8))
+    reg :res_reg, uint(8), init: 0
+    output :res_reg_o, uint(8)
     res_reg_o <= res_reg
 
     with_clk_and_rst(clk, rst)
@@ -69,38 +69,38 @@ class MuxCases < ModuleDef
 
     # ── bundle mux ───────────────────────────────────────────────────
     # mux1h with bundle data: each field gets its own mux case
-    sel_pxl = input("sel_pxl", uint(2))
-    pxl_in = iodecl("pxl_in", input(mem(2, Pixel.new)))
+    input :sel_pxl, uint(2)
+    iodecl :pxl_in, input(mem(2, Pixel.new))
     pxl_sel = mux1h(sel_pxl, pxl_in)
 
-    pxl_r_o = output("pxl_r_o", uint(8))
-    pxl_g_o = output("pxl_g_o", uint(8))
-    pxl_b_o = output("pxl_b_o", uint(8))
+    output :pxl_r_o, uint(8)
+    output :pxl_g_o, uint(8)
+    output :pxl_b_o, uint(8)
     pxl_r_o <= pxl_sel.r
     pxl_g_o <= pxl_sel.g
     pxl_b_o <= pxl_sel.b
 
     # ── as_uint / get_width ──────────────────────────────────────────
-    pxl_flat = output("pxl_flat", uint(24))
+    output :pxl_flat, uint(24)
     pxl_flat <= pxl_sel.as_uint
 
-    vec = input("vec", mem(4, uint(8)))
-    vec_flat = output("vec_flat", uint(32))
+    input :vec, mem(4, uint(8))
+    output :vec_flat, uint(32)
     vec_flat <= vec.as_uint
 
     # ── cat with bundle and mem ──────────────────────────────────────
-    cat_out = output("cat_out", uint(56))
+    output :cat_out, uint(56)
     cat_out <= cat(pxl_sel, vec)
 
     # ── mem.reverse ──────────────────────────────────────────────────
     rev = vec.reverse
-    rev_out = output("rev_out", uint(32))
+    output :rev_out, uint(32)
     rev_out <= rev.as_uint
 
     # bundle mem reverse
-    bvec = iodecl("bvec", input(mem(2, Pixel.new)))
+    iodecl :bvec, input(mem(2, Pixel.new))
     brev = bvec.reverse
-    brev_r0 = output("brev_r0", uint(8))
+    output :brev_r0, uint(8)
     brev_r0 <= brev[0].r
   end
 end

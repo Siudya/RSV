@@ -15,14 +15,14 @@ require "rsv"
 
 class ConstDemo < RSV::ModuleDef
   def build
-    clk = input("clk", bit)
-    rst = input("rst", bit)
-    out = output("out", uint(16))
+    input :clk, bit
+    input :rst, bit
+    output :out, uint(16)
 
     magic  = const("MAGIC", uint(16, 0xBEEF))
     offset = const("OFFSET", sint(8, -3))
 
-    count_r = reg("count_r", uint(16), init: 0)
+    reg :count_r, uint(16), init: 0
     with_clk_and_rst(clk, rst)
     always_ff do
       svif(1) do

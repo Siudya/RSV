@@ -17,10 +17,10 @@ include RSV
 
 class ParamCounter < ModuleDef
   def build(width: 8, enable_wrap: true)
-    clk = input("clk", clock)
-    rst = input("rst", reset)
+    input :clk, clock
+    input :rst, reset
     out = output("count", uint(width))
-    count_r = reg("count_r", uint(width), init: 0)
+    reg :count_r, uint(width), init: 0
     out <= count_r
 
     with_clk_and_rst(clk, rst)
@@ -41,10 +41,10 @@ end
 
 class TopCurried < ModuleDef
   def build
-    clk = input("clk", clock)
-    rst = input("rst", reset)
-    count_a = output("count_a", uint(16))
-    count_b = output("count_b", uint(32))
+    input :clk, clock
+    input :rst, reset
+    output :count_a, uint(16)
+    output :count_b, uint(32)
 
     # Instance with width=16, wrapping enabled
     a = ParamCounter.new("param_counter", width: 16, enable_wrap: true)

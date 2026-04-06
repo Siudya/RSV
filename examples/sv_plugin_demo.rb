@@ -18,13 +18,13 @@ include RSV
 
 class SvPluginDemo < ModuleDef
   def build
-    clk = input("clk", clock)
-    rst = input("rst", reset)
-    din = input("din", uint(8))
-    dout = output("dout", uint(8))
-    dbg = output("dbg", uint(8))
+    input :clk, clock
+    input :rst, reset
+    input :din, uint(8)
+    output :dout, uint(8)
+    output :dbg, uint(8)
 
-    r = reg("r", uint(8), init: 0)
+    reg :r, uint(8), init: 0
     dout <= r
 
     # Module-level inline SV: custom assertion block

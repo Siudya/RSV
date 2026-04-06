@@ -18,17 +18,17 @@ include RSV
 
 class PopCountDemo < ModuleDef
   def build
-    clk = input("clk", clock)
-    rst = input("rst", reset)
-    vec = input("vec", uint(8))
-    cnt = output("cnt", uint(log2ceil(8 + 1)))
-    cnt_reg = output("cnt_reg", uint(log2ceil(8 + 1)))
+    input :clk, clock
+    input :rst, reset
+    input :vec, uint(8)
+    output :cnt, uint(log2ceil(8 + 1))
+    output :cnt_reg, uint(log2ceil(8 + 1))
 
     # module-level: auto creates vec_pop_count wire + always_comb
     cnt <= pop_count(vec)
 
     # registered: auto-wire in always_ff, latched on clock edge
-    cnt_r = reg("cnt_r", uint(log2ceil(8 + 1)), init: 0)
+    reg :cnt_r, uint(log2ceil(8 + 1)), init: 0
     cnt_reg <= cnt_r
 
     with_clk_and_rst(clk, rst)

@@ -20,13 +20,13 @@ require "rsv"
 
 class Counter < RSV::ModuleDef
   def build(width: 8)
-    clk = input("clk", bit)
-    rst = input("rst", bit)
-    en = input("en", bit)
-    count = output("count", uint(width))
+    input :clk, bit
+    input :rst, bit
+    input :en, bit
+    output :count, uint(width)
 
-    count_r = reg("count_r", uint(width), init: 0)
-    count_next = expr("count_next", count_r + 1)
+    reg :count_r, uint(width), init: 0
+    expr :count_next, count_r + 1
 
     count <= count_r
 

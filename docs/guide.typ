@@ -15,6 +15,10 @@ SystemVerilog.
   module elaboration: `MyMod.new("name", width: 16, meta: val)`.
 + Create named ports and locals with `input("name", type)`,
   `output("name", type)`, `wire("name", type)`, and `reg("name", type)`.
++ Use the Symbol shorthand to avoid repeating the name:
+  `input :clk, clock`, `output :count, uint(8)`, `reg :r, uint(8), init: 0`.
+  The Symbol form defines an accessor method so handles can be referenced by
+  name in later assignments and procedural blocks.
 + Declare constants with `const("name", type)` where the data type carries an
   init value (emits as SV `localparam`).
 + Use `generate_for` and `generate_if` for elaboration-time code generation
@@ -72,13 +76,13 @@ require "rsv"
 
 class Counter < RSV::ModuleDef
   def build(width: 8)
-    clk = input("clk", bit)
-    rst = input("rst", bit)
-    en = input("en", bit)
-    count = output("count", uint(width))
+    input :clk, bit
+    input :rst, bit
+    input :en, bit
+    output :count, uint(width)
 
-    count_r = reg("count_r", uint(width), init: 0)
-    count_next = expr("count_next", count_r + 1)
+    reg :count_r, uint(width), init: 0
+    expr :count_next, count_r + 1
 
     count_r >= count
 
@@ -146,9 +150,9 @@ name, RSV preserves the first name and suffixes later variants with `_1`,
 ```ruby
 class Top < RSV::ModuleDef
   def build(counter_def:)
-    clk = input("clk", bit)
-    rst = input("rst", bit)
-    count = output("count", uint(8))
+    input :clk, bit
+    input :rst, bit
+    output :count, uint(8)
 
     counter = instance(counter_def, inst_name: "u_counter")
     counter.clk <= clk
@@ -241,8 +245,8 @@ ImportedCounter = RSV.import_sv(
 
 class ImportDemo < RSV::ModuleDef
   def build
-    clk = input("clk", bit)
-    dout = output("dout", uint(12))
+    input :clk, bit
+    output :dout, uint(12)
 
     counter = ImportedCounter.new(inst_name: "u_imported_counter", WIDTH: 12)
     counter.clk <= clk
@@ -265,18 +269,19 @@ signals (`reg`/`wire`) ignore direction.
 ```ruby
 class Pixel < RSV::BundleDef
   def build
-    r = input("r", uint(8))
-    g = input("g", uint(8))
-    b = input("b", uint(8))
+    input :r, uint(8)
+    input :g, uint(8)
+    input :b, uint(8)
   end
 end
 
 class PixProc < RSV::ModuleDef
   def build
-    clk = input("clk", clock); rst = input("rst", reset)
-    px_in  = iodecl("px_in", Pixel.new)        # fields keep their dirs
-    px_out = iodecl("px_out", flip(Pixel.new))  # dirs reversed
-    px = reg("px", Pixel.new, init: { "r" => 0, "g" => 0, "b" => 0 })
+    input :clk, clock
+    input :rst, reset
+    iodecl :px_in, Pixel.new           # fields keep their dirs
+    iodecl :px_out, flip(Pixel.new)    # dirs reversed
+    reg :px, Pixel.new, init: { "r" => 0, "g" => 0, "b" => 0 }
     with_clk_and_rst(clk, rst)
     px_out <= px
     always_ff { px.r <= px_in.r }
@@ -284,11 +289,11 @@ class PixProc < RSV::ModuleDef
 end
 ```
 
-A `reg("px", Pixel.new)` declaration generates three separate signals:
+A `reg :px, Pixel.new` declaration generates three separate signals:
 `px_r`, `px_g`, `px_b`. Field access `px.r` maps directly to `px_r`.
 
 Bundles support:
-- Nested bundles: `input "inner", OtherBundle.new` (recursively flattened)
+- Nested bundles: `input :inner, OtherBundle.new` (recursively flattened)
 - `mem`: `mem(4, Pixel.new)` → separate signals with unpacked dim
 - Meta parameters: `def build(w: 8)` with `Pixel.new(w: 16)`
 - Partial reset: only listed fields get reset in `always_ff`

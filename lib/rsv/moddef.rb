@@ -168,6 +168,7 @@ module RSV
       @module_name_finalized = false
       @auto_connection_wires = {}
       @instance_port_base_wires = {}
+      @signal_accessors = {}
 
       auto_build = self.class.instance_method(:initialize).owner == ModuleDef &&
         self.class.instance_method(:build).owner != ModuleDef
@@ -186,6 +187,11 @@ module RSV
     end
 
     def build(*args, **kwargs)
+    end
+
+    # 查找 Symbol 形式声明的信号句柄（供 ProceduralBuilder 委托调用）
+    def _resolve_signal(sym)
+      @signal_accessors[sym]
     end
 
     def definition(source, *args, **kwargs, &block)
@@ -219,14 +225,18 @@ module RSV
 
     # Direction decorator: wraps a data type with :input direction.
     # When given (name, type), declares an input port directly (for clock/reset convenience).
+    # Symbol form: input(:clk, bit) — declares port and registers accessor.
     def input(name_or_type, data_type = nil, init: UNSET_INIT, attr: nil)
+      if name_or_type.is_a?(Symbol)
+        handler = input(name_or_type.to_s, data_type, init: init, attr: attr)
+        return _register_signal_accessor(name_or_type, handler)
+      end
       if data_type.nil?
         # Direction decorator mode: input(uint(8)) → DirectedType
         type = name_or_type
         type = RSV.normalize_data_type(type) if type.is_a?(DataType)
         return DirectedType.new(:input, type)
       end
-      # Legacy-compatible direct port declaration: input("clk", clock)
       clock_type = data_type.instance_variable_get(:@_clock_type) || false
       reset_type = data_type.instance_variable_get(:@_reset_type) || false
       declare_port(:input, build_signal_spec(name_or_type, data_type, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
@@ -234,7 +244,12 @@ module RSV
 
     # Direction decorator: wraps a data type with :output direction.
     # When given (name, type), declares an output port directly (for clock/reset convenience).
+    # Symbol form: output(:count, uint(8))
     def output(name_or_type, data_type = nil, init: UNSET_INIT, attr: nil)
+      if name_or_type.is_a?(Symbol)
+        handler = output(name_or_type.to_s, data_type, init: init, attr: attr)
+        return _register_signal_accessor(name_or_type, handler)
+      end
       if data_type.nil?
         type = name_or_type
         type = RSV.normalize_data_type(type) if type.is_a?(DataType)
@@ -245,7 +260,12 @@ module RSV
       declare_port(:output, build_signal_spec(name_or_type, data_type, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
     end
 
+    # Symbol form: inout(:data, uint(8))
     def inout(name_or_type, data_type = nil, init: UNSET_INIT, attr: nil)
+      if name_or_type.is_a?(Symbol)
+        handler = inout(name_or_type.to_s, data_type, init: init, attr: attr)
+        return _register_signal_accessor(name_or_type, handler)
+      end
       if data_type.nil?
         type = name_or_type
         type = RSV.normalize_data_type(type) if type.is_a?(DataType)
@@ -263,7 +283,12 @@ module RSV
     end
 
     # IO port declaration: expand directed types / bundles into module ports.
+    # Symbol form: iodecl(:px_in, input(Pixel.new))
     def iodecl(name, directed_type, init: UNSET_INIT, attr: nil)
+      if name.is_a?(Symbol)
+        handler = iodecl(name.to_s, directed_type, init: init, attr: attr)
+        return _register_signal_accessor(name, handler)
+      end
       case directed_type
       when DirectedType
         inner = directed_type.data_type
@@ -296,19 +321,34 @@ module RSV
 
     # ── Internal signal declarations ────────────────────────────────────────
 
+    # Symbol form: wire(:data, uint(16))
     def wire(name, data_type, init: UNSET_INIT, attr: nil)
+      if name.is_a?(Symbol)
+        handler = wire(name.to_s, data_type, init: init, attr: attr)
+        return _register_signal_accessor(name, handler)
+      end
       clock_type = data_type.instance_variable_get(:@_clock_type) || false
       reset_type = data_type.instance_variable_get(:@_reset_type) || false
       declare_local(:wire, build_signal_spec(name, data_type, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
     end
 
+    # Symbol form: reg(:count_r, uint(8), init: 0)
     def reg(name, data_type, init: UNSET_INIT, attr: nil)
+      if name.is_a?(Symbol)
+        handler = reg(name.to_s, data_type, init: init, attr: attr)
+        return _register_signal_accessor(name, handler)
+      end
       clock_type = data_type.instance_variable_get(:@_clock_type) || false
       reset_type = data_type.instance_variable_get(:@_reset_type) || false
       declare_local(:reg, build_signal_spec(name, data_type, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
     end
 
+    # Symbol form: const(:BASE_ADDR, uint(16, 0xBEEF))
     def const(name, data_type, attr: nil)
+      if name.is_a?(Symbol)
+        handler = const(name.to_s, data_type, attr: attr)
+        return _register_signal_accessor(name, handler)
+      end
       spec = build_signal_spec(name, data_type, init: data_type.init)
       raise ArgumentError, "const requires an init value" if spec.init.nil?
 
@@ -316,7 +356,12 @@ module RSV
       build_handler(spec, :wire)
     end
 
+    # Symbol form: expr(:count_next, count_r + 1)
     def expr(name, rhs, width: nil, signed: false)
+      if name.is_a?(Symbol)
+        handler = expr(name.to_s, rhs, width: width, signed: signed)
+        return _register_signal_accessor(name, handler)
+      end
       rhs_expr = RSV.normalize_expr(rhs)
       inferred_width = width || RSV.infer_expr_width(rhs_expr)
       raise ArgumentError, "cannot infer width for expr #{name}" if inferred_width.nil?
@@ -457,6 +502,13 @@ module RSV
     end
 
     private
+
+    # Symbol 形式声明的信号注册为访问器方法
+    def _register_signal_accessor(sym, handler)
+      @signal_accessors[sym] = handler
+      define_singleton_method(sym) { handler }
+      handler
+    end
 
     def capture_macro_body(&block)
       saved_stmts = @stmts

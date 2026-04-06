@@ -22,21 +22,21 @@ include RSV
 
 class CaseDemo < ModuleDef
   def build
-    clk = input("clk", clock)
-    rst = input("rst", reset)
-    opcode = input("opcode", uint(3))
-    mode = input("mode", uint(4))
-    data_in = input("data_in", uint(8))
+    input :clk, clock
+    input :rst, reset
+    input :opcode, uint(3)
+    input :mode, uint(4)
+    input :data_in, uint(8)
 
-    alu_out = output("alu_out", uint(8))
-    state_out = output("state_out", uint(8))
-    flag = output("flag", bit)
-    sel_out = output("sel_out", uint(8))
+    output :alu_out, uint(8)
+    output :state_out, uint(8)
+    output :flag, bit
+    output :sel_out, uint(8)
 
-    alu_w = wire("alu_w", uint(8))
-    flag_w = wire("flag_w", bit)
-    sel_w = wire("sel_w", uint(8))
-    state_r = reg("state_r", uint(8), init: 0)
+    wire :alu_w, uint(8)
+    wire :flag_w, bit
+    wire :sel_w, uint(8)
+    reg :state_r, uint(8), init: 0
 
     alu_out <= alu_w
     state_out <= state_r

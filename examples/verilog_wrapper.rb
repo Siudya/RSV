@@ -21,22 +21,22 @@ include RSV
 # A simple pixel bundle
 class Pixel < BundleDef
   def build
-    input("r", uint(8))
-    input("g", uint(8))
-    input("b", uint(8))
+    input :r, uint(8)
+    input :g, uint(8)
+    input :b, uint(8)
   end
 end
 
 # ── Inner module using plain ports + unpacked arrays ──
 class InnerModule < ModuleDef
   def build
-    clk = input("clk", clock)
-    rst = input("rst", reset)
-    data_in = input("data_in", mem(4, uint(8)))
-    data_out = output("data_out", mem(4, uint(8)))
-    mem_in = input("mem_in", mem(2, uint(16)))
-    flag = output("flag", uint(1))
-    count_r = reg("count_r", uint(16), init: 0)
+    input :clk, clock
+    input :rst, reset
+    input :data_in, mem(4, uint(8))
+    output :data_out, mem(4, uint(8))
+    input :mem_in, mem(2, uint(16))
+    output :flag, uint(1)
+    reg :count_r, uint(16), init: 0
 
     flag <= count_r[0]
     data_out <= data_in
@@ -51,8 +51,8 @@ end
 # ── Module with bundle ports ──
 class BundleModule < ModuleDef
   def build
-    px_in = iodecl("px_in", Pixel.new)
-    px_out = iodecl("px_out", flip(Pixel.new))
+    iodecl :px_in, Pixel.new
+    iodecl :px_out, flip(Pixel.new)
     px_out <= px_in
   end
 end
@@ -60,7 +60,7 @@ end
 # ── Module with mem(N, Bundle) port ──
 class MemBundleModule < ModuleDef
   def build
-    fifo = iodecl("fifo", Pixel.new)
+    iodecl :fifo, Pixel.new
     r = output("red0", uint(8))
     r <= fifo.r
   end

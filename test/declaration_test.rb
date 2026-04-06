@@ -259,6 +259,78 @@ class DeclarationTest < Minitest::Test
     assert_includes sv, "[15:0]"
   end
 
+  # ── Symbol shorthand tests ──────────────────────────────────────────
+
+  def test_symbol_form_declares_ports_and_locals
+    mod = module_class("SymbolForm") {
+      input :clk, clock
+      input :rst, reset
+      input :en, bit
+      output :count, uint(8)
+      reg :count_r, uint(8), init: 0
+      expr :count_next, count_r + 1
+      count_r >= count
+      with_clk_and_rst(clk, rst)
+      always_ff { svif(en) { count_r <= count_next } }
+    }.new
+
+    sv = mod.to_sv
+    assert_includes sv, "input  logic       clk"
+    assert_includes sv, "output logic [7:0] count"
+    assert_includes sv, "logic [7:0] count_r"
+    assert_includes sv, "assign count_next = count_r + 8'd1"
+    assert_includes sv, "count_r <= count_next"
+  end
+
+  def test_symbol_form_wire_and_const
+    mod = module_class("SymbolWireConst") {
+      input :a, uint(8)
+      output :y, uint(8)
+      wire :tmp, uint(8)
+      # SV const 一般大写，Ruby 大写标识符是常量，需用 String 形式
+      offset = const("OFFSET", uint(8, 42))
+      tmp <= a + offset
+      y <= tmp
+    }.new
+
+    sv = mod.to_sv
+    assert_includes sv, "tmp"
+    assert_includes sv, "localparam"
+    assert_includes sv, "OFFSET = 8'h2a"
+    assert_includes sv, "assign tmp = a + OFFSET"
+  end
+
+  def test_symbol_form_accessible_in_always_blocks
+    mod = module_class("SymbolAlways") {
+      input :clk, clock
+      input :rst, reset
+      input :d, uint(4)
+      output :q, uint(4)
+      reg :r, uint(4), init: 0
+      q <= r
+      with_clk_and_rst(clk, rst)
+      always_ff { r <= d }
+    }.new
+
+    sv = mod.to_sv
+    assert_includes sv, "r <= d"
+    assert_includes sv, "assign q = r"
+  end
+
+  def test_symbol_form_mixed_with_string_form
+    mod = module_class("MixedForm") {
+      input :a, uint(8)
+      b = input("b", uint(8))
+      output :y, uint(8)
+      y <= a + b
+    }.new
+
+    sv = mod.to_sv
+    assert_includes sv, "input  logic [7:0] a"
+    assert_includes sv, "input  logic [7:0] b"
+    assert_includes sv, "assign y = a + b"
+  end
+
   private
 
   def module_class(name, &build_block)

@@ -19,23 +19,23 @@ require "rsv"
 
 class StorageStreams < RSV::ModuleDef
   def build
-    clk = input("clk", clock)
-    rst_n = input("rst_n", reset)
-    update = input("update", bit)
-    idx = input("idx", uint(2))
-    mask_old = input("mask_old", uint(16))
+    input :clk, clock
+    input :rst_n, reset
+    input :update, bit
+    input :idx, uint(2)
+    input :mask_old, uint(16)
 
-    memory_word = output("memory_word", uint(8))
-    mixed_word = output("mixed_word", uint(8))
-    parity = output("parity", bit)
-    selected_bits = output("selected_bits", uint(4))
-    mem_slice = output("mem_slice", mem([2], uint(8)))
+    output :memory_word, uint(8)
+    output :mixed_word, uint(8)
+    output :parity, bit
+    output :selected_bits, uint(4)
+    output :mem_slice, mem([2], uint(8))
 
     # Unpacked memories and nested memories. The init helpers produce reset
     # values for the auto-generated reset branch.
-    mask_r = reg("mask_r", uint(16), init: 0)
-    memory_r = reg("memory_r", mem([4], uint(8)), init: mem.fill(4, uint(8, 0x22)))
-    mixed_r = reg("mixed_r", mem([2], mem([3], uint(8))), init: mem.fill(2, mem.fill(3, uint(8, 0))))
+    reg :mask_r, uint(16), init: 0
+    reg :memory_r, mem([4], uint(8)), init: mem.fill(4, uint(8, 0x22))
+    reg :mixed_r, mem([2], mem([3], uint(8))), init: mem.fill(2, mem.fill(3, uint(8, 0)))
 
     memory_word <= memory_r[idx]
     mixed_word <= mixed_r[0][1]

@@ -6,27 +6,27 @@ require "rsv"
 # Simple bundle
 class Pixel < RSV::BundleDef
   def build
-    r = input("r", uint(8))
-    g = input("g", uint(8))
-    b = input("b", uint(8))
+    input :r, uint(8)
+    input :g, uint(8)
+    input :b, uint(8)
   end
 end
 
 # Bundle with meta_param — width is a Ruby argument
 class DataPacket < RSV::BundleDef
   def build(w: 8)
-    valid = input("valid", bit)
-    data  = input("data",  uint(w))
+    input :valid, bit
+    input :data,  uint(w)
   end
 end
 
 # Nested bundle
 class FrameHeader < RSV::BundleDef
   def build
-    pixel = input("pixel",  Pixel.new)
-    x_pos = input("x_pos",  uint(12))
-    y_pos = input("y_pos",  uint(12))
-    last  = input("last",   bit)
+    input :pixel,  Pixel.new
+    input :x_pos,  uint(12)
+    input :y_pos,  uint(12)
+    input :last,   bit
   end
 end
 
@@ -35,27 +35,27 @@ end
 # Demonstrates bundle basics, partial reset, nested bundle, mem, and meta_param
 class PixelProcessor < RSV::ModuleDef
   def build
-    clk = input("clk", clock)
-    rst = input("rst", reset)
+    input :clk, clock
+    input :rst, reset
 
-    px_in  = iodecl("px_in", Pixel.new)
-    px_out = iodecl("px_out", flip(Pixel.new))
+    iodecl :px_in, Pixel.new
+    iodecl :px_out, flip(Pixel.new)
 
     # Partial reset — only r is cleared on reset, g and b are NOT reset
-    px_reg = reg("px_reg", Pixel.new, init: { "r" => 0 })
+    reg :px_reg, Pixel.new, init: { "r" => 0 }
 
     # Full reset — all fields cleared
-    px_buf = reg("px_buf", Pixel.new, init: { "r" => 0, "g" => 0, "b" => 0 })
+    reg :px_buf, Pixel.new, init: { "r" => 0, "g" => 0, "b" => 0 }
 
     # Wire with nested bundle
-    hdr = wire("hdr", FrameHeader.new)
+    wire :hdr, FrameHeader.new
 
     # Bundle array (mem of structs)
-    fifo = wire("fifo", mem(4, Pixel.new))
+    wire :fifo, mem(4, Pixel.new)
 
     # Parameterized bundle: w=8 (default) vs w=16
-    pkt8  = wire("pkt8",  DataPacket.new(w: 8))
-    pkt16 = wire("pkt16", DataPacket.new(w: 16))
+    wire :pkt8,  DataPacket.new(w: 8)
+    wire :pkt16, DataPacket.new(w: 16)
 
     with_clk_and_rst(clk, rst)
 
@@ -75,16 +75,16 @@ end
 # Module with meta_param for packet width
 class PacketRouter < RSV::ModuleDef
   def build(pkt_w: 8)
-    clk = input("clk", clock)
-    rst = input("rst", reset)
+    input :clk, clock
+    input :rst, reset
 
     # Bundle width matches the meta-param (concrete at elaboration time)
     pkt_t = DataPacket.new(w: pkt_w)
-    pkt_in  = iodecl("pkt_in",  pkt_t)
-    pkt_out = iodecl("pkt_out", flip(pkt_t))
+    iodecl :pkt_in,  pkt_t
+    iodecl :pkt_out, flip(pkt_t)
 
     # Partial reset — only valid bit is cleared; data retains previous value
-    pkt_r = reg("pkt_r", pkt_t, init: { "valid" => 0 })
+    reg :pkt_r, pkt_t, init: { "valid" => 0 }
 
     with_clk_and_rst(clk, rst)
 
@@ -102,11 +102,11 @@ end
 # Generic pipeline register — bundle type is passed as meta parameter
 class PipeReg < RSV::ModuleDef
   def build(dat_t:, init_fields: {})
-    clk = input("clk", clock)
-    rst = input("rst", reset)
-    d_in  = iodecl("d_in", dat_t)
-    d_out = iodecl("d_out", flip(dat_t))
-    d_r = reg("d_r", dat_t, init: init_fields.empty? ? nil : init_fields)
+    input :clk, clock
+    input :rst, reset
+    iodecl :d_in, dat_t
+    iodecl :d_out, flip(dat_t)
+    reg :d_r, dat_t, init: init_fields.empty? ? nil : init_fields
     with_clk_and_rst(clk, rst)
     d_out <= d_r
     always_ff { d_r <= d_in }
