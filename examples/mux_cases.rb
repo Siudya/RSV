@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 # examples/mux_cases.rb
 #
-# Demonstrates mux helpers and related bundle/mem operations:
+# Demonstrates mux helpers and related bundle/vec operations:
 # - `mux(...)` for a plain ternary expression
 # - `mux1h(...)` for a one-hot case tree (scalar and bundle data)
 # - `muxp(...)` for a priority casez tree in both LSB-first and MSB-first modes
 # - module-level mux (eager expansion, wire reuse across assign/always)
 # - `as_uint` / `get_width` for bundles and mems
-# - `cat(bundle, mem)` mixed concatenation
-# - `mem.reverse` for reversing element order
+# - `cat(bundle, vec)` mixed concatenation
+# - `vec.reverse` for reversing element order
 #
 # Run:
 #   xmake rtl -f mux
@@ -35,7 +35,7 @@ class MuxCases < ModuleDef
     let :sel_p, input(uint(4))
     let :a, input(uint(8))
     let :b, input(uint(8))
-    let :dats, input(mem(4, uint(8)))
+    let :dats, input(vec(4, uint(8)))
 
     let :ternary_o, output(uint(8))
     let :one_hot_o, output(uint(8))
@@ -70,7 +70,7 @@ class MuxCases < ModuleDef
     # ── bundle mux ───────────────────────────────────────────────────
     # mux1h with bundle data: each field gets its own mux case
     let :sel_pxl, input(uint(2))
-    let :pxl_in, input(mem(2, Pixel.new))
+    let :pxl_in, input(vec(2, Pixel.new))
     pxl_sel = mux1h(sel_pxl, pxl_in)
 
     let :pxl_r_o, output(uint(8))
@@ -84,21 +84,21 @@ class MuxCases < ModuleDef
     let :pxl_flat, output(uint(24))
     pxl_flat <= pxl_sel.as_uint
 
-    let :vec, input(mem(4, uint(8)))
+    let :mvec, input(vec(4, uint(8)))
     let :vec_flat, output(uint(32))
-    vec_flat <= vec.as_uint
+    vec_flat <= mvec.as_uint
 
-    # ── cat with bundle and mem ──────────────────────────────────────
+    # ── cat with bundle and vec ──────────────────────────────────────
     let :cat_out, output(uint(56))
-    cat_out <= cat(pxl_sel, vec)
+    cat_out <= cat(pxl_sel, mvec)
 
-    # ── mem.reverse ──────────────────────────────────────────────────
-    rev = vec.reverse
+    # ── vec.reverse ──────────────────────────────────────────────────
+    rev = mvec.reverse
     let :rev_out, output(uint(32))
     rev_out <= rev.as_uint
 
-    # bundle mem reverse
-    let :bvec, input(mem(2, Pixel.new))
+    # bundle vec reverse
+    let :bvec, input(vec(2, Pixel.new))
     brev = bvec.reverse
     let :brev_r0, output(uint(8))
     brev_r0 <= brev[0].r

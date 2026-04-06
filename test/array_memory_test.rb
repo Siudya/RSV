@@ -6,13 +6,13 @@ $LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
 require "rsv"
 
 # ── 数组与存储测试 ───────────────────────────────────────────────────────────
-# 覆盖: mem 形态声明, 索引赋值, 多维限制, fill/reverse, index type check
+# 覆盖: vec 形态声明, 索引赋值, 多维限制, fill/reverse, index type check
 
 class ArrayMemoryTest < Minitest::Test
   def test_mem_declarations_emit_expected_sv_shapes
     mod = module_class("StorageShapes") do
-      reg("cnt_mem_0", mem([2, 3, 4], uint(8)))
-      reg("cnt_mem_1", mem(2, uint(8)))
+      reg("cnt_mem_0", vec([2, 3, 4], uint(8)))
+      reg("cnt_mem_1", vec(2, uint(8)))
     end.new
 
     expected = <<~SV.chomp
@@ -36,7 +36,7 @@ class ArrayMemoryTest < Minitest::Test
       data = input("data", uint(8))
       mem_out = output("mem_out", uint(8))
 
-      mem_reg = reg("mem_reg", mem([4], uint(8)))
+      mem_reg = reg("mem_reg", vec([4], uint(8)))
 
       mem_out <= mem_reg[idx]
 
@@ -72,7 +72,7 @@ class ArrayMemoryTest < Minitest::Test
   def test_shaped_signals_only_allow_single_index_while_dimensions_remain
     error = assert_raises(ArgumentError) do
       module_class("BadShapeSelect") do
-        mem_sig = wire("mem_sig", mem([2, 3], uint(8)))
+        mem_sig = wire("mem_sig", vec([2, 3], uint(8)))
         mem_sig[1, 0]
       end.new
     end
@@ -82,19 +82,19 @@ class ArrayMemoryTest < Minitest::Test
 
   def test_nested_mem_flattens
     mod = module_class("NestedMem") do
-      reg("buf", mem([2], mem([3], uint(8))))
+      reg("buf", vec([2], vec([3], uint(8))))
     end.new
 
     sv = mod.to_sv
     assert_includes sv, "logic [7:0] buf[1:0][2:0];"
   end
 
-  # ── mem index type checking ────────────────────────────────────────────
+  # ── vec index type checking ────────────────────────────────────────────
 
   def test_arr_mem_index_with_uint_works
     mod = module_class("IdxUint") do
       idx = input("idx", uint(2))
-      dats = wire("dats", mem([4], uint(8)))
+      dats = wire("dats", vec([4], uint(8)))
       out = output("out", uint(8))
       out <= dats[idx]
     end.new
@@ -105,7 +105,7 @@ class ArrayMemoryTest < Minitest::Test
 
   def test_mem_index_with_literal_works
     mod = module_class("IdxLit") do
-      dats = wire("dats", mem([4], uint(8)))
+      dats = wire("dats", vec([4], uint(8)))
       out = output("out", uint(8))
       out <= dats[2]
     end.new
@@ -118,7 +118,7 @@ class ArrayMemoryTest < Minitest::Test
     error = assert_raises(ArgumentError) do
       module_class("IdxSint") do
         idx = input("idx", sint(2))
-        dats = wire("dats", mem([4], uint(8)))
+        dats = wire("dats", vec([4], uint(8)))
         dats[idx]
       end.new
     end
@@ -130,7 +130,7 @@ class ArrayMemoryTest < Minitest::Test
 
   def test_mem_reverse
     mod = module_class("MemReverse") do
-      pos = wire("pos", mem(4, uint(8)))
+      pos = wire("pos", vec(4, uint(8)))
       pos.reverse
     end.new
 
@@ -151,7 +151,7 @@ class ArrayMemoryTest < Minitest::Test
     end
 
     mod = module_class("BundleMemReverse") do
-      pxls = wire("pxls", mem(3, pxl_cls.new))
+      pxls = wire("pxls", vec(3, pxl_cls.new))
       pxls.reverse
     end.new
 

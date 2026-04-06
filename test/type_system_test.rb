@@ -152,8 +152,8 @@ class TypeSystemTest < Minitest::Test
     mod = module_class("AnonTypes") do
       bit_t = bit
       word_t = uint(16)
-      mem_p = mem(8, word_t)
-      mem_t = mem(16, word_t)
+      mem_p = vec(8, word_t)
+      mem_t = vec(16, word_t)
 
       input("clk", bit_t)
       input("rst", bit_t)
@@ -191,13 +191,13 @@ class TypeSystemTest < Minitest::Test
     mod = module_class("InitShapes") do
       bit_t = bit
       word_t = uint(16)
-      mem_p = mem(8, word_t)
-      mem_t = mem(16, word_t)
+      mem_p = vec(8, word_t)
+      mem_t = vec(16, word_t)
 
       clk = input("clk", bit_t)
       rst = input("rst", bit_t)
-      reg_p = reg("reg_p", mem_p, init: mem.fill(8, uint(16, 0x75)))
-      reg_m = reg("reg_m", mem_t, init: mem.fill(16, uint(16, 0x33)))
+      reg_p = reg("reg_p", mem_p, init: vec.fill(8, uint(16, 0x75)))
+      reg_m = reg("reg_m", mem_t, init: vec.fill(16, uint(16, 0x33)))
 
       with_clk_and_rst(clk, rst)
       always_ff do

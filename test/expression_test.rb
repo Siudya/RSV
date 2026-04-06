@@ -47,7 +47,7 @@ class ExpressionTest < Minitest::Test
   def test_mux1h_emits_unique_case
     mod = module_class("Mux1hTop") do
       sel = input("sel", uint(3))
-      dats = input("dats", mem([3], uint(8)))
+      dats = input("dats", vec([3], uint(8)))
       out = wire("out", uint(8))
 
       always_comb do
@@ -71,7 +71,7 @@ class ExpressionTest < Minitest::Test
   def test_mux1h_module_level
     mod = module_class("Mux1hMod") do
       sel = input("sel", uint(3))
-      dats = input("dats", mem([3], uint(8)))
+      dats = input("dats", vec([3], uint(8)))
       out = output("out", uint(8))
       out <= mux1h(sel, dats)
     end.new
@@ -85,7 +85,7 @@ class ExpressionTest < Minitest::Test
   def test_mux1h_wide_sel_hex_format
     mod = module_class("Mux1hWide") do
       sel = input("sel", uint(16))
-      dats = input("dats", mem([16], uint(64)))
+      dats = input("dats", vec([16], uint(64)))
       out = wire("out", uint(64))
 
       always_comb do
@@ -109,7 +109,7 @@ class ExpressionTest < Minitest::Test
   def test_muxp_emits_priority_casez
     mod = module_class("MuxpTop") do
       sel = input("sel", uint(3))
-      dats = input("dats", mem([3], uint(8)))
+      dats = input("dats", vec([3], uint(8)))
       out = wire("out", uint(8))
 
       always_comb do
@@ -132,7 +132,7 @@ class ExpressionTest < Minitest::Test
   def test_muxp_msb_first
     mod = module_class("MuxpMsb") do
       sel = input("sel", uint(3))
-      dats = input("dats", mem([3], uint(8)))
+      dats = input("dats", vec([3], uint(8)))
       out = wire("out", uint(8))
 
       always_comb do
@@ -151,7 +151,7 @@ class ExpressionTest < Minitest::Test
   def test_muxp_module_level
     mod = module_class("MuxpMod") do
       sel = input("sel", uint(3))
-      dats = input("dats", mem([3], uint(8)))
+      dats = input("dats", vec([3], uint(8)))
       out = output("out", uint(8))
       out <= muxp(sel, dats)
     end.new
@@ -167,7 +167,7 @@ class ExpressionTest < Minitest::Test
   def test_mux1h_eager_reuse
     mod = module_class("Mux1hReuse") do
       sel = input("sel", uint(3))
-      dats = input("dats", mem([3], uint(8)))
+      dats = input("dats", vec([3], uint(8)))
       out_a = output("out_a", uint(8))
       out_b = wire("out_b", uint(8))
 
@@ -187,7 +187,7 @@ class ExpressionTest < Minitest::Test
   def test_mux1h_separate_calls_get_separate_wires
     mod = module_class("Mux1hSep") do
       sel = input("sel", uint(3))
-      dats = input("dats", mem([3], uint(8)))
+      dats = input("dats", vec([3], uint(8)))
       out_a = wire("out_a", uint(8))
       out_b = wire("out_b", uint(8))
 
@@ -217,7 +217,7 @@ class ExpressionTest < Minitest::Test
 
     mod = module_class("Mux1hBundle") do
       sel = input("sel", uint(2))
-      dats = wire("dats", mem([2], pxl_cls.new))
+      dats = wire("dats", vec([2], pxl_cls.new))
       out = wire("out", pxl_cls.new)
 
       res = mux1h(sel, dats)
@@ -249,7 +249,7 @@ class ExpressionTest < Minitest::Test
 
     mod = module_class("MuxpBundle") do
       sel = input("sel", uint(2))
-      dats = wire("dats", mem([2], pxl_cls.new))
+      dats = wire("dats", vec([2], pxl_cls.new))
       out = wire("out", pxl_cls.new)
 
       res = muxp(sel, dats)
@@ -305,7 +305,7 @@ class ExpressionTest < Minitest::Test
   def test_mem_bundle_as_uint
     pxl_cls = pixel_bundle
     mod = module_class("MemBundleAsUint") do
-      pxls = wire("pxls", mem(4, pxl_cls.new))
+      pxls = wire("pxls", vec(4, pxl_cls.new))
       pxls_pack = expr("pxls_pack", pxls.as_uint)
     end.new
 
@@ -317,7 +317,7 @@ class ExpressionTest < Minitest::Test
 
   def test_mem_scalar_as_uint
     mod = module_class("MemScalarAsUint") do
-      vals = wire("vals", mem(4, uint(8)))
+      vals = wire("vals", vec(4, uint(8)))
       packed = expr("packed", vals.as_uint)
     end.new
 
@@ -330,7 +330,7 @@ class ExpressionTest < Minitest::Test
     pxl_cls = pixel_bundle
     mod = module_class("GetWidth") do
       pxl = wire("pxl", pxl_cls.new)
-      pxls = wire("pxls", mem(4, pxl_cls.new))
+      pxls = wire("pxls", vec(4, pxl_cls.new))
       wire("w1", uint(pxl.get_width))
       wire("w2", uint(pxls.get_width))
     end.new
@@ -383,7 +383,7 @@ class ExpressionTest < Minitest::Test
 
   def test_cat_mem_argument
     mod = module_class("CatMem") do
-      vals = wire("vals", mem(4, uint(8)))
+      vals = wire("vals", vec(4, uint(8)))
       out = wire("out", uint(32))
       out <= cat(vals)
     end.new
@@ -608,21 +608,21 @@ class ExpressionTest < Minitest::Test
   def test_as_type_uint_to_mem
     mod = module_class("UintToMem") do
       a = input("a", uint(32))
-      m = a.as_type(mem(4, uint(8)))
+      m = a.as_type(vec(4, uint(8)))
       out = wire("out", uint(8))
       out <= m[0]
     end.new
     sv = mod.to_sv
-    assert_includes sv, "logic [7:0] a_as_mem[3:0]"
-    assert_includes sv, "a_as_mem[0] = a[7:0];"
-    assert_includes sv, "a_as_mem[1] = a[15:8];"
-    assert_includes sv, "a_as_mem[2] = a[23:16];"
-    assert_includes sv, "a_as_mem[3] = a[31:24];"
+    assert_includes sv, "logic [7:0] a_as_vec[3:0]"
+    assert_includes sv, "a_as_vec[0] = a[7:0];"
+    assert_includes sv, "a_as_vec[1] = a[15:8];"
+    assert_includes sv, "a_as_vec[2] = a[23:16];"
+    assert_includes sv, "a_as_vec[3] = a[31:24];"
   end
 
   def test_as_type_mem_to_uint
     mod = module_class("MemToUint") do
-      m = input("m", mem(4, uint(8)))
+      m = input("m", vec(4, uint(8)))
       out = wire("out", uint(32))
       out <= m.as_type(uint(32))
     end.new
@@ -680,7 +680,7 @@ class ExpressionTest < Minitest::Test
     pxl_cls = pixel_bundle
     mod = module_class("UintToMemBundle") do
       a = input("a", uint(48))
-      m = a.as_type(mem(2, pxl_cls.new))
+      m = a.as_type(vec(2, pxl_cls.new))
       out = wire("out", uint(8))
       out <= m[0].r
     end.new

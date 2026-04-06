@@ -2,7 +2,7 @@
 
 module RSV
   # Generates a Verilog-compatible wrapper module for an SV module.
-  # Expands mem into flat Verilog-friendly ports.
+  # Expands vec into flat Verilog-friendly ports.
   class VerilogWrapperGenerator
     INDENT = "  "
 

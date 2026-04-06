@@ -95,7 +95,7 @@ class IntegrationTest < Minitest::Test
 
   def test_v_wrapper_unpacked_array
     klass = module_class("WrapUnpacked") do
-      m = input("mem_in", mem(3, uint(16)))
+      m = input("mem_in", vec(3, uint(16)))
       r = output("result", uint(16))
       r <= m[0]
     end
@@ -141,7 +141,7 @@ class IntegrationTest < Minitest::Test
   def test_v_wrapper_mem_bundle_port
     klass = module_class("WrapMemBundle") do
       fifo_in = iodecl("fifo", WrapTestPixelInteg.new)
-      fifo_in_mem = input("fifo_extra", mem(2, uint(8)))
+      fifo_in_mem = input("fifo_extra", vec(2, uint(8)))
       o = output("o", uint(8))
       o <= fifo_in.r
     end

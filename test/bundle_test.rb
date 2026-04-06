@@ -6,7 +6,7 @@ $LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
 require "rsv"
 
 # ── Bundle类型测试 ───────────────────────────────────────────────────────────
-# 覆盖: Bundle 基础/嵌套/mem/参数化, iodecl/flip, 模板化, whole assign
+# 覆盖: Bundle 基础/嵌套/vec/参数化, iodecl/flip, 模板化, whole assign
 
 # ── Bundle test classes ──────────────────────────────────────────────────────
 
@@ -122,7 +122,7 @@ end
 class BundleMemMod < RSV::ModuleDef
   def build
     d = TestPixel.new
-    m = wire("buf", mem(8, d))
+    m = wire("buf", vec(8, d))
     o = iodecl("out", flip(d))
     o <= m[0]
   end
@@ -302,7 +302,7 @@ class BundleTest < Minitest::Test
   def test_iodecl_with_mem_output
     mod_class = Class.new(RSV::ModuleDef) do
       define_method(:build) do
-        iodecl("io_c", output(mem(2, uint(24))))
+        iodecl("io_c", output(vec(2, uint(24))))
       end
     end
     sv = mod_class.new("TestMemOut").to_sv
@@ -381,7 +381,7 @@ class BundleTest < Minitest::Test
     mod_class = Class.new(RSV::ModuleDef) do
       define_method(:build) do
         pxl_t = TestPixel.new
-        r = reg("pxl_r", mem(16, pxl_t))
+        r = reg("pxl_r", vec(16, pxl_t))
       end
     end
     sv = mod_class.new("TestRegBundle").to_sv
@@ -395,7 +395,7 @@ class BundleTest < Minitest::Test
   def test_iodecl_mem_bundle
     mod_class = Class.new(RSV::ModuleDef) do
       define_method(:build) do
-        fifo = iodecl("fifo", mem(8, TestPixel.new))
+        fifo = iodecl("fifo", vec(8, TestPixel.new))
         o = output("o", uint(8))
         o <= fifo[0].r
       end
@@ -410,7 +410,7 @@ class BundleTest < Minitest::Test
   def test_iodecl_flip_mem_bundle
     mod_class = Class.new(RSV::ModuleDef) do
       define_method(:build) do
-        iodecl("fifo", flip(mem(4, TestPixel.new)))
+        iodecl("fifo", flip(vec(4, TestPixel.new)))
       end
     end
     sv = mod_class.new("TestFlipMemBundle").to_sv
@@ -431,7 +431,7 @@ class BundleTest < Minitest::Test
 
     mod_class = Class.new(RSV::ModuleDef) do
       define_method(:build) do
-        iodecl("ch", mem(2, mixed_class.new))
+        iodecl("ch", vec(2, mixed_class.new))
       end
     end
     sv = mod_class.new("TestMemMixed").to_sv

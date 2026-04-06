@@ -5,7 +5,7 @@
 # and unpacked shapes.
 #
 # Covered syntax:
-# - `mem(...)`, nested shapes, and fill helpers
+# - `vec(...)`, nested shapes, and fill helpers
 # - indexing memories and nested shapes
 # - `sv_take`, `sv_select`, `sv_foreach`, `sv_reduce`, `sv_map`
 # - nested stream traversal over multi-dimensional shapes
@@ -29,13 +29,13 @@ class StorageStreams < RSV::ModuleDef
     let :mixed_word, output(uint(8))
     let :parity, output(bit)
     let :selected_bits, output(uint(4))
-    let :mem_slice, output(mem([2], uint(8)))
+    let :mem_slice, output(vec([2], uint(8)))
 
     # Unpacked memories and nested memories. The init helpers produce reset
     # values for the auto-generated reset branch.
     let :mask_r, reg(uint(16), init: 0)
-    let :memory_r, reg(mem([4], uint(8)), init: mem.fill(4, uint(8, 0x22)))
-    let :mixed_r, reg(mem([2], mem([3], uint(8))), init: mem.fill(2, mem.fill(3, uint(8, 0))))
+    let :memory_r, reg(vec([4], uint(8)), init: vec.fill(4, uint(8, 0x22)))
+    let :mixed_r, reg(vec([2], vec([3], uint(8))), init: vec.fill(2, vec.fill(3, uint(8, 0))))
 
     memory_word <= memory_r[idx]
     mixed_word <= mixed_r[0][1]

@@ -32,7 +32,7 @@ end
 
 # ── Modules Using Bundles ───────────────────────────────────────────
 
-# Demonstrates bundle basics, partial reset, nested bundle, mem, and meta_param
+# Demonstrates bundle basics, partial reset, nested bundle, vec, and meta_param
 class PixelProcessor < RSV::ModuleDef
   def build
     let :clk, input(clock)
@@ -50,8 +50,8 @@ class PixelProcessor < RSV::ModuleDef
     # Wire with nested bundle
     let :hdr, wire(FrameHeader.new)
 
-    # Bundle array (mem of structs)
-    let :fifo, wire(mem(4, Pixel.new))
+    # Bundle array (vec of structs)
+    let :fifo, wire(vec(4, Pixel.new))
 
     # Parameterized bundle: w=8 (default) vs w=16
     let :pkt8,  wire(DataPacket.new(w: 8))
@@ -64,7 +64,7 @@ class PixelProcessor < RSV::ModuleDef
     always_ff do
       # Field access on reg
       px_reg.r <= px_in.r
-      # Field access through mem index
+      # Field access through vec index
       px_buf.r <= fifo[0].r
       px_buf.g <= fifo[0].g
       px_buf.b <= fifo[0].b

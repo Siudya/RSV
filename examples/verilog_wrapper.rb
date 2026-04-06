@@ -9,7 +9,7 @@
 # - unpacked array ports expanded to individual scalar ports
 # - parameter passthrough
 # - bundle ports flattened to individual signal ports
-# - mem(N, bundle) ports expanded per field with unpacked dims
+# - vec(N, bundle) ports expanded per field with unpacked dims
 #
 # Run:
 #   xmake rtl -f verilog_wrapper
@@ -32,9 +32,9 @@ class InnerModule < ModuleDef
   def build
     let :clk, input(clock)
     let :rst, input(reset)
-    let :data_in, input(mem(4, uint(8)))
-    let :data_out, output(mem(4, uint(8)))
-    let :mem_in, input(mem(2, uint(16)))
+    let :data_in, input(vec(4, uint(8)))
+    let :data_out, output(vec(4, uint(8)))
+    let :mem_in, input(vec(2, uint(16)))
     let :flag, output(uint(1))
     let :count_r, reg(uint(16), init: 0)
 
@@ -57,7 +57,7 @@ class BundleModule < ModuleDef
   end
 end
 
-# ── Module with mem(N, Bundle) port ──
+# ── Module with vec(N, Bundle) port ──
 class MemBundleModule < ModuleDef
   def build
     let :fifo, input(Pixel.new)

@@ -28,10 +28,10 @@ xmake rtl -f syn
   [`mux_cases`], [`mux`], [`mux` / `mux1h` / `muxp`],
   [`pop_count_demo`], [`pop`], [`pop_count` / `log2ceil`],
   [`case_demo`], [`cas`], [`svcase` / `svcasez` / `unique` / `priority`],
-  [`storage_streams`], [`str`], [mem 形态、fill 与流式 API],
+  [`storage_streams`], [`str`], [vec 形态、fill 与流式 API],
   [`sv_plugin_demo`], [`svp`], [内嵌原始 SystemVerilog 代码],
   [`syntax_showcase`], [`syn`], [操作符、切片、类型转换与过程块],
-  [`type_conv_demo`], [`tcv`], [`as_type` 在 scalar/bundle/mem 间相互转换],
+  [`type_conv_demo`], [`tcv`], [`as_type` 在 scalar/bundle/vec 间相互转换],
   [`verilog_wrapper`], [`vwr`], [Verilog 兼容 wrapper 生成],
 )
 
@@ -78,8 +78,8 @@ xmake rtl -f syn
 数组/存储器形态与流式操作。
 
 - 端口声明: `input`, `output`
-- 类型构造: `clock`, `reset`, `bit`, `uint`, `mem`（嵌套形态）
-- 局部声明: `reg`（含 `mem.fill()`）
+- 类型构造: `clock`, `reset`, `bit`, `uint`, `vec`（嵌套形态）
+- 局部声明: `reg`（含 `vec.fill()`）
 - 赋值: `<=`
 - 数组索引: `[]`（packed 数组、memory、混合形态）
 - 流式 API: `.sv_take()`, `.sv_select()`, `.sv_map()`, `.sv_reduce()`, `.sv_foreach()`
@@ -94,7 +94,7 @@ xmake rtl -f syn
 选择器与多路复用。
 
 - 端口声明: `input`, `output`
-- 类型构造: `bit`, `uint`, `mem`
+- 类型构造: `bit`, `uint`, `vec`
 - 局部声明: `wire`
 - 赋值: `<=`
 - 选择器表达式: `mux()`（三元选择）, `mux1h()`（独热选择）, `muxp()`（优先级选择）
@@ -138,7 +138,7 @@ case/casez 语句及 unique/priority 限定符。
 
 - SV 导入: `RSV.import_sv(path, top:, incdirs:)`
 - 端口声明: `input`, `output`
-- 类型构造: `bit`, `uint`, `mem`
+- 类型构造: `bit`, `uint`, `vec`
 - 模块实例化: 导入模块 `.new(inst_name:, PARAMETER:)`
 - 端口连接: `<=`, `>=`
 - 输出: `to_sv(path)`
@@ -179,7 +179,7 @@ SystemVerilog 预处理宏指令。
 综合的 generate 块演示，结合 meta\_param、const、attr、definition/instance 等特性。
 
 - 端口声明: `input`, `output`
-- 类型构造: `clock`, `reset`, `uint`, `mem`
+- 类型构造: `clock`, `reset`, `uint`, `vec`
 - 局部声明: `reg`, `wire`, `const`
 - 硬件属性: `attr: { "keep" => nil }` 用于端口标注
 - meta 参数: `depth`, `data_w`, `mode`, `n_ch` 用作 generate 循环上界和 Ruby 条件判断
@@ -214,7 +214,7 @@ meta\_param 参数化模块。
 Verilog 兼容 wrapper 产生器，展示所有端口类型的展开。
 
 - 端口声明: `input`, `output`
-- 类型构造: `clock`, `reset`, `mem`, `uint`, `bit`
+- 类型构造: `clock`, `reset`, `vec`, `uint`, `bit`
 - Bundle 定义: `BundleDef` + `field` 声明
 - 局部声明: `reg`(含初始值)
 - 赋值: `<=`
@@ -258,7 +258,7 @@ Bundle 类型展开为扁平信号的综合演示。
 - Bundle 作为 reg 类型: `reg("px_r", Pixel.new, init: { ... })`
 - Bundle 部分初始化: 仅列出的字段在 `always_ff` 中产生 reset
 - Bundle 字段访问: `handler.field_name` 读写（直接映射为展开后的信号名）
-- Bundle 与 mem 组合: `mem(N, BundleType.new)` → 每个字段带 unpacked 维度
+- Bundle 与 vec 组合: `vec(N, BundleType.new)` → 每个字段带 unpacked 维度
 - Bundle 整体赋值: `out <= reg` 展开为逐字段赋值
 - 模板化模块: Bundle 类型作为模块元参数传递
 - 输出: `RSV::App.main([...])` 多顶层模块
@@ -284,9 +284,9 @@ Bundle 类型展开为扁平信号的综合演示。
 - uint → sint: 有符号重解释
 - uint → bundle: 按字段位宽切片重组
 - bundle → uint: 展平为 packed uint
-- uint → mem: 切片为数组元素
+- uint → vec: 切片为数组元素
 - bundle → bundle: 跨类型转换（展平 + 重组）
-- uint → mem(bundle): 按元素大小切片为 bundle 数组
+- uint → vec(bundle): 按元素大小切片为 bundle 数组
 - `RSV::App.main(top)`: CLI 入口
 
 == 特性覆盖矩阵
@@ -297,7 +297,7 @@ Bundle 类型展开为扁平信号的综合演示。
   [`input`/`output`/`inout`], [所有示例], [`type_system_test`, `declaration_test`],
   [`uint`/`sint`/`bit`/`bits`], [counter, syntax\_showcase, const\_demo 等], [`type_system_test`],
   [`clock`/`reset`], [counter, syntax\_showcase, storage\_streams, generate\_demo, curried\_params, verilog\_wrapper], [`type_system_test`, `sequential_test`],
-  [`mem`], [storage\_streams, mux\_cases, verilog\_wrapper, generate\_demo], [`array_memory_test`],
+  [`vec`], [storage\_streams, mux\_cases, verilog\_wrapper, generate\_demo], [`array_memory_test`],
   [`wire`/`reg`], [counter, syntax\_showcase, storage\_streams, mux\_cases 等], [`declaration_test`, `sequential_test`],
   [`const`(localparam)], [const\_demo, generate\_demo], [`declaration_test`],
   [`<=`/`>=` 赋值], [所有示例 / global\_dedup, syntax\_showcase], [`declaration_test`],
@@ -339,7 +339,7 @@ Bundle 类型展开为扁平信号的综合演示。
   [Bundle 嵌套], [bundle\_and\_interface], [`bundle_test`],
   [Bundle 部分初始化], [bundle\_and\_interface], [`bundle_test`],
   [Bundle 字段访问], [bundle\_and\_interface], [`bundle_test`],
-  [Bundle + `mem`], [bundle\_and\_interface], [`bundle_test`],
+  [Bundle + `vec`], [bundle\_and\_interface], [`bundle_test`],
   [Bundle 扁平展开], [bundle\_and\_interface], [`bundle_test`],
   [Bundle 整体赋值], [bundle\_and\_interface], [`bundle_test`],
   [`iodecl`/`flip` 方向控制], [bundle\_and\_interface], [`bundle_test`],

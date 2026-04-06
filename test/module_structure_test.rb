@@ -430,7 +430,7 @@ class ModuleStructureTest < Minitest::Test
       define_singleton_method(:name) { "ArrayProducer" }
 
       define_method(:build) do
-        output("tx_mem", mem([2, 3], uint(8)))
+        output("tx_mem", vec([2, 3], uint(8)))
       end
     end
 
@@ -438,7 +438,7 @@ class ModuleStructureTest < Minitest::Test
       define_singleton_method(:name) { "ArrayConsumer" }
 
       define_method(:build) do
-        input("rx_mem", mem([2, 3], uint(8)))
+        input("rx_mem", vec([2, 3], uint(8)))
       end
     end
 

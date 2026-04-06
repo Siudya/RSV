@@ -51,7 +51,7 @@ module RSV
     def build(*args, **kwargs)
     end
 
-    def mem(*dims_and_target)
+    def vec(*dims_and_target)
       compose_data_type(*dims_and_target)
     end
 
@@ -127,7 +127,7 @@ module RSV
     end
 
     def compose_data_type(*dims_and_target)
-      raise ArgumentError, "mem expects dimensions + type" if dims_and_target.length < 2
+      raise ArgumentError, "vec expects dimensions + type" if dims_and_target.length < 2
 
       target = RSV.normalize_data_type(dims_and_target[-1])
       dims = dims_and_target[0...-1]

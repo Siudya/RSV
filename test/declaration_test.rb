@@ -40,7 +40,7 @@ class DeclarationTest < Minitest::Test
     assert_respond_to mod, :sint
     assert_respond_to mod, :clock
     assert_respond_to mod, :reset
-    assert_respond_to mod, :mem
+    assert_respond_to mod, :vec
     assert_respond_to mod, :mux
     assert_respond_to mod, :mux1h
     assert_respond_to mod, :muxp

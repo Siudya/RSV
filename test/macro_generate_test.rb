@@ -132,8 +132,8 @@ class MacroGenerateTest < Minitest::Test
     mod = module_class("GenForTest") {
       clk = input("clk", clock)
       rst = input("rst", reset)
-      d = input("d", mem(4, uint(8)))
-      q = output("q", mem(4, uint(8)))
+      d = input("d", vec(4, uint(8)))
+      q = output("q", vec(4, uint(8)))
       with_clk_and_rst(clk, rst)
       generate_for("i", 0, 4, label: "gen_pipe") do |i|
         r = reg("r", uint(8))
@@ -153,8 +153,8 @@ class MacroGenerateTest < Minitest::Test
 
   def test_generate_for_without_label
     mod = module_class("GenForNoLabel") {
-      d = input("d", mem(2, uint(4)))
-      q = output("q", mem(2, uint(4)))
+      d = input("d", vec(2, uint(4)))
+      q = output("q", vec(2, uint(4)))
       generate_for("j", 0, 2) do |j|
         q[j] <= d[j]
       end

@@ -546,8 +546,8 @@ module RSV
     end
   end
 
-  # Statement for mem reverse — emits a for-loop reversal.
-  class MemReverseStmt
+  # Statement for vec reverse — emits a for-loop reversal.
+  class VecReverseStmt
     attr_reader :lhs, :src, :dim
 
     def initialize(lhs, src, dim:)
@@ -712,7 +712,7 @@ module RSV
 
     # Concatenate all leaf fields into a uint expression.
     # First-declared field at MSB, last-declared at LSB.
-    # For mem(N, bundle), produces nested concatenations per element.
+    # For vec(N, bundle), produces nested concatenations per element.
     def as_uint
       leaves = leaf_handlers
       if @unpacked_dims.empty?
@@ -727,9 +727,9 @@ module RSV
       end
     end
 
-    # Create a reversed copy of a mem(N, bundle) signal.
+    # Create a reversed copy of a vec(N, bundle) signal.
     def reverse
-      raise ArgumentError, "reverse requires a mem bundle signal" if @unpacked_dims.empty?
+      raise ArgumentError, "reverse requires a vec bundle signal" if @unpacked_dims.empty?
       mod = RSV.current_module_def
       raise ArgumentError, "reverse requires a module context" unless mod
       mod.send(:expand_bundle_reverse, self)
@@ -789,7 +789,7 @@ module RSV
       if args.empty? && blk.nil? && @group.children.key?(field_name)
         child = @group.children[field_name]
         if child.is_a?(BundleSignalGroup)
-          # Nested bundle in mem: index propagates
+          # Nested bundle in vec: index propagates
           indexed_children = child.children.transform_values do |c|
             IndexExpr.new(c, @index)
           end
@@ -1192,10 +1192,10 @@ module RSV
       AsSintExpr.new(self)
     end
 
-    # Concatenate mem elements into a uint expression.
+    # Concatenate vec elements into a uint expression.
     # Highest index at MSB, index 0 at LSB.
     def as_uint
-      raise ArgumentError, "as_uint requires a mem signal" if @unpacked_dims.empty?
+      raise ArgumentError, "as_uint requires a vec signal" if @unpacked_dims.empty?
       dim = RSV.dimension_value(@unpacked_dims.first)
       parts = (dim - 1).downto(0).map do |i|
         IndexExpr.new(self, LiteralExpr.new(i))
@@ -1210,12 +1210,12 @@ module RSV
       total
     end
 
-    # Create a reversed copy of a mem signal.
+    # Create a reversed copy of a vec signal.
     def reverse
-      raise ArgumentError, "reverse requires a mem signal" if @unpacked_dims.empty?
+      raise ArgumentError, "reverse requires a vec signal" if @unpacked_dims.empty?
       mod = RSV.current_module_def
       raise ArgumentError, "reverse requires a module context" unless mod
-      mod.send(:expand_mem_reverse, self)
+      mod.send(:expand_vec_reverse, self)
     end
 
     # Convert to target type via flatten→width-adjust→reshape.
@@ -1946,7 +1946,7 @@ module RSV
   end
 
   # Core as_type: flatten source → adjust width → reshape to target.
-  # For scalar targets returns expression; for bundle/mem targets creates wires.
+  # For scalar targets returns expression; for bundle/vec targets creates wires.
   def self.reshape_to_type(src_flat, src_width, target, name_hint)
     tgt_width = type_total_width(target)
     raise ArgumentError, "as_type target must have known width" unless tgt_width
@@ -1961,15 +1961,15 @@ module RSV
       raise ArgumentError, "as_type to bundle requires module context" unless mod
       mod.send(:expand_as_type_to_bundle, adjusted, target, name_hint)
     elsif !target.unpacked_dims.empty? && target.bundle_type
-      # → mem(N, bundle): need module context
+      # → vec(N, bundle): need module context
       mod = current_module_def
-      raise ArgumentError, "as_type to mem(bundle) requires module context" unless mod
-      mod.send(:expand_as_type_to_mem_bundle, adjusted, target, name_hint)
+      raise ArgumentError, "as_type to vec(bundle) requires module context" unless mod
+      mod.send(:expand_as_type_to_vec_bundle, adjusted, target, name_hint)
     elsif !target.unpacked_dims.empty?
-      # → mem(N, scalar): need module context
+      # → vec(N, scalar): need module context
       mod = current_module_def
-      raise ArgumentError, "as_type to mem requires module context" unless mod
-      mod.send(:expand_as_type_to_mem, adjusted, target, name_hint)
+      raise ArgumentError, "as_type to vec requires module context" unless mod
+      mod.send(:expand_as_type_to_vec, adjusted, target, name_hint)
     elsif target.signed
       AsSintExpr.new(adjusted)
     else

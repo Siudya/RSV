@@ -432,7 +432,7 @@ module RSV
       _register_signal_accessor(sym, handler)
     end
 
-    def mem(*dims_and_target)
+    def vec(*dims_and_target)
       return DataTypeFactory.new(self, :unpacked) if dims_and_target.empty?
 
       compose_data_type(*dims_and_target)
@@ -596,13 +596,13 @@ module RSV
     end
 
     def extract_dims_and_data_type(args)
-      raise ArgumentError, "mem expects one or more dimensions and a data type" if args.length < 2
+      raise ArgumentError, "vec expects one or more dimensions and a data type" if args.length < 2
 
       target = RSV.normalize_data_type(args[-1])
       dims = args[0...-1]
       dims = dims.first if dims.length == 1 && dims.first.is_a?(Array)
       dims = Array(dims)
-      raise ArgumentError, "mem expects at least one dimension" if dims.empty?
+      raise ArgumentError, "vec expects at least one dimension" if dims.empty?
 
       [dims, target]
     end
@@ -1120,11 +1120,11 @@ module RSV
       s ? sint(w) : uint(w)
     end
 
-    def expand_mem_reverse(handler)
+    def expand_vec_reverse(handler)
       dim = RSV.dimension_value(handler.unpacked_dims.first)
       name = unique_auto_wire_name("#{handler.name}_reverse")
       w = wire(name, compose_data_type(dim, handler.signed ? sint(handler.width) : uint(handler.width)))
-      stmt = MemReverseStmt.new(RSV.normalize_expr(w), handler, dim: dim)
+      stmt = VecReverseStmt.new(RSV.normalize_expr(w), handler, dim: dim)
       @stmts << AlwaysComb.new([stmt])
       w
     end
@@ -1135,7 +1135,7 @@ module RSV
         if child.is_a?(BundleSignalGroup)
           children[fname] = expand_bundle_reverse(child)
         else
-          children[fname] = expand_mem_reverse(child)
+          children[fname] = expand_vec_reverse(child)
         end
       end
       BundleSignalGroup.new(
@@ -1159,7 +1159,7 @@ module RSV
           child = expand_as_type_to_bundle(slice, f.data_type, child_name)
           children[f.name] = child
         elsif !f.data_type.unpacked_dims.empty?
-          child = expand_as_type_to_mem(slice, f.data_type, child_name)
+          child = expand_as_type_to_vec(slice, f.data_type, child_name)
           children[f.name] = child
         else
           dt = DataType.new(width: f.data_type.width, signed: f.data_type.signed)
@@ -1176,11 +1176,11 @@ module RSV
       )
     end
 
-    # as_type → mem(N, scalar): create mem wire, assign from bit slices.
-    def expand_as_type_to_mem(src_expr, target, name_hint)
+    # as_type → vec(N, scalar): create vec wire, assign from bit slices.
+    def expand_as_type_to_vec(src_expr, target, name_hint)
       dim = RSV.dimension_value(target.unpacked_dims.first)
       elem_w = target.width
-      name = unique_auto_wire_name("#{name_hint}_as_mem")
+      name = unique_auto_wire_name("#{name_hint}_as_vec")
       dt = DataType.new(width: elem_w, signed: target.signed,
                         unpacked_dims: target.unpacked_dims.dup)
       w = wire(name, dt)
@@ -1195,8 +1195,8 @@ module RSV
       w
     end
 
-    # as_type → mem(N, bundle): create bundle-of-mems, assign from bit slices.
-    def expand_as_type_to_mem_bundle(src_expr, target, name_hint)
+    # as_type → vec(N, bundle): create bundle-of-vecs, assign from bit slices.
+    def expand_as_type_to_vec_bundle(src_expr, target, name_hint)
       bdef = target.bundle_type
       dim = RSV.dimension_value(target.unpacked_dims.first)
       elem_w = bdef.send(:compute_total_width)
@@ -1207,13 +1207,13 @@ module RSV
         child_name = "#{name_base}_#{f.name}"
         if f.data_type.bundle_type
           sub_dt = f.data_type.dup
-          sub_dt_mem = DataType.new(
+          sub_dt_vec = DataType.new(
             width: sub_dt.width, signed: sub_dt.signed,
             bundle_type: sub_dt.bundle_type
           )
-          sub_dt_mem.append_dimensions(unpacked: target.unpacked_dims + sub_dt.unpacked_dims)
-          # Recursively handle nested bundles — for now, create flat mem wires per leaf
-          child = expand_nested_mem_bundle_field(src_expr, f, dim, elem_w, bdef, child_name, target)
+          sub_dt_vec.append_dimensions(unpacked: target.unpacked_dims + sub_dt.unpacked_dims)
+          # Recursively handle nested bundles — for now, create flat vec wires per leaf
+          child = expand_nested_vec_bundle_field(src_expr, f, dim, elem_w, bdef, child_name, target)
           children[f.name] = child
         else
           dt = DataType.new(width: f.data_type.width, signed: f.data_type.signed,
@@ -1259,8 +1259,8 @@ module RSV
       base
     end
 
-    # Handle nested bundle field within mem(N, bundle) → creates sub-BundleSignalGroup.
-    def expand_nested_mem_bundle_field(src_expr, field, dim, elem_w, parent_bdef, name_base, target)
+    # Handle nested bundle field within vec(N, bundle) → creates sub-BundleSignalGroup.
+    def expand_nested_vec_bundle_field(src_expr, field, dim, elem_w, parent_bdef, name_base, target)
       sub_bdef = field.data_type.bundle_type
       children = {}
       sub_bdef.fields.reverse.each do |sf|

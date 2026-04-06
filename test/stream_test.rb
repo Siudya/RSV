@@ -6,7 +6,7 @@ $LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
 require "rsv"
 
 # ── 流式API测试 ──────────────────────────────────────────────────────────────
-# 覆盖: sv_take, sv_select, sv_foreach, sv_reduce, sv_map (uint/mem/bit)
+# 覆盖: sv_take, sv_select, sv_foreach, sv_reduce, sv_map (uint/vec/bit)
 
 class StreamTest < Minitest::Test
   def test_uint_stream_foreach_reduce_and_map_emit_expected_sv
@@ -52,8 +52,8 @@ class StreamTest < Minitest::Test
 
   def test_mem_stream_map_preserves_word_order
     mod = module_class("MemArrStream") do
-      words = input("words", mem([4], uint(8)))
-      out = output("out", mem([2], uint(8)))
+      words = input("words", vec([4], uint(8)))
+      out = output("out", vec([2], uint(8)))
 
       out <= words
         .sv_take(4)
@@ -71,8 +71,8 @@ class StreamTest < Minitest::Test
     mod = module_class("MemBitStream") do
       clk = input("clk", clock)
       rst = input("rst", reset)
-      src = input("src", mem([8], bit))
-      dst = reg("dst", mem([8], bit), init: mem.fill(8, bit(0)))
+      src = input("src", vec([8], bit))
+      dst = reg("dst", vec([8], bit), init: vec.fill(8, bit(0)))
       update = input("m_upd", bit)
       parity = output("e_par", bit)
       result = output("res", uint(4))
@@ -108,8 +108,8 @@ class StreamTest < Minitest::Test
 
   def test_mem_word_stream_map_preserves_word_order
     mod = module_class("MemWordStream") do
-      words = input("words", mem([4], uint(8)))
-      out = output("out", mem([2], uint(8)))
+      words = input("words", vec([4], uint(8)))
+      out = output("out", vec([2], uint(8)))
       out <= words
         .sv_take(4)
         .sv_select { |_, i| i < 2 }
@@ -126,8 +126,8 @@ class StreamTest < Minitest::Test
     mod = module_class("MixedStreamForeach") do
       clk = input("clk", clock)
       rst = input("rst", reset)
-      data = input("data", mem([2], mem([3], uint(8))))
-      out = reg("out", mem([2], mem([3], uint(8))), init: mem.fill(2, mem.fill(3, uint(8, 0))))
+      data = input("data", vec([2], vec([3], uint(8))))
+      out = reg("out", vec([2], vec([3], uint(8))), init: vec.fill(2, vec.fill(3, uint(8, 0))))
 
       with_clk_and_rst(clk, rst)
       always_ff do

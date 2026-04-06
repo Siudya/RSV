@@ -9,10 +9,10 @@
 # - uint → sint: signed reinterpretation
 # - bundle → uint: flatten bundle fields into a packed uint
 # - uint → bundle: reshape uint into bundle fields via bit slicing
-# - uint → mem: reshape uint into memory elements
-# - mem → uint: flatten memory elements into a packed uint
+# - uint → vec: reshape uint into memory elements
+# - vec → uint: flatten memory elements into a packed uint
 # - bundle → bundle: cross-bundle conversion (flatten + reshape)
-# - uint → mem(bundle): reshape uint into memory of bundles
+# - uint → vec(bundle): reshape uint into memory of bundles
 #
 # Run:
 #   xmake rtl -f type_conv
@@ -73,9 +73,9 @@ class TypeConvDemo < ModuleDef
     let :pxl_flat, output(uint(24))
     pxl_flat <= bundle_flat_in.as_type(uint(24))
 
-    # ── uint → mem ──────────────────────────────────────────────────
-    # Reshape 32-bit uint into mem(4, uint(8)): elem[0] = [7:0], ..., elem[3] = [31:24]
-    m = mem_in.as_type(mem(4, uint(8)))
+    # ── uint → vec ──────────────────────────────────────────────────
+    # Reshape 32-bit uint into vec(4, uint(8)): elem[0] = [7:0], ..., elem[3] = [31:24]
+    m = mem_in.as_type(vec(4, uint(8)))
     let :mem_elem0, output(uint(8))
     let :mem_elem2, output(uint(8))
     mem_elem0 <= m[0]
@@ -89,9 +89,9 @@ class TypeConvDemo < ModuleDef
     coord_x <= coord.x
     coord_y <= coord.y
 
-    # ── uint → mem(bundle) ──────────────────────────────────────────
-    # Reshape 48-bit uint into mem(2, Pixel): each element is a 24-bit Pixel
-    mb = mem_bndl_in.as_type(mem(2, Pixel.new))
+    # ── uint → vec(bundle) ──────────────────────────────────────────
+    # Reshape 48-bit uint into vec(2, Pixel): each element is a 24-bit Pixel
+    mb = mem_bndl_in.as_type(vec(2, Pixel.new))
     let :mb_0_r, output(uint(8))
     let :mb_1_g, output(uint(8))
     mb_0_r <= mb[0].r

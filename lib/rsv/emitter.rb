@@ -334,7 +334,7 @@ module RSV
       lines
     end
 
-    def emit_mem_reverse_stmt(stmt, level)
+    def emit_vec_reverse_stmt(stmt, level)
       lhs = emit_expr(stmt.lhs)
       src = emit_expr(stmt.src)
       dim = stmt.dim
@@ -361,8 +361,8 @@ module RSV
         emit_mux_case_inline(stmt, level)
       when PopCountStmt
         emit_pop_count_stmt(stmt, level)
-      when MemReverseStmt
-        emit_mem_reverse_stmt(stmt, level)
+      when VecReverseStmt
+        emit_vec_reverse_stmt(stmt, level)
       when SvPlugin
         emit_sv_plugin(stmt, level)
       else
@@ -499,7 +499,7 @@ module RSV
         return (0...dim).map { |i| IndexExpr.new(dats, LiteralExpr.new(i)) }
       end
 
-      raise ArgumentError, "mux1h/muxp dats must be a mem signal"
+      raise ArgumentError, "mux1h/muxp dats must be a vec signal"
     end
 
     def build_muxp_pattern(width, idx, lsb_first)

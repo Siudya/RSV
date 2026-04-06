@@ -10,7 +10,7 @@ SystemVerilog.
 + Implement hardware construction in `build(...)` or `initialize(...)`.
 + If you override `initialize(...)`, call `super()` before using the DSL.
 + Declare anonymous RSV data types with
-  `bit(...)`, `uint(...)`, and `mem(...)`.
+  `bit(...)`, `uint(...)`, and `vec(...)`.
 + Use `build(**kwargs)` keyword arguments as meta parameters to control
   module elaboration: `MyMod.new("name", width: 16, meta: val)`.
 + Create named ports and locals with `input("name", type)`,
@@ -24,7 +24,7 @@ SystemVerilog.
   init value (emits as SV `localparam`).
 + Use `generate_for` and `generate_if` for elaboration-time code generation
   (genvar loops and conditional blocks with local scopes).
-+ Use `mem.fill(...)` to build shaped reset initializers.
++ Use `vec.fill(...)` to build shaped reset initializers.
 + Materialize named intermediate wires with `expr(...)`.
 + Describe sequential or combinational behavior with `always_ff`,
   `always_latch`, and `always_comb`.
@@ -48,7 +48,7 @@ SystemVerilog.
   and `.or(...)`, and reductions with `.or_r` / `.and_r`.
 + Use `sig[i]`, `sig[msb, lsb]` or `sig[msb..lsb]`, and `sig[base, :+, w]` /
   `sig[base, :-, w]` for bit-select and slicing.
-+ While `mem(...)` dimensions remain, `sig[...]` only accepts a
++ While `vec(...)` dimensions remain, `sig[...]` only accepts a
   single index.
 + Emit the final module with `to_sv` or `to_sv(path)`.
 + Use `RSV::App.main(top)` as a one-liner CLI entry point, or
@@ -168,14 +168,14 @@ top = Top.new(counter_def: counter_def)
 
 == Unpacked memories
 
-Use `mem(...)` to add unpacked dimensions after the variable name. This builds
+Use `vec(...)` to add unpacked dimensions after the variable name. This builds
 anonymous data types, so you pass the resulting type to `wire(...)`, `reg(...)`,
 or a port declaration. For multiple dimensions, use either
-`mem([i, j, k], uint(8))` or the variadic form `mem(i, j, k, uint(8))`.
+`vec([i, j, k], uint(8))` or the variadic form `vec(i, j, k, uint(8))`.
 
 ```ruby
-memory = reg("cnt_mem_0", mem([i, j, k], uint(8)))
-filled = reg("cnt_init", mem(16, uint(16)), init: mem.fill(16, uint(16, 0x75)))
+memory = reg("cnt_mem_0", vec([i, j, k], uint(8)))
+filled = reg("cnt_init", vec(16, uint(16)), init: vec.fill(16, uint(16, 0x75)))
 ```
 
 ```systemverilog
@@ -183,13 +183,13 @@ logic [7:0]  cnt_mem_0[i-1:0][j-1:0][k-1:0];
 logic [15:0] cnt_init[15:0];
 ```
 
-As long as a shaped signal still has `mem(...)` dimensions left,
+As long as a shaped signal still has `vec(...)` dimensions left,
 `[]` means index selection only. After those dimensions are consumed, plain
 vector indexing and slicing behave the same as before.
 
 == Stream views
 
-`uint(...)` and `mem(...)` values can be treated as enumerable
+`uint(...)` and `vec(...)` values can be treated as enumerable
 views with `sv_take`, `sv_select`, `sv_foreach`, `sv_reduce`, and `sv_map`.
 Enumeration always follows the outermost remaining collection dimension, so
 mixed and multi-dimensional shapes can be traversed step by step.
@@ -295,7 +295,7 @@ A `reg :px, Pixel.new` declaration generates three separate signals:
 
 Bundles support:
 - Nested bundles: `input :inner, OtherBundle.new` (recursively flattened)
-- `mem`: `mem(4, Pixel.new)` → separate signals with unpacked dim
+- `vec`: `vec(4, Pixel.new)` → separate signals with unpacked dim
 - Meta parameters: `def build(w: 8)` with `Pixel.new(w: 16)`
 - Partial reset: only listed fields get reset in `always_ff`
 - Field access: `handler.field_name` for reads and writes
@@ -321,12 +321,12 @@ flat <= pxl.as_type(uint(24))  # same as pxl.as_uint
 pxl = data.as_type(Pixel.new)
 out <= pxl.r
 
-# uint → mem (slice into elements)
-m = data.as_type(mem(4, uint(8)))
+# uint → vec (slice into elements)
+m = data.as_type(vec(4, uint(8)))
 out <= m[2]
 
-# uint → mem(bundle)
-mb = data.as_type(mem(2, Pixel.new))
+# uint → vec(bundle)
+mb = data.as_type(vec(2, Pixel.new))
 out <= mb[1].g
 ```
 

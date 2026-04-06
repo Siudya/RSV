@@ -46,11 +46,11 @@
   value (e.g. `sint(16, 0x57)`). Emits as SV `localparam`. The returned handler
   can be used in expressions but cannot appear on the left side of an
   assignment.
-/ `mem(dims..., type)` / `mem([dims...], type)`: creates an anonymous unpacked
+/ `vec(dims..., type)` / `vec([dims...], type)`: creates an anonymous unpacked
   memory type. Unpacked dimensions emit after the variable name as standard SV
   ranges like `[n-1:0]`. Nested calls flatten:
-  `mem([i], mem([j], mem([k], t)))` ≡ `mem([i, j, k], t)`.
-/ `mem.fill(...)`: convenience helper for building shaped
+  `vec([i], vec([j], vec([k], t)))` ≡ `vec([i, j, k], t)`.
+/ `vec.fill(...)`: convenience helper for building shaped
   reset initializers from anonymous data types that already carry scalar init
   values.
 / `expr(name, rhs, width:)`: infers a wire width, declares a named RSV `wire`
@@ -61,13 +61,13 @@
 / `handler.as_sint`: returns an expression that emits `$signed(handler)` in SV.
   Use to cast an unsigned signal to signed for arithmetic.
 / `cat(*parts)`: bit concatenation. Emits `{a, b, c}` in SV. Parts can be
-  scalars, bundles, or mem signals. Bundles and mem are auto-expanded via `as_uint`.
+  scalars, bundles, or vec signals. Bundles and vec are auto-expanded via `as_uint`.
 / `mux(sel, a, b)`: ternary mux expression. Emits `sel ? a : b` in SV. When
   `sel` is 1, selects `a`; otherwise selects `b`.
 / `mux1h(sel1h, dats)`: one-hot mux. Eagerly creates a temp wire and `always_comb`
   with `unique case` (hex one-hot patterns), returning the wire handler directly.
-  `dats` must be a `mem` whose highest dimension length matches `sel1h` width,
-  or a bundle `mem` for per-field muxing.
+  `dats` must be a `vec` whose highest dimension length matches `sel1h` width,
+  or a bundle `vec` for per-field muxing.
   Zero selector yields `'0`, default yields `'x`. The returned handler can be
   reused across multiple assignments: `res = mux1h(sel, dats); out <= res`.
   Works at module level, in `always_comb`, `always_ff`, or `always_latch`.
@@ -78,19 +78,19 @@
   with a for-loop accumulator. Counts 1-bits in `vec`. Output width is
   `log2ceil(vec.width + 1)`. The returned handler can be reused.
   Works at module level, in `always_comb`, `always_ff`, or `always_latch`.
-/ `bundle.as_uint` / `mem.as_uint`: concatenate all leaf fields/elements into a uint.
-  For bundles, first-declared field at MSB; for mem, highest index at MSB.
-  Returns a `CatExpr`. Usage: `packed <= pxl.as_uint`, `expr("p", mem.as_uint)`.
-/ `bundle.get_width` / `mem.get_width`: total bit width including all dimensions.
-/ `mem.reverse`: create a reversed copy of a mem signal. Eagerly creates a temp
-  wire and `always_comb` with a for-loop reversal. For bundle mem, each leaf field
+/ `bundle.as_uint` / `vec.as_uint`: concatenate all leaf fields/elements into a uint.
+  For bundles, first-declared field at MSB; for vec, highest index at MSB.
+  Returns a `CatExpr`. Usage: `packed <= pxl.as_uint`, `expr("p", vec.as_uint)`.
+/ `bundle.get_width` / `vec.get_width`: total bit width including all dimensions.
+/ `vec.reverse`: create a reversed copy of a vec signal. Eagerly creates a temp
+  wire and `always_comb` with a for-loop reversal. For bundle vec, each leaf field
   gets its own reversed wire. Returns a wire handler (or BundleSignalGroup).
 / `signal.as_type(target_type)`: convert any signal to a different data type.
   Flattens source to uint, adjusts width (truncation or zero-extension), then
-  reshapes to target. Supports: scalar↔scalar, bundle↔uint, mem↔uint,
-  bundle↔bundle, uint↔mem, uint↔mem(bundle). Truncation keeps LSBs;
+  reshapes to target. Supports: scalar↔scalar, bundle↔uint, vec↔uint,
+  bundle↔bundle, uint↔vec, uint↔vec(bundle). Truncation keeps LSBs;
   zero-extension pads MSBs. Example: `pxl.as_type(uint(24))`,
-  `a.as_type(mem(4, uint(8)))`, `a.as_type(MyBundle.new)`.
+  `a.as_type(vec(4, uint(8)))`, `a.as_type(MyBundle.new)`.
 / `log2ceil(n)`: pure Ruby utility. Returns `ceil(log2(n))` — the minimum number
   of bits to address `n` items. Available in module `build` blocks and as `RSV.log2ceil(n)`.
 / `expr.sv_take(n)`: starts a stream view and keeps the first `n` elements.
@@ -98,7 +98,7 @@
   predicate. The index `i` is the original element index and is not renumbered
   after filtering.
 / `expr.sv_foreach { |elem, i| ... }`: eagerly expands one block invocation per
-  selected element. Stream sources may be `uint` or `mem(...)`, and
+  selected element. Stream sources may be `uint` or `vec(...)`, and
   enumeration always follows the outermost remaining collection dimension.
 / `expr.sv_reduce { |a, b| ... }`: left-folds the selected elements and keeps
   the emitted fold order explicit in SV.
@@ -171,7 +171,7 @@
 - Shift operators use `<<` and `>>`.
 - Bit and part selects use `sig[i]`, `sig[msb, lsb]` or `sig[msb..lsb]`,
   `sig[base, :+, width]`, and `sig[base, :-, width]`.
-- While `mem(...)` dimensions remain on a
+- While `vec(...)` dimensions remain on a
   signal, `sig[...]` only accepts a single index. The index must be a hardware
   `uint` or an integer literal. Vector slicing resumes after those dimensions
   are consumed.
@@ -250,12 +250,12 @@ inferred width and computed init value:
 
 - Call `mod.v_wrapper` on a built module to generate a Verilog-compatible
   wrapper with flat ports.
-- Unpacked array ports (e.g. `mem(3, uint(16))`) are expanded to individual
+- Unpacked array ports (e.g. `vec(3, uint(16))`) are expanded to individual
   scalar ports (`port_0`, `port_1`, ...) and reassembled via SV array wires.
 - Bundle ports are already flattened at declaration time: each bundle field
   becomes a separate port (`port_field`). Nested bundles are recursively
   flattened (`port_inner_field`).
-- `mem(N, BundleType)` ports: each flattened field carries the unpacked dimension.
+- `vec(N, BundleType)` ports: each flattened field carries the unpacked dimension.
 - A custom wrapper name can be specified: `v_wrapper(wrapper_name: "my_top")`.
 - The wrapper output can be written to file: `v_wrapper("path/to/file.sv")`.
 - All port widths must be integer constants (not `SvParamRef`) for flattening.
@@ -283,7 +283,7 @@ inferred width and computed init value:
   Returns a field handle for use in the Ruby scope. The Ruby variable name
   may differ from the SV field name for encryption-friendly naming.
 - `MyBundle.new` returns a `DataType` usable with `iodecl`, `wire`,
-  `reg`, `mem`, etc.
+  `reg`, `vec`, etc.
 - Bundle fields are flattened to individual signals at declaration time.
   E.g. `reg("px", Pixel.new)` produces `px_r`, `px_g`, `px_b`.
 - Nested bundles are recursively flattened: `outer_inner_field`.
@@ -297,7 +297,7 @@ inferred width and computed init value:
   E.g., `r.valid <= 1`, `o <= r.data`.
 - Whole-bundle assignment: `out <= reg` expands to per-field assignments.
 - Array indexing preserves bundle grouping: `fifo[0].data` works on
-  `mem(N, bundle_t)`.
+  `vec(N, bundle_t)`.
 
 === IO Declarations with Bundles
 
@@ -305,7 +305,7 @@ inferred width and computed init value:
 - `iodecl(name, flip(bundle_type))`: reverses all field directions (input↔output).
 - `iodecl(name, output(type))`: declares a scalar output port.
 - `iodecl(name, input(type))`: declares a scalar input port.
-- `iodecl(name, output(mem(N, type)))`: declares an output port with unpacked dims.
+- `iodecl(name, output(vec(N, type)))`: declares an output port with unpacked dims.
 - Local declarations (`reg`, `wire`) ignore field direction — all fields become
   plain `logic`.
 - Example: see `examples/bundle_and_interface.rb` file.

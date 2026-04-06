@@ -28,7 +28,7 @@ class ImportDemo < RSV::ModuleDef
     let :rst_n, input(bit)
     let :din, input(uint(12))
     let :dout, output(uint(12))
-    let :mem_tap, output(mem([4], uint(8)))
+    let :mem_tap, output(vec([4], uint(8)))
 
     counter = ImportedCounter.new(inst_name: "u_imported_counter", WIDTH: 12)
     counter.clk <= clk
