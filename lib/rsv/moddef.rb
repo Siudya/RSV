@@ -1024,6 +1024,151 @@ module RSV
       )
     end
 
+    # as_type → bundle: create wires per field, assign from bit slices.
+    def expand_as_type_to_bundle(src_expr, target, name_hint)
+      bdef = target.bundle_type
+      name_base = unique_auto_wire_name("#{name_hint}_as_#{bdef.class.name.split('::').last.downcase}")
+      children = {}
+      offset = 0
+      bdef.fields.reverse.each do |f|
+        fw = field_total_width(f.data_type)
+        child_name = "#{name_base}_#{f.name}"
+        slice = RangeSelectExpr.new(src_expr, offset + fw - 1, offset)
+        if f.data_type.bundle_type
+          child = expand_as_type_to_bundle(slice, f.data_type, child_name)
+          children[f.name] = child
+        elsif !f.data_type.unpacked_dims.empty?
+          child = expand_as_type_to_mem(slice, f.data_type, child_name)
+          children[f.name] = child
+        else
+          dt = DataType.new(width: f.data_type.width, signed: f.data_type.signed)
+          w = wire(child_name, dt)
+          @stmts << AssignStmt.new(RSV.normalize_expr(w), slice)
+          children[f.name] = w
+        end
+        offset += fw
+      end
+      BundleSignalGroup.new(
+        name_base,
+        bundle_type: bdef,
+        children: children
+      )
+    end
+
+    # as_type → mem(N, scalar): create mem wire, assign from bit slices.
+    def expand_as_type_to_mem(src_expr, target, name_hint)
+      dim = RSV.dimension_value(target.unpacked_dims.first)
+      elem_w = target.width
+      name = unique_auto_wire_name("#{name_hint}_as_mem")
+      dt = DataType.new(width: elem_w, signed: target.signed,
+                        unpacked_dims: target.unpacked_dims.dup)
+      w = wire(name, dt)
+      stmts = []
+      dim.times do |i|
+        lsb = i * elem_w
+        msb = lsb + elem_w - 1
+        slice = RangeSelectExpr.new(src_expr, msb, lsb)
+        stmts << BlockingAssign.new(IndexExpr.new(RSV.normalize_expr(w), LiteralExpr.new(i)), slice)
+      end
+      @stmts << AlwaysComb.new(stmts)
+      w
+    end
+
+    # as_type → mem(N, bundle): create bundle-of-mems, assign from bit slices.
+    def expand_as_type_to_mem_bundle(src_expr, target, name_hint)
+      bdef = target.bundle_type
+      dim = RSV.dimension_value(target.unpacked_dims.first)
+      elem_w = bdef.send(:compute_total_width)
+      name_base = unique_auto_wire_name("#{name_hint}_as_#{bdef.class.name.split('::').last.downcase}")
+      children = {}
+      bdef.fields.reverse.each_with_index do |f, _fi|
+        fw = field_total_width(f.data_type)
+        child_name = "#{name_base}_#{f.name}"
+        if f.data_type.bundle_type
+          sub_dt = f.data_type.dup
+          sub_dt_mem = DataType.new(
+            width: sub_dt.width, signed: sub_dt.signed,
+            bundle_type: sub_dt.bundle_type
+          )
+          sub_dt_mem.append_dimensions(unpacked: target.unpacked_dims + sub_dt.unpacked_dims)
+          # Recursively handle nested bundles — for now, create flat mem wires per leaf
+          child = expand_nested_mem_bundle_field(src_expr, f, dim, elem_w, bdef, child_name, target)
+          children[f.name] = child
+        else
+          dt = DataType.new(width: f.data_type.width, signed: f.data_type.signed,
+                           unpacked_dims: target.unpacked_dims.dup + f.data_type.unpacked_dims.dup)
+          w = wire(child_name, dt)
+          stmts = []
+          dim.times do |i|
+            elem_base = i * elem_w
+            field_offset = compute_field_offset(bdef, f)
+            lsb = elem_base + field_offset
+            msb = lsb + fw - 1
+            slice = RangeSelectExpr.new(src_expr, msb, lsb)
+            stmts << BlockingAssign.new(IndexExpr.new(RSV.normalize_expr(w), LiteralExpr.new(i)), slice)
+          end
+          @stmts << AlwaysComb.new(stmts)
+          children[f.name] = w
+        end
+      end
+      BundleSignalGroup.new(
+        name_base,
+        bundle_type: bdef,
+        children: children,
+        unpacked_dims: target.unpacked_dims
+      )
+    end
+
+    # Compute the offset (from LSB) of a field within its parent bundle.
+    # Last-declared field is at LSB (offset 0).
+    def compute_field_offset(bdef, target_field)
+      offset = 0
+      bdef.fields.reverse.each do |f|
+        return offset if f.name == target_field.name
+        offset += field_total_width(f.data_type)
+      end
+      raise "field #{target_field.name} not found in bundle"
+    end
+
+    # Total flat width of a DataType including unpacked dims.
+    def field_total_width(dt)
+      base = dt.width
+      return 0 unless base.is_a?(Integer)
+      dt.unpacked_dims.each { |d| base *= RSV.dimension_value(d) }
+      base
+    end
+
+    # Handle nested bundle field within mem(N, bundle) → creates sub-BundleSignalGroup.
+    def expand_nested_mem_bundle_field(src_expr, field, dim, elem_w, parent_bdef, name_base, target)
+      sub_bdef = field.data_type.bundle_type
+      children = {}
+      sub_bdef.fields.reverse.each do |sf|
+        sfw = field_total_width(sf.data_type)
+        child_name = "#{name_base}_#{sf.name}"
+        dt = DataType.new(width: sf.data_type.width, signed: sf.data_type.signed,
+                         unpacked_dims: target.unpacked_dims.dup + sf.data_type.unpacked_dims.dup)
+        w = wire(child_name, dt)
+        stmts = []
+        dim.times do |i|
+          elem_base = i * elem_w
+          parent_offset = compute_field_offset(parent_bdef, field)
+          sub_offset = compute_field_offset(sub_bdef, sf)
+          lsb = elem_base + parent_offset + sub_offset
+          msb = lsb + sfw - 1
+          slice = RangeSelectExpr.new(src_expr, msb, lsb)
+          stmts << BlockingAssign.new(IndexExpr.new(RSV.normalize_expr(w), LiteralExpr.new(i)), slice)
+        end
+        @stmts << AlwaysComb.new(stmts)
+        children[sf.name] = w
+      end
+      BundleSignalGroup.new(
+        name_base,
+        bundle_type: sub_bdef,
+        children: children,
+        unpacked_dims: target.unpacked_dims
+      )
+    end
+
     def resolved_instance_port_signal_spec(port_handler)
       port = port_handler.port
       params = port_handler.instance_handle.params

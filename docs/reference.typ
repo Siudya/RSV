@@ -85,6 +85,12 @@
 / `mem.reverse`: create a reversed copy of a mem signal. Eagerly creates a temp
   wire and `always_comb` with a for-loop reversal. For bundle mem, each leaf field
   gets its own reversed wire. Returns a wire handler (or BundleSignalGroup).
+/ `signal.as_type(target_type)`: convert any signal to a different data type.
+  Flattens source to uint, adjusts width (truncation or zero-extension), then
+  reshapes to target. Supports: scalar↔scalar, bundle↔uint, mem↔uint,
+  bundle↔bundle, uint↔mem, uint↔mem(bundle). Truncation keeps LSBs;
+  zero-extension pads MSBs. Example: `pxl.as_type(uint(24))`,
+  `a.as_type(mem(4, uint(8)))`, `a.as_type(MyBundle.new)`.
 / `log2ceil(n)`: pure Ruby utility. Returns `ceil(log2(n))` — the minimum number
   of bits to address `n` items. Available in module `build` blocks and as `RSV.log2ceil(n)`.
 / `expr.sv_take(n)`: starts a stream view and keeps the first `n` elements.

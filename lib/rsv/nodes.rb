@@ -695,6 +695,14 @@ module RSV
       mod.send(:expand_bundle_reverse, self)
     end
 
+    # Convert to target type via flatten→width-adjust→reshape.
+    def as_type(target_type)
+      target = RSV.normalize_data_type(target_type)
+      src_flat = as_uint
+      src_width = get_width
+      RSV.reshape_to_type(src_flat, src_width, target, @name)
+    end
+
     def to_s
       @name
     end
@@ -1168,6 +1176,19 @@ module RSV
       mod = RSV.current_module_def
       raise ArgumentError, "reverse requires a module context" unless mod
       mod.send(:expand_mem_reverse, self)
+    end
+
+    # Convert to target type via flatten→width-adjust→reshape.
+    def as_type(target_type)
+      target = RSV.normalize_data_type(target_type)
+      if @unpacked_dims.empty?
+        src_flat = self
+        src_width = @width
+      else
+        src_flat = as_uint
+        src_width = get_width
+      end
+      RSV.reshape_to_type(src_flat, src_width, target, @name)
     end
 
     def method_missing(meth, *args, &blk)
@@ -1873,5 +1894,57 @@ module RSV
     raise ArgumentError, "log2ceil requires positive integer, got #{n}" unless n.is_a?(Integer) && n > 0
     return 0 if n == 1
     (n - 1).bit_length
+  end
+
+  # Compute total flat bit width of a DataType.
+  def self.type_total_width(dt)
+    base = dt.width
+    return nil unless base.is_a?(Integer)
+    dt.unpacked_dims.each { |d| base *= dimension_value(d) }
+    base
+  end
+
+  # Core as_type: flatten source → adjust width → reshape to target.
+  # For scalar targets returns expression; for bundle/mem targets creates wires.
+  def self.reshape_to_type(src_flat, src_width, target, name_hint)
+    tgt_width = type_total_width(target)
+    raise ArgumentError, "as_type target must have known width" unless tgt_width
+
+    # Width adjustment
+    adjusted = adjust_type_width(src_flat, src_width, tgt_width)
+
+    # Reshape to target
+    if target.bundle_type && target.unpacked_dims.empty?
+      # → bundle: need module context to create wires
+      mod = current_module_def
+      raise ArgumentError, "as_type to bundle requires module context" unless mod
+      mod.send(:expand_as_type_to_bundle, adjusted, target, name_hint)
+    elsif !target.unpacked_dims.empty? && target.bundle_type
+      # → mem(N, bundle): need module context
+      mod = current_module_def
+      raise ArgumentError, "as_type to mem(bundle) requires module context" unless mod
+      mod.send(:expand_as_type_to_mem_bundle, adjusted, target, name_hint)
+    elsif !target.unpacked_dims.empty?
+      # → mem(N, scalar): need module context
+      mod = current_module_def
+      raise ArgumentError, "as_type to mem requires module context" unless mod
+      mod.send(:expand_as_type_to_mem, adjusted, target, name_hint)
+    elsif target.signed
+      AsSintExpr.new(adjusted)
+    else
+      adjusted
+    end
+  end
+
+  # Width adjustment: truncate or zero-extend.
+  def self.adjust_type_width(src_expr, src_width, tgt_width)
+    if src_width == tgt_width
+      src_expr
+    elsif src_width > tgt_width
+      RangeSelectExpr.new(src_expr, tgt_width - 1, 0)
+    else
+      pad = tgt_width - src_width
+      CatExpr.new([LiteralExpr.new(0, width: pad), src_expr])
+    end
   end
 end

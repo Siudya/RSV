@@ -294,3 +294,32 @@ Bundles support:
 - IO declarations: `iodecl("name", bundle)` uses field directions;
   `iodecl("name", flip(bundle))` reverses all directions
 - Scalar IO: `iodecl("name", output(uint(8)))` or `iodecl("name", input(type))`
+
+== Type Conversion with `as_type`
+
+Any signal can be converted to a different data type using `.as_type(target)`:
+
+```ruby
+# Scalar → scalar (truncate / zero-extend)
+narrow <= wide.as_type(uint(8))     # keeps LSBs
+wide   <= narrow.as_type(uint(32))  # pads MSBs with zeros
+
+# Bundle → uint (flatten)
+flat <= pxl.as_type(uint(24))  # same as pxl.as_uint
+
+# uint → bundle (reshape)
+pxl = data.as_type(Pixel.new)
+out <= pxl.r
+
+# uint → mem (slice into elements)
+m = data.as_type(mem(4, uint(8)))
+out <= m[2]
+
+# uint → mem(bundle)
+mb = data.as_type(mem(2, Pixel.new))
+out <= mb[1].g
+```
+
+Width mismatch is handled automatically:
+- Source wider than target → truncate (keep LSBs)
+- Source narrower than target → zero-extend (pad MSBs)

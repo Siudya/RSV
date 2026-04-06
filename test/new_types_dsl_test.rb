@@ -1048,6 +1048,204 @@ class NewTypesDslTest < Minitest::Test
     assert_includes sv, "assign cnt = vec_pop_count;"
   end
 
+  # ── as_type ────────────────────────────────────────────────────────────────
+
+  def test_as_type_uint_to_uint_same_width
+    mod = module_class("AsTypeSame") do
+      a = input("a", uint(8))
+      b = wire("b", uint(8))
+      b <= a.as_type(uint(8))
+    end.new
+    sv = mod.to_sv
+    assert_includes sv, "assign b = a;"
+  end
+
+  def test_as_type_uint_truncate
+    mod = module_class("AsTypeTrunc") do
+      a = input("a", uint(16))
+      b = wire("b", uint(8))
+      b <= a.as_type(uint(8))
+    end.new
+    sv = mod.to_sv
+    assert_includes sv, "assign b = a[7:0];"
+  end
+
+  def test_as_type_uint_zero_extend
+    mod = module_class("AsTypeExtend") do
+      a = input("a", uint(8))
+      b = wire("b", uint(16))
+      b <= a.as_type(uint(16))
+    end.new
+    sv = mod.to_sv
+    assert_includes sv, "assign b = {8'd0, a};"
+  end
+
+  def test_as_type_uint_to_sint
+    mod = module_class("AsTypeSint") do
+      a = input("a", uint(8))
+      b = wire("b", sint(8))
+      b <= a.as_type(sint(8))
+    end.new
+    sv = mod.to_sv
+    assert_includes sv, "assign b = $signed(a);"
+  end
+
+  def test_as_type_bundle_to_uint
+    pxl_cls = Class.new(RSV::BundleDef) do
+      define_singleton_method(:name) { "Pixel" }
+      def build
+        input("r", uint(8))
+        input("g", uint(8))
+        input("b", uint(8))
+      end
+    end
+    mod = module_class("BundleToUint") do
+      pxl = wire("pxl", pxl_cls.new)
+      out = wire("out", uint(24))
+      out <= pxl.as_type(uint(24))
+    end.new
+    sv = mod.to_sv
+    assert_includes sv, "assign out = {pxl_r, pxl_g, pxl_b};"
+  end
+
+  def test_as_type_uint_to_bundle
+    pxl_cls = Class.new(RSV::BundleDef) do
+      define_singleton_method(:name) { "Pixel" }
+      def build
+        input("r", uint(8))
+        input("g", uint(8))
+        input("b", uint(8))
+      end
+    end
+    mod = module_class("UintToBundle") do
+      a = input("a", uint(24))
+      pxl = a.as_type(pxl_cls.new)
+      out_r = wire("out_r", uint(8))
+      out_g = wire("out_g", uint(8))
+      out_b = wire("out_b", uint(8))
+      out_r <= pxl.r
+      out_g <= pxl.g
+      out_b <= pxl.b
+    end.new
+    sv = mod.to_sv
+    assert_includes sv, "assign a_as_pixel_r = a[23:16];"
+    assert_includes sv, "assign a_as_pixel_g = a[15:8];"
+    assert_includes sv, "assign a_as_pixel_b = a[7:0];"
+  end
+
+  def test_as_type_uint_to_mem
+    mod = module_class("UintToMem") do
+      a = input("a", uint(32))
+      m = a.as_type(mem(4, uint(8)))
+      out = wire("out", uint(8))
+      out <= m[0]
+    end.new
+    sv = mod.to_sv
+    assert_includes sv, "logic [7:0] a_as_mem[3:0]"
+    assert_includes sv, "a_as_mem[0] = a[7:0];"
+    assert_includes sv, "a_as_mem[1] = a[15:8];"
+    assert_includes sv, "a_as_mem[2] = a[23:16];"
+    assert_includes sv, "a_as_mem[3] = a[31:24];"
+  end
+
+  def test_as_type_mem_to_uint
+    mod = module_class("MemToUint") do
+      m = input("m", mem(4, uint(8)))
+      out = wire("out", uint(32))
+      out <= m.as_type(uint(32))
+    end.new
+    sv = mod.to_sv
+    assert_includes sv, "assign out = {m[3], m[2], m[1], m[0]};"
+  end
+
+  def test_as_type_bundle_to_bundle_different
+    pxl_cls = Class.new(RSV::BundleDef) do
+      define_singleton_method(:name) { "Pixel" }
+      def build
+        input("r", uint(8))
+        input("g", uint(8))
+        input("b", uint(8))
+      end
+    end
+    pair_cls = Class.new(RSV::BundleDef) do
+      define_singleton_method(:name) { "Pair" }
+      def build
+        input("x", uint(12))
+        input("y", uint(12))
+      end
+    end
+    mod = module_class("BundleToBundle") do
+      pxl = wire("pxl", pxl_cls.new)
+      pair = pxl.as_type(pair_cls.new)
+      out_x = wire("out_x", uint(12))
+      out_y = wire("out_y", uint(12))
+      out_x <= pair.x
+      out_y <= pair.y
+    end.new
+    sv = mod.to_sv
+    assert_includes sv, "assign pxl_as_pair_x = {pxl_r, pxl_g, pxl_b}[23:12];"
+    assert_includes sv, "assign pxl_as_pair_y = {pxl_r, pxl_g, pxl_b}[11:0];"
+  end
+
+  def test_as_type_truncation_uint_to_bundle
+    pxl_cls = Class.new(RSV::BundleDef) do
+      define_singleton_method(:name) { "Pixel" }
+      def build
+        input("r", uint(8))
+        input("g", uint(8))
+        input("b", uint(8))
+      end
+    end
+    mod = module_class("TruncToBundle") do
+      a = input("a", uint(32))
+      pxl = a.as_type(pxl_cls.new)
+      out = wire("out", uint(8))
+      out <= pxl.r
+    end.new
+    sv = mod.to_sv
+    assert_includes sv, "assign a_as_pixel_r = a[23:0][23:16];"
+  end
+
+  def test_as_type_extension_uint_to_bundle
+    pxl_cls = Class.new(RSV::BundleDef) do
+      define_singleton_method(:name) { "Pixel" }
+      def build
+        input("r", uint(8))
+        input("g", uint(8))
+        input("b", uint(8))
+      end
+    end
+    mod = module_class("ExtendToBundle") do
+      a = input("a", uint(16))
+      pxl = a.as_type(pxl_cls.new)
+      out = wire("out", uint(8))
+      out <= pxl.b
+    end.new
+    sv = mod.to_sv
+    assert_includes sv, "assign a_as_pixel_b = {8'd0, a}[7:0];"
+  end
+
+  def test_as_type_uint_to_mem_bundle
+    pxl_cls = Class.new(RSV::BundleDef) do
+      define_singleton_method(:name) { "Pixel" }
+      def build
+        input("r", uint(8))
+        input("g", uint(8))
+        input("b", uint(8))
+      end
+    end
+    mod = module_class("UintToMemBundle") do
+      a = input("a", uint(48))
+      m = a.as_type(mem(2, pxl_cls.new))
+      out = wire("out", uint(8))
+      out <= m[0].r
+    end.new
+    sv = mod.to_sv
+    assert_match(/a_as_pixel_r/, sv)
+    assert_match(/a_as_pixel_g/, sv)
+    assert_match(/a_as_pixel_b/, sv)
+  end
+
   private
 
   def module_class(name, &build_block)
