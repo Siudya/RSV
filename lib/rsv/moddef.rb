@@ -443,6 +443,7 @@ module RSV
     def to_sv(output = nil)
       finalize_module_name!
       sv = render_sv(module_name: @name)
+      RSV::ElaborationRegistry.register(@name, sv)
       write_sv_output(sv, output)
       sv
     end
@@ -677,7 +678,8 @@ module RSV
     def instantiate_definition_handle(definition_handle, inst_name:, param_overrides: {})
       inst_name ||= next_instance_name(definition_handle)
       handle = ModuleInstanceHandle.new(definition_handle, inst_name: inst_name, param_overrides: param_overrides)
-      @stmts << Instance.new(handle.module_name, handle.inst_name, params: handle.params, connections: handle.connections)
+      port_names = definition_handle.ports.map(&:name)
+      @stmts << Instance.new(handle.module_name, handle.inst_name, params: handle.params, connections: handle.connections, port_names: port_names)
       handle
     end
 
@@ -700,6 +702,12 @@ module RSV
       sv_signature = render_sv(module_name: "__rsv_canonical_module__")
       @name = self.class.send(:resolve_registered_module_name, base_name, sv_signature)
       @module_name_finalized = true
+
+      unless RSV::ElaborationRegistry.registered?(@name)
+        final_sv = render_sv(module_name: @name)
+        RSV::ElaborationRegistry.register(@name, final_sv)
+      end
+
       @name
     end
 

@@ -49,6 +49,10 @@ class ExamplesSuiteTest < Minitest::Test
       outputs: ["generate_demo.sv", "PipeStage.sv"],
       lint_files: ["build/rtl/PipeStage.sv", "build/rtl/generate_demo.sv"]
     },
+    "global_dedup.rb" => {
+      outputs: ["gde_counter.sv", "gde_counter_1.sv", "gde_adder.sv", "gde_top.sv"],
+      lint_files: ["-Wno-MULTITOP", "build/rtl/gde_counter.sv", "build/rtl/gde_counter_1.sv", "build/rtl/gde_adder.sv", "build/rtl/gde_top.sv"]
+    },
     "curried_params.rb" => {
       outputs: ["curried_top.sv", "curried_param_counter.sv", "curried_param_counter_1.sv"],
       lint_files: ["build/rtl/curried_param_counter.sv", "build/rtl/curried_param_counter_1.sv", "build/rtl/curried_top.sv"]
@@ -125,6 +129,12 @@ class ExamplesSuiteTest < Minitest::Test
     assert_includes manual_dedup_top_sv, "u_stage_a_dout;", "expected manual dedup example to declare an auto-generated inter-module wire"
     assert_includes manual_dedup_top_sv, ".dout(u_stage_a_dout)"
     assert_includes manual_dedup_top_sv, ".din(u_stage_a_dout)"
+
+    gde_top_sv = File.read(File.join(BUILD_RTL_DIR, "gde_top.sv"))
+    assert_includes gde_top_sv, "GDeCounter u_cnt_a", "expected global dedup to instantiate GDeCounter"
+    assert_includes gde_top_sv, "GDeCounter u_cnt_b", "expected global dedup to reuse same GDeCounter"
+    assert_includes gde_top_sv, "GDeCounter_1 u_cnt_c", "expected global dedup to create variant GDeCounter_1 for different width"
+    refute_includes gde_top_sv, "GDeCounter_2", "expected global dedup to not create extra variants"
 
     EXAMPLES.each do |script, spec|
       stdout, stderr, status = Open3.capture3("verilator", "--lint-only", *spec[:lint_files], chdir: PROJECT_ROOT)

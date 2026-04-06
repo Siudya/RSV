@@ -431,10 +431,19 @@ module RSV
         lines << "#{ind(level)}) #{inst.inst_name} ("
       end
 
-      conn_pairs = inst.connections.to_a
-      conn_pairs.each_with_index do |(port, sig), idx|
-        comma = idx < conn_pairs.size - 1 ? "," : ""
-        lines << "#{ind(level + 1)}.#{port}(#{emit_expr(sig)})#{comma}"
+      all_ports = if inst.port_names
+        inst.port_names
+      else
+        inst.connections.keys
+      end
+
+      all_ports.each_with_index do |port, idx|
+        comma = idx < all_ports.size - 1 ? "," : ""
+        if inst.connections.key?(port)
+          lines << "#{ind(level + 1)}.#{port}(#{emit_expr(inst.connections[port])})#{comma}"
+        else
+          lines << "#{ind(level + 1)}.#{port}(/* unused port */)#{comma}"
+        end
       end
 
       lines << "#{ind(level)});"

@@ -6,6 +6,7 @@ local example_catalog = {
   {name = "counter", alias = "ctr", summary = "parameterized sequential counter"},
   {name = "curried_params", alias = "cur", summary = "sv_param and curried parameter application"},
   {name = "generate_demo", alias = "gen", summary = "generate blocks, attributes, and staged pipelines"},
+  {name = "global_dedup", alias = "glb", summary = "global auto dedup registry and RSV.export_all"},
   {name = "import_demo", alias = "imp", summary = "import existing SystemVerilog modules with pyslang"},
   {name = "macro_demo", alias = "mac", summary = "SystemVerilog macro directives and macro references"},
   {name = "manual_dedup", alias = "man", summary = "manual definition/instance dedup and auto wiring"},

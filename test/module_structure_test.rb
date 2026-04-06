@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "minitest/autorun"
+require "tmpdir"
 
 $LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
 require "rsv"
@@ -493,5 +494,106 @@ class ModuleStructureTest < Minitest::Test
     assert_includes sv, "Counter u_counter ("
     assert_includes sv, ".clk(clk)"
     assert_includes sv, ".count(count)"
+  end
+
+  # ── 全局 ElaborationRegistry 测试 ──────────────────────────────────────────
+
+  def test_global_registry_auto_registers_modules_on_finalize
+    RSV::ElaborationRegistry.clear!
+
+    counter_class = Class.new(RSV::ModuleDef) do
+      define_singleton_method(:name) { "RegTestCounter" }
+
+      define_method(:build) do |width: 8|
+        input("clk", bit)
+        output("count", uint(width))
+      end
+    end
+
+    counter_class.new(width: 8)
+
+    assert RSV::ElaborationRegistry.registered?("RegTestCounter"),
+      "expected module to be auto-registered after build_definition"
+    sv = RSV::ElaborationRegistry.fetch("RegTestCounter")
+    assert_includes sv, "module RegTestCounter ("
+  end
+
+  def test_global_registry_deduplicates_identical_variants
+    RSV::ElaborationRegistry.clear!
+
+    counter_class = Class.new(RSV::ModuleDef) do
+      define_singleton_method(:name) { "DedupRegCounter" }
+
+      define_method(:build) do |width: 8|
+        input("clk", bit)
+        output("count", uint(width))
+      end
+    end
+
+    counter_class.new(width: 8)
+    counter_class.new(width: 8)
+    counter_class.new(width: 16)
+
+    names = RSV::ElaborationRegistry.module_names
+    assert_includes names, "DedupRegCounter"
+    assert_includes names, "DedupRegCounter_1"
+    assert_equal 2, names.count { |n| n.start_with?("DedupRegCounter") }
+  end
+
+  def test_global_registry_export_all_writes_files
+    RSV::ElaborationRegistry.clear!
+
+    counter_class = Class.new(RSV::ModuleDef) do
+      define_singleton_method(:name) { "ExportTestMod" }
+
+      define_method(:build) do
+        input("din", uint(8))
+        output("dout", uint(8))
+      end
+    end
+
+    counter_class.new
+
+    Dir.mktmpdir do |dir|
+      exported = RSV::ElaborationRegistry.export_all(dir)
+      assert_includes exported, "ExportTestMod"
+
+      path = File.join(dir, "export_test_mod.sv")
+      assert File.exist?(path), "expected export_all to write export_test_mod.sv"
+      content = File.read(path)
+      assert_includes content, "module ExportTestMod ("
+    end
+  end
+
+  def test_global_registry_submodules_registered_automatically
+    RSV::ElaborationRegistry.clear!
+
+    child_class = Class.new(RSV::ModuleDef) do
+      define_singleton_method(:name) { "SubRegChild" }
+
+      define_method(:build) do
+        input("din", uint(8))
+        output("dout", uint(8))
+      end
+    end
+
+    parent_class = Class.new(RSV::ModuleDef) do
+      define_singleton_method(:name) { "SubRegParent" }
+
+      define_method(:build) do
+        din = input("din", uint(8))
+        dout = output("dout", uint(8))
+        child = child_class.new(inst_name: "u_child")
+        child.din <= din
+        dout <= child.dout
+      end
+    end
+
+    parent_class.new
+
+    assert RSV::ElaborationRegistry.registered?("SubRegChild"),
+      "expected submodule to be auto-registered"
+    assert RSV::ElaborationRegistry.registered?("SubRegParent"),
+      "expected parent module to be auto-registered"
   end
 end

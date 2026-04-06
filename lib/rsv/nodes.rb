@@ -1511,13 +1511,14 @@ module RSV
 
   # Module instantiation.
   class Instance
-    attr_reader :module_name, :inst_name, :params, :connections
+    attr_reader :module_name, :inst_name, :params, :connections, :port_names
 
-    def initialize(module_name, inst_name, params:, connections:)
+    def initialize(module_name, inst_name, params:, connections:, port_names: nil)
       @module_name  = module_name
       @inst_name    = inst_name
       @params      = params
       @connections = connections
+      @port_names  = port_names
     end
   end
 

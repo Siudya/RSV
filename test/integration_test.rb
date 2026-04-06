@@ -243,7 +243,8 @@ class IntegrationTest < Minitest::Test
           .clk(clk),
           .rst_n(rst_n),
           .din(din),
-          .dout(dout)
+          .dout(dout),
+          .mem(/* unused port */)
         );
 
       endmodule
@@ -288,7 +289,8 @@ class IntegrationTest < Minitest::Test
           .clk(clk),
           .rst_n(rst_n),
           .din(din),
-          .dout(dout)
+          .dout(dout),
+          .mem(/* unused port */)
         );
 
       endmodule

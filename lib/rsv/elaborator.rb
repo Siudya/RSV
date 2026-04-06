@@ -44,7 +44,7 @@ module RSV
       when AlwaysComb
         [AlwaysComb.new(stmt.body.map { |proc_stmt| elaborate_proc_stmt(proc_stmt) })]
       when Instance
-        [Instance.new(stmt.module_name, stmt.inst_name, params: stmt.params, connections: elaborate_connections(stmt.connections))]
+        [Instance.new(stmt.module_name, stmt.inst_name, params: stmt.params, connections: elaborate_connections(stmt.connections), port_names: stmt.port_names)]
       when SvIfdef, SvIfndef
         [elaborate_macro_cond(stmt)]
       when GenerateIf

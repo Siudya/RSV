@@ -11,6 +11,7 @@ require_relative "rsv/elaborator"
 require_relative "rsv/emitter"
 require_relative "rsv/svimport"
 require_relative "rsv/vwrapper"
+require_relative "rsv/registry"
 
 # RSV — Ruby SystemVerilog Generator
 #
@@ -18,4 +19,9 @@ require_relative "rsv/vwrapper"
 # SystemVerilog.  Use RSV::ModuleDef as the primary entry point.
 module RSV
   VERSION = "0.1.0"
+
+  # 将所有已 elaborate 的模块导出到指定目录
+  def self.export_all(dir)
+    ElaborationRegistry.export_all(dir)
+  end
 end
