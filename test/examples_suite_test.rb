@@ -13,14 +13,6 @@ class ExamplesSuiteTest < Minitest::Test
       outputs: ["counter.sv"],
       lint_files: ["build/rtl/counter.sv"]
     },
-    "auto_dedup.rb" => {
-      outputs: ["auto_dedup_counter.sv", "auto_dedup_top.sv"],
-      lint_files: ["build/rtl/auto_dedup_counter.sv", "build/rtl/auto_dedup_top.sv"]
-    },
-    "manual_dedup.rb" => {
-      outputs: ["manual_dedup_counter.sv", "manual_dedup_top.sv"],
-      lint_files: ["build/rtl/manual_dedup_counter.sv", "build/rtl/manual_dedup_top.sv"]
-    },
     "syntax_showcase.rb" => {
       outputs: ["syntax_showcase.sv"],
       lint_files: ["build/rtl/syntax_showcase.sv"]
@@ -50,8 +42,8 @@ class ExamplesSuiteTest < Minitest::Test
       lint_files: ["build/rtl/pipe_stage.sv", "build/rtl/generate_demo.sv"]
     },
     "global_dedup.rb" => {
-      outputs: ["gde_counter.sv", "gde_counter_1.sv", "gde_adder.sv", "gde_top.sv"],
-      lint_files: ["-Wno-MULTITOP", "build/rtl/gde_counter.sv", "build/rtl/gde_counter_1.sv", "build/rtl/gde_adder.sv", "build/rtl/gde_top.sv"]
+      outputs: ["dedup_counter.sv", "dedup_counter_1.sv", "dedup_adder.sv", "dedup_top.sv"],
+      lint_files: ["-Wno-MULTITOP", "build/rtl/dedup_counter.sv", "build/rtl/dedup_counter_1.sv", "build/rtl/dedup_adder.sv", "build/rtl/dedup_top.sv"]
     },
     "curried_params.rb" => {
       outputs: ["curried_top.sv", "param_counter.sv", "param_counter_1.sv"],
@@ -118,23 +110,19 @@ class ExamplesSuiteTest < Minitest::Test
     shared_domain_blocks = syntax_showcase_sv.scan("always_ff @(negedge clk or negedge rst_n)").length
     assert_operator shared_domain_blocks, :>=, 2, "expected syntax_showcase.sv to demonstrate multiple always_ff blocks sharing one with_clk_and_rst domain"
 
-    auto_dedup_top_sv = File.read(File.join(BUILD_RTL_DIR, "auto_dedup_top.sv"))
-    refute_includes auto_dedup_top_sv, "AutoDedupCounter_1", "expected automatic dedup example to collapse identical Counter templates to one module definition"
-    assert_includes auto_dedup_top_sv, "u_stage_a_dout;", "expected automatic dedup example to declare an auto-generated inter-module wire"
-    assert_includes auto_dedup_top_sv, ".dout(u_stage_a_dout)"
-    assert_includes auto_dedup_top_sv, ".din(u_stage_a_dout)"
-
-    manual_dedup_top_sv = File.read(File.join(BUILD_RTL_DIR, "manual_dedup_top.sv"))
-    refute_includes manual_dedup_top_sv, "ManualDedupCounter_1", "expected manual dedup example to collapse identical Counter templates to one module definition"
-    assert_includes manual_dedup_top_sv, "u_stage_a_dout;", "expected manual dedup example to declare an auto-generated inter-module wire"
-    assert_includes manual_dedup_top_sv, ".dout(u_stage_a_dout)"
-    assert_includes manual_dedup_top_sv, ".din(u_stage_a_dout)"
-
-    gde_top_sv = File.read(File.join(BUILD_RTL_DIR, "gde_top.sv"))
-    assert_includes gde_top_sv, "GDeCounter u_cnt_a", "expected global dedup to instantiate GDeCounter"
-    assert_includes gde_top_sv, "GDeCounter u_cnt_b", "expected global dedup to reuse same GDeCounter"
-    assert_includes gde_top_sv, "GDeCounter_1 u_cnt_c", "expected global dedup to create variant GDeCounter_1 for different width"
-    refute_includes gde_top_sv, "GDeCounter_2", "expected global dedup to not create extra variants"
+    dedup_top_sv = File.read(File.join(BUILD_RTL_DIR, "dedup_top.sv"))
+    # auto dedup: two width=8 counters share one DedupCounter template
+    assert_includes dedup_top_sv, "DedupCounter u_cnt_a", "expected auto dedup to instantiate DedupCounter"
+    assert_includes dedup_top_sv, "DedupCounter u_cnt_b", "expected auto dedup to reuse same DedupCounter"
+    refute_includes dedup_top_sv, "DedupCounter_2", "expected no extra variants beyond _1"
+    # manual dedup: definition(width: 16) + instance → variant _1
+    assert_includes dedup_top_sv, "DedupCounter_1 u_cnt_c", "expected manual dedup to create variant DedupCounter_1"
+    # auto-wiring: cnt_a.dout → cnt_b.din via parent-local wire
+    assert_includes dedup_top_sv, "u_cnt_a_dout;", "expected auto-generated inter-module wire"
+    assert_includes dedup_top_sv, ".dout(u_cnt_a_dout)"
+    assert_includes dedup_top_sv, ".din(u_cnt_a_dout)"
+    # unused port annotation
+    assert_includes dedup_top_sv, "/* unused port */", "expected unused port annotation"
 
     EXAMPLES.each do |script, spec|
       stdout, stderr, status = Open3.capture3("verilator", "--lint-only", *spec[:lint_files], chdir: PROJECT_ROOT)

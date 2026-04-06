@@ -1,13 +1,16 @@
 # frozen_string_literal: true
 # examples/global_dedup.rb
 #
-# 演示全局自动去重与 RSV.export_all 一键导出。
+# 综合演示模块去重与子模块自动布线。
 #
 # 特性：
-# - 多模块实例化，不同参数产生不同变体
-# - 同参数模块仅保留一份（自动去重）
-# - 子模块 SV 在 finalize 时自动注册到全局表
-# - RSV.export_all(dir) 一次性导出全部去重后的模块
+# - 自动去重: 同参数 .new() 实例化 → 同一份 SV 模板
+# - 手动去重: definition() + instance() 显式共享定义句柄
+# - 多参数变体: 不同参数 → 自动后缀 _1, _2, ...
+# - 子模块间自动布线: 子模块输出直连另一子模块输入，父模块自动生成中间 wire
+# - 左赋值 (<=) 与右赋值 (>=) 两种端口连接语法
+# - 未连接端口标注: /* unused port */
+# - 全局 ElaborationRegistry + RSV.export_all 一键导出
 #
 # Run:
 #   xmake rtl -f glb
@@ -16,26 +19,29 @@ $LOAD_PATH.unshift(File.join(__dir__, "..", "lib"))
 require "rsv"
 include RSV
 
-# ---------- 子模块：参数化计数器 ----------
+# ---------- 参数化计数器 ----------
 
-class GDeCounter < ModuleDef
+class DedupCounter < ModuleDef
   def build(width: 8)
-    clk   = input("clk", clock)
-    rst   = input("rst", reset)
-    en    = input("en", bit)
-    count = output("count", uint(width))
+    clk  = input("clk", clock)
+    rst  = input("rst", reset)
+    en   = input("en", bit)
+    din  = input("din", uint(width))
+    dout = output("dout", uint(width))
 
     r = reg("r", uint(width), init: 0)
-    count <= r
+    dout <= r
 
     with_clk_and_rst(clk, rst)
-    always_ff { r <= mux(en, r + 1, r) }
+    always_ff do
+      svif(en) { r <= din }
+    end
   end
 end
 
-# ---------- 子模块：简单加法器 ----------
+# ---------- 简单加法器 ----------
 
-class GDeAdder < ModuleDef
+class DedupAdder < ModuleDef
   def build(width: 8)
     a   = input("a", uint(width))
     b   = input("b", uint(width))
@@ -47,44 +53,56 @@ end
 
 # ---------- 顶层模块 ----------
 
-class GDeTop < ModuleDef
+class DedupTop < ModuleDef
   def build
-    clk = input("clk", clock)
-    rst = input("rst", reset)
-    en  = input("en", bit)
-    result = output("result", uint(8))
+    clk     = input("clk", clock)
+    rst     = input("rst", reset)
+    en      = input("en", bit)
+    data_in = input("data_in", uint(8))
+    wide_in = input("wide_in", uint(16))
+    result  = output("result", uint(8))
 
-    # 两个 width=8 的 counter → 自动去重为一份 SV 模板
-    cnt_a = GDeCounter.new(inst_name: "u_cnt_a", width: 8)
-    cnt_b = GDeCounter.new(inst_name: "u_cnt_b", width: 8)
+    # ── 自动去重 ─────────────────────────────────────────────
+    # 两个 width=8 counter → 同一份 SV 模板（自动去重）
+    cnt_a = DedupCounter.new(inst_name: "u_cnt_a", width: 8)
+    cnt_b = DedupCounter.new(inst_name: "u_cnt_b", width: 8)
 
-    # 一个 width=16 的 counter → 独立变体 GDeCounter_1
-    cnt_c = GDeCounter.new(inst_name: "u_cnt_c", width: 16)
+    # ── 手动去重: definition() + instance() ──────────────────
+    # width=16 变体，通过显式定义句柄创建 → DedupCounter_1
+    cnt_def_16 = DedupCounter.definition(width: 16)
+    cnt_c = instance(cnt_def_16, inst_name: "u_cnt_c")
 
-    # 加法器
-    add = GDeAdder.new(inst_name: "u_add", width: 8)
+    add = DedupAdder.new(inst_name: "u_add", width: 8)
 
+    # ── 左赋值连接端口 ──────────────────────────────────────
     cnt_a.clk <= clk
     cnt_a.rst <= rst
     cnt_a.en  <= en
+    cnt_a.din <= data_in
 
-    cnt_b.clk <= clk
-    cnt_b.rst <= rst
-    cnt_b.en  <= en
+    # ── 右赋值连接端口 ──────────────────────────────────────
+    clk >= cnt_b.clk
+    rst >= cnt_b.rst
+    en  >= cnt_b.en
 
-    # cnt_c 的 count 端口未连接，将自动生成 .count(/* unused port */)
+    # ── 子模块间自动布线 ────────────────────────────────────
+    # cnt_a.dout → cnt_b.din: 父模块自动生成中间 wire u_cnt_a_dout
+    cnt_b.din <= cnt_a.dout
+
+    add.a <= cnt_a.dout
+    add.b <= cnt_b.dout
+    add.sum >= result
+
+    # ── 未连接端口: cnt_c.dout → /* unused port */ ──────────
     cnt_c.clk <= clk
     cnt_c.rst <= rst
     cnt_c.en  <= en
-
-    add.a <= cnt_a.count
-    add.b <= cnt_b.count
-    add.sum >= result
+    cnt_c.din <= wide_in
   end
 end
 
 # ---------- 构建与导出 ----------
 
-top = GDeTop.new
+top = DedupTop.new
 
 RSV::App.main(top)

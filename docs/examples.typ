@@ -19,16 +19,12 @@ xmake rtl -f syn
 #table(
   columns: (auto, auto, auto),
   [*名称*], [*别名*], [*特性摘要*],
-  [`auto_dedup`], [`aut`], [自动去重与子模块自动布线],
-  [`bundle_and_interface`], [`bdi`], [Bundle 类型展开为扁平信号],
-  [`const_demo`], [`cst`], [`const` / `localparam` 常量声明],
   [`counter`], [`ctr`], [基础顺序计数器（meta_param 参数化）],
   [`curried_params`], [`cur`], [`meta_param` 参数化模块],
   [`generate_demo`], [`gen`], [generate 块、属性与多级流水],
-  [`global_dedup`], [`glb`], [全局自动去重与 `RSV.export_all` 一键导出],
+  [`global_dedup`], [`glb`], [自动/手动去重、自动布线、未连接端口、`export_all`],
   [`import_demo`], [`imp`], [导入外部 SystemVerilog 模块签名],
   [`macro_demo`], [`mac`], [宏定义、条件编译与宏引用],
-  [`manual_dedup`], [`man`], [手动 `definition` / `instance` 去重],
   [`mux_cases`], [`mux`], [`mux` / `mux1h` / `muxp`],
   [`pop_count_demo`], [`pop`], [`pop_count` / `log2ceil`],
   [`case_demo`], [`cas`], [`svcase` / `svcasez` / `unique` / `priority`],
@@ -51,32 +47,6 @@ xmake rtl -f syn
 - 时序逻辑: `always_ff`, `with_clk_and_rst`
 - 条件控制: `svif`
 - 算术运算: `+`
-- 输出: `to_sv(path)`
-
-== auto_dedup.rb
-
-自动去重与子模块自动布线。
-
-- 端口声明: `input`, `output`
-- 类型构造: `uint`
-- 赋值: `<=`, `>=`（右赋值）
-- 模块实例化: `.new(inst_name:, width:)`
-- 端口连接: `instance.port <= signal`, `instance.port >= signal`
-- 子模块间自动布线: 子模块输出直连另一子模块输入，自动在父模块生成中间wire
-- 模块去重: `.uniq { |d| d.module_name }`
-- 输出: `to_sv(path)`
-
-== manual_dedup.rb
-
-手动去重与自动布线。
-
-- 端口声明: `input`, `output`
-- 类型构造: `uint`
-- 赋值: `<=`, `>=`
-- 模块去重: `definition(width:)` 创建共享定义
-- 模块实例化: `instance(definition, inst_name:)` 手动实例化
-- 端口连接: 实例端口赋值
-- 子模块间自动布线
 - 输出: `to_sv(path)`
 
 == syntax_showcase.rb
@@ -295,13 +265,15 @@ Bundle 类型展开为扁平信号的综合演示。
 
 == global_dedup.rb
 
-全局自动去重与 `RSV.export_all` 一键导出。
+综合演示模块去重与子模块自动布线。
 
-- 多模块实例化: 不同参数产生不同变体
-- 同参数模块自动去重: 仅保留一份 SV 模板
-- 子模块 SV 在 `finalize_module_name!` 时自动注册到全局表
-- `RSV.export_all(dir)`: 一次性导出全部去重后的模块
-- 未连接端口: 自动标注 `/* unused port */`
+- 自动去重: 同参数 `.new()` 实例化 → 同一份 SV 模板
+- 手动去重: `definition(width:)` + `instance()` 显式共享定义句柄
+- 多参数变体: 不同参数 → 自动后缀 `_1`, `_2`, ...
+- 子模块间自动布线: 子模块输出直连另一子模块输入，父模块自动生成中间 wire
+- 左赋值 `<=` 与右赋值 `>=` 两种端口连接语法
+- 未连接端口标注: `/* unused port */`
+- 全局 `ElaborationRegistry` + `RSV.export_all(dir)` 一键导出
 - `RSV::App.main(top)`: CLI 入口
 
 == type_conv_demo.rb
@@ -328,7 +300,7 @@ Bundle 类型展开为扁平信号的综合演示。
   [`mem`], [storage\_streams, mux\_cases, verilog\_wrapper, generate\_demo], [`array_memory_test`],
   [`wire`/`reg`], [counter, syntax\_showcase, storage\_streams, mux\_cases 等], [`declaration_test`, `sequential_test`],
   [`const`(localparam)], [const\_demo, generate\_demo], [`declaration_test`],
-  [`<=`/`>=` 赋值], [所有示例 / auto\_dedup, manual\_dedup, syntax\_showcase], [`declaration_test`],
+  [`<=`/`>=` 赋值], [所有示例 / global\_dedup, syntax\_showcase], [`declaration_test`],
   [算术/比较/逻辑/位运算], [syntax\_showcase], [`operator_test`],
   [归约运算 `.or_r`/`.and_r`], [syntax\_showcase, curried\_params], [`operator_test`],
   [移位运算 `<<`/`>>`], [syntax\_showcase], [`operator_test`],
@@ -345,9 +317,9 @@ Bundle 类型展开为扁平信号的综合演示。
   [`svcase`/`svcasez`/`svcasex`], [case\_demo], [`control_flow_test`],
   [`casez ? 通配符`], [case\_demo], [`control_flow_test`],
   [`unique`/`priority` 限定符], [case\_demo], [`control_flow_test`],
-  [模块实例化与端口连接], [auto\_dedup, manual\_dedup, import\_demo, curried\_params, global\_dedup], [`module_structure_test`],
-  [子模块间自动布线], [auto\_dedup, manual\_dedup, global\_dedup], [`module_structure_test`],
-  [`definition`/`instance` 手动去重], [manual\_dedup], [`module_structure_test`],
+  [模块实例化与端口连接], [global\_dedup, import\_demo, curried\_params], [`module_structure_test`],
+  [子模块间自动布线], [global\_dedup], [`module_structure_test`],
+  [`definition`/`instance` 手动去重], [global\_dedup], [`module_structure_test`],
   [全局自动去重 `ElaborationRegistry`], [global\_dedup], [`module_structure_test`],
   [`RSV::App` CLI 入口], [所有示例], [-],
   [`RSV.import_sv`], [import\_demo], [`integration_test`],

@@ -8,8 +8,7 @@ class XmakeRtlTest < Minitest::Test
   PROJECT_ROOT = File.expand_path("..", __dir__)
   BUILD_DIR = File.join(PROJECT_ROOT, "build")
   COUNTER_SV = File.join(PROJECT_ROOT, "build", "rtl", "counter.sv")
-  AUTO_DEDUP_TOP_SV = File.join(PROJECT_ROOT, "build", "rtl", "auto_dedup_top.sv")
-  MANUAL_DEDUP_TOP_SV = File.join(PROJECT_ROOT, "build", "rtl", "manual_dedup_top.sv")
+  DEDUP_TOP_SV = File.join(PROJECT_ROOT, "build", "rtl", "dedup_top.sv")
 
   def test_xmake_rtl_runs_example_script_from_examples_by_default
     FileUtils.rm_f(COUNTER_SV)
@@ -28,17 +27,13 @@ class XmakeRtlTest < Minitest::Test
     assert_includes stdout, "rtl fixture ok"
   end
 
-  def test_xmake_rtl_runs_auto_and_manual_dedup_examples
-    FileUtils.rm_f(AUTO_DEDUP_TOP_SV)
-    FileUtils.rm_f(MANUAL_DEDUP_TOP_SV)
+  def test_xmake_rtl_runs_global_dedup_example
+    FileUtils.rm_f(DEDUP_TOP_SV)
 
-    auto_stdout, auto_stderr, auto_status = Open3.capture3("xmake", "rtl", "-f", "auto_dedup", chdir: PROJECT_ROOT)
-    manual_stdout, manual_stderr, manual_status = Open3.capture3("xmake", "rtl", "-f", "manual_dedup", chdir: PROJECT_ROOT)
+    stdout, stderr, status = Open3.capture3("xmake", "rtl", "-f", "global_dedup", chdir: PROJECT_ROOT)
 
-    assert auto_status.success?, "expected `xmake rtl -f auto_dedup` to succeed\nstdout:\n#{auto_stdout}\nstderr:\n#{auto_stderr}"
-    assert manual_status.success?, "expected `xmake rtl -f manual_dedup` to succeed\nstdout:\n#{manual_stdout}\nstderr:\n#{manual_stderr}"
-    assert File.exist?(AUTO_DEDUP_TOP_SV), "expected #{AUTO_DEDUP_TOP_SV} to be generated"
-    assert File.exist?(MANUAL_DEDUP_TOP_SV), "expected #{MANUAL_DEDUP_TOP_SV} to be generated"
+    assert status.success?, "expected `xmake rtl -f global_dedup` to succeed\nstdout:\n#{stdout}\nstderr:\n#{stderr}"
+    assert File.exist?(DEDUP_TOP_SV), "expected #{DEDUP_TOP_SV} to be generated"
   end
 
   def test_xmake_rtl_lists_available_examples_with_alias_and_feature_summary
