@@ -128,19 +128,7 @@ class NewTypesDslTest < Minitest::Test
     assert_includes sv, "if (rst)"
   end
 
-  # ── arr/mem nesting flattening ────────────────────────────────────────────
-
-  def test_nested_arr_flattens
-    mod = module_class("NestedArr") do
-      wire("x", arr([2], arr([3], arr([4], uint(8)))))
-    end.new
-
-    expected_mod = module_class("NestedArr2") do
-      wire("x", arr([2, 3, 4], uint(8)))
-    end.new
-
-    assert_equal expected_mod.to_sv.gsub("NestedArr2", "NestedArr"), mod.to_sv
-  end
+  # ── mem nesting flattening ────────────────────────────────────────────
 
   def test_nested_mem_flattens
     mod = module_class("NestedMem") do
@@ -370,9 +358,9 @@ class NewTypesDslTest < Minitest::Test
     assert_includes sv, "assign out = dats[idx];"
   end
 
-  def test_arr_mem_index_with_literal_works
+  def test_mem_index_with_literal_works
     mod = module_class("IdxLit") do
-      dats = wire("dats", arr([4], uint(8)))
+      dats = wire("dats", mem([4], uint(8)))
       out = output("out", uint(8))
       out <= dats[2]
     end.new
@@ -381,7 +369,7 @@ class NewTypesDslTest < Minitest::Test
     assert_includes sv, "assign out = dats[2];"
   end
 
-  def test_arr_mem_index_with_sint_raises
+  def test_mem_index_with_sint_raises
     error = assert_raises(ArgumentError) do
       module_class("IdxSint") do
         idx = input("idx", sint(2))
@@ -441,17 +429,6 @@ class NewTypesDslTest < Minitest::Test
     assert_equal 0, a.eq(c).init
     assert_equal 0, a.ne(b).init
     assert_equal 1, a.ne(c).init
-  end
-
-  # ── arr/mem interleave ────────────────────────────────────────────────
-
-  def test_arr_mem_interleave
-    mod = module_class("Interleave") do
-      wire("x", mem([2], arr([3], mem([4], uint(8)))))
-    end.new
-
-    sv = mod.to_sv
-    assert_includes sv, "logic [2:0][7:0] x[1:0][3:0]"
   end
 
   # ── svcase ─────────────────────────────────────────────────────────────────

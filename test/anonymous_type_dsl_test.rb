@@ -10,7 +10,7 @@ class AnonymousTypeDslTest < Minitest::Test
     mod = module_class("AnonTypes") do
       bit_t = bit
       word_t = uint(16)
-      packed_t = arr(8, word_t)
+      mem_p = mem(8, word_t)
       mem_t = mem(16, word_t)
 
       input("clk", bit_t)
@@ -19,7 +19,7 @@ class AnonymousTypeDslTest < Minitest::Test
 
       wire("wire_a", bit_t)
       wire_b = wire("wire_b", word_t)
-      reg("reg_c", packed_t)
+      reg("reg_c", mem_p)
       reg("reg_d", mem_t)
 
       out <= wire_b
@@ -32,10 +32,10 @@ class AnonymousTypeDslTest < Minitest::Test
         output logic [15:0] out
       );
 
-        logic             wire_a;
-        logic [15:0]      wire_b;
-        logic [7:0][15:0] reg_c;
-        logic [15:0]      reg_d[15:0];
+        logic        wire_a;
+        logic [15:0] wire_b;
+        logic [15:0] reg_c[7:0];
+        logic [15:0] reg_d[15:0];
 
         assign out = wire_b;
 
@@ -45,16 +45,16 @@ class AnonymousTypeDslTest < Minitest::Test
     assert_equal expected, mod.to_sv
   end
 
-  def test_fill_helpers_drive_reset_for_packed_and_unpacked_regs
+  def test_fill_helpers_drive_reset_for_unpacked_regs
     mod = module_class("InitShapes") do
       bit_t = bit
       word_t = uint(16)
-      packed_t = arr(8, word_t)
+      mem_p = mem(8, word_t)
       mem_t = mem(16, word_t)
 
       clk = input("clk", bit_t)
       rst = input("rst", bit_t)
-      reg_p = reg("reg_p", packed_t, init: arr.fill(8, uint(16, 0x75)))
+      reg_p = reg("reg_p", mem_p, init: mem.fill(8, uint(16, 0x75)))
       reg_m = reg("reg_m", mem_t, init: mem.fill(16, uint(16, 0x33)))
 
       with_clk_and_rst(clk, rst)
@@ -70,8 +70,8 @@ class AnonymousTypeDslTest < Minitest::Test
         input logic rst
       );
 
-        logic [7:0][15:0] reg_p;
-        logic [15:0]      reg_m[15:0];
+        logic [15:0] reg_p[7:0];
+        logic [15:0] reg_m[15:0];
 
         always_ff @(posedge clk or posedge rst) begin
           if (rst) begin

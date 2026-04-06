@@ -205,14 +205,14 @@ module RSV
 
     def clock(init = nil, **kwargs)
       init = kwargs[:init] if kwargs.key?(:init)
-      DataType.new(width: 1, init: init, packed_dims: [], unpacked_dims: []).tap do |dt|
+      DataType.new(width: 1, init: init, unpacked_dims: []).tap do |dt|
         dt.instance_variable_set(:@_clock_type, true)
       end
     end
 
     def reset(init = nil, **kwargs)
       init = kwargs[:init] if kwargs.key?(:init)
-      DataType.new(width: 1, init: init, packed_dims: [], unpacked_dims: []).tap do |dt|
+      DataType.new(width: 1, init: init, unpacked_dims: []).tap do |dt|
         dt.instance_variable_set(:@_reset_type, true)
       end
     end
@@ -326,16 +326,10 @@ module RSV
       handler
     end
 
-    def arr(*dims_and_target)
-      return DataTypeFactory.new(self, :packed) if dims_and_target.empty?
-
-      compose_data_type(*dims_and_target, storage: :packed)
-    end
-
     def mem(*dims_and_target)
       return DataTypeFactory.new(self, :unpacked) if dims_and_target.empty?
 
-      compose_data_type(*dims_and_target, storage: :unpacked)
+      compose_data_type(*dims_and_target)
     end
 
     def mux(sel, a, b)
@@ -472,47 +466,29 @@ module RSV
       body
     end
 
-    def compose_data_type(*dims_and_target, storage:)
-      dims, data_type = extract_dims_and_data_type(dims_and_target, storage)
+    def compose_data_type(*dims_and_target)
+      dims, data_type = extract_dims_and_data_type(dims_and_target)
       normalized_dims = normalize_decl_dimensions(dims)
 
-      # Flatten nested same-storage dimensions from inner DataType
-      case storage
-      when :packed
-        inner_packed = data_type.packed_dims.dup
-        data_type = DataType.new(
-          width: data_type.width,
-          signed: data_type.signed,
-          init: data_type.init,
-          packed_dims: [],
-          unpacked_dims: data_type.unpacked_dims,
-          bundle_type: data_type.bundle_type
-        )
-        data_type.append_dimensions(packed: normalized_dims + inner_packed)
-      when :unpacked
-        inner_unpacked = data_type.unpacked_dims.dup
-        data_type = DataType.new(
-          width: data_type.width,
-          signed: data_type.signed,
-          init: data_type.init,
-          packed_dims: data_type.packed_dims,
-          unpacked_dims: [],
-          bundle_type: data_type.bundle_type
-        )
-        data_type.append_dimensions(unpacked: normalized_dims + inner_unpacked)
-      else
-        raise ArgumentError, "unknown storage kind #{storage}"
-      end
+      inner_unpacked = data_type.unpacked_dims.dup
+      data_type = DataType.new(
+        width: data_type.width,
+        signed: data_type.signed,
+        init: data_type.init,
+        unpacked_dims: [],
+        bundle_type: data_type.bundle_type
+      )
+      data_type.append_dimensions(unpacked: normalized_dims + inner_unpacked)
     end
 
-    def extract_dims_and_data_type(args, storage)
-      raise ArgumentError, "#{storage == :packed ? 'arr' : 'mem'} expects one or more dimensions and a data type" if args.length < 2
+    def extract_dims_and_data_type(args)
+      raise ArgumentError, "mem expects one or more dimensions and a data type" if args.length < 2
 
       target = RSV.normalize_data_type(args[-1])
       dims = args[0...-1]
       dims = dims.first if dims.length == 1 && dims.first.is_a?(Array)
       dims = Array(dims)
-      raise ArgumentError, "#{storage == :packed ? 'arr' : 'mem'} expects at least one dimension" if dims.empty?
+      raise ArgumentError, "mem expects at least one dimension" if dims.empty?
 
       [dims, target]
     end
@@ -543,7 +519,6 @@ module RSV
         width: type.width,
         signed: type.signed,
         init: effective_init,
-        packed_dims: type.packed_dims,
         unpacked_dims: type.unpacked_dims,
         bundle_type: type.bundle_type
       )
@@ -587,7 +562,6 @@ module RSV
           child_spec = SignalSpec.new(
             child_name,
             width: dt.width, signed: dt.signed,
-            packed_dims: dt.packed_dims,
             unpacked_dims: spec.unpacked_dims + dt.unpacked_dims,
             bundle_type: dt.bundle_type
           )
@@ -596,7 +570,6 @@ module RSV
           child_spec = SignalSpec.new(
             child_name,
             width: dt.width, signed: dt.signed,
-            packed_dims: dt.packed_dims,
             unpacked_dims: spec.unpacked_dims + dt.unpacked_dims
           )
           @ports << PortDecl.new(field_dir, child_spec, attr: attr)
@@ -631,7 +604,6 @@ module RSV
           child_spec = SignalSpec.new(
             child_name,
             width: dt.width, signed: dt.signed, init: field_init,
-            packed_dims: dt.packed_dims,
             unpacked_dims: spec.unpacked_dims + dt.unpacked_dims,
             bundle_type: dt.bundle_type
           )
@@ -641,7 +613,6 @@ module RSV
           child_spec = SignalSpec.new(
             child_name,
             width: dt.width, signed: dt.signed, init: child_init,
-            packed_dims: dt.packed_dims,
             unpacked_dims: spec.unpacked_dims + dt.unpacked_dims
           )
           @locals << build_local_decl(kind, child_spec, attr: attr)
@@ -672,7 +643,6 @@ module RSV
         signed: spec.signed,
         kind: kind,
         init: spec.init,
-        packed_dims: spec.packed_dims,
         unpacked_dims: spec.unpacked_dims,
         bundle_type: spec.bundle_type
       )
@@ -892,7 +862,6 @@ module RSV
           name,
           width: RSV.element_width(prototype),
           signed: RSV.expr_signed(prototype),
-          packed_dims: RSV.expr_packed_dims(prototype),
           unpacked_dims: RSV.expr_unpacked_dims(prototype)
         )
       end
@@ -987,7 +956,7 @@ module RSV
     end
 
     def infer_mux_data_type(dats)
-      if dats.is_a?(SignalHandler) && (!dats.unpacked_dims.empty? || !dats.packed_dims.empty?)
+      if dats.is_a?(SignalHandler) && !dats.unpacked_dims.empty?
         w = dats.width
         s = dats.signed
       elsif dats.is_a?(Array) && !dats.empty?
@@ -1007,7 +976,6 @@ module RSV
         "#{port_handler.instance_handle.inst_name}_#{port_handler.name}",
         width: resolve_instance_port_expr(port.width, params),
         signed: port.signed,
-        packed_dims: port.packed_dims.map { |dim| resolve_instance_port_expr(dim, params) },
         unpacked_dims: port.unpacked_dims.map { |dim| resolve_instance_port_expr(dim, params) }
       )
     end

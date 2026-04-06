@@ -27,13 +27,13 @@ class Pixel < BundleDef
   end
 end
 
-# ── Inner module using plain ports + packed/unpacked arrays ──
+# ── Inner module using plain ports + unpacked arrays ──
 class InnerModule < ModuleDef
   def build
     clk = input("clk", clock)
     rst = input("rst", reset)
-    data_in = input("data_in", arr(4, uint(8)))
-    data_out = output("data_out", arr(4, uint(8)))
+    data_in = input("data_in", mem(4, uint(8)))
+    data_out = output("data_out", mem(4, uint(8)))
     mem_in = input("mem_in", mem(2, uint(16)))
     flag = output("flag", uint(1))
     count_r = reg("count_r", uint(16), init: 0)
@@ -89,7 +89,7 @@ mem_mod.v_wrapper(rtl_output_path("mem_bundle_module_wrapper"), wrapper_name: "m
 
 # Print summary to stdout
 puts "// Generated SV wrappers demonstrating:"
-puts "//   1. inner_module_wrapper       — packed arr + unpacked mem"
+puts "//   1. inner_module_wrapper       — unpacked mem arrays"
 puts "//   2. bundle_module_wrapper      — bundle (flat) ports"
 puts "//   3. mem_bundle_module_wrapper  — mem(2, Pixel) ports"
 puts ""

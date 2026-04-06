@@ -10,7 +10,7 @@ SystemVerilog.
 + Implement hardware construction in `build(...)` or `initialize(...)`.
 + If you override `initialize(...)`, call `super()` before using the DSL.
 + Declare anonymous RSV data types with
-  `bit(...)`, `uint(...)`, `arr(...)`, and `mem(...)`.
+  `bit(...)`, `uint(...)`, and `mem(...)`.
 + Use `build(**kwargs)` keyword arguments as meta parameters to control
   module elaboration: `MyMod.new("name", width: 16, meta: val)`.
 + Create named ports and locals with `input("name", type)`,
@@ -19,7 +19,7 @@ SystemVerilog.
   init value (emits as SV `localparam`).
 + Use `generate_for` and `generate_if` for elaboration-time code generation
   (genvar loops and conditional blocks with local scopes).
-+ Use `arr.fill(...)` and `mem.fill(...)` to build shaped reset initializers.
++ Use `mem.fill(...)` to build shaped reset initializers.
 + Materialize named intermediate wires with `expr(...)`.
 + Describe sequential or combinational behavior with `always_ff`,
   `always_latch`, and `always_comb`.
@@ -42,7 +42,7 @@ SystemVerilog.
   and `.or(...)`, and reductions with `.or_r` / `.and_r`.
 + Use `sig[i]`, `sig[msb, lsb]` or `sig[msb..lsb]`, and `sig[base, :+, w]` /
   `sig[base, :-, w]` for bit-select and slicing.
-+ While `arr(...)` / `mem(...)` dimensions remain, `sig[...]` only accepts a
++ While `mem(...)` dimensions remain, `sig[...]` only accepts a
   single index.
 + Emit the final module with `to_sv` or `to_sv(path)`.
 
@@ -156,36 +156,30 @@ counter_def = Counter.definition(width: 8)
 top = Top.new(counter_def: counter_def)
 ```
 
-== Packed arrays and unpacked memories
+== Unpacked memories
 
-Use `arr(...)` to add packed dimensions before the scalar bit width and `mem(...)`
-to add unpacked dimensions after the variable name. They build anonymous data
-types, so you pass the resulting type to `wire(...)`, `reg(...)`, or a port
-declaration. For multiple dimensions, use either `arr([i, j, k], uint(8))` /
-`mem([i, j, k], uint(8))` or the variadic forms `arr(i, j, k, uint(8))` /
-`mem(i, j, k, uint(8))`.
+Use `mem(...)` to add unpacked dimensions after the variable name. This builds
+anonymous data types, so you pass the resulting type to `wire(...)`, `reg(...)`,
+or a port declaration. For multiple dimensions, use either
+`mem([i, j, k], uint(8))` or the variadic form `mem(i, j, k, uint(8))`.
 
 ```ruby
-packed = reg("cnt_arr_0", arr([i, j, k], uint(8)))
 memory = reg("cnt_mem_0", mem([i, j, k], uint(8)))
-mixed = reg("cnt_dat", mem([a, b, c], arr([d, e, f], uint(8))))
 filled = reg("cnt_init", mem(16, uint(16)), init: mem.fill(16, uint(16, 0x75)))
 ```
 
 ```systemverilog
-logic [i-1:0][j-1:0][k-1:0][7:0] cnt_arr_0;
-logic [7:0]                      cnt_mem_0[i-1:0][j-1:0][k-1:0];
-logic [d-1:0][e-1:0][f-1:0][7:0] cnt_dat[a-1:0][b-1:0][c-1:0];
-logic [15:0]                     cnt_init[15:0];
+logic [7:0]  cnt_mem_0[i-1:0][j-1:0][k-1:0];
+logic [15:0] cnt_init[15:0];
 ```
 
-As long as a shaped signal still has `arr(...)` / `mem(...)` dimensions left,
+As long as a shaped signal still has `mem(...)` dimensions left,
 `[]` means index selection only. After those dimensions are consumed, plain
 vector indexing and slicing behave the same as before.
 
 == Stream views
 
-`uint(...)`, `arr(...)`, and `mem(...)` values can be treated as enumerable
+`uint(...)` and `mem(...)` values can be treated as enumerable
 views with `sv_take`, `sv_select`, `sv_foreach`, `sv_reduce`, and `sv_map`.
 Enumeration always follows the outermost remaining collection dimension, so
 mixed and multi-dimensional shapes can be traversed step by step.
@@ -290,7 +284,7 @@ A `reg("px", Pixel.new)` declaration generates three separate signals:
 
 Bundles support:
 - Nested bundles: `input "inner", OtherBundle.new` (recursively flattened)
-- `arr`/`mem`: `mem(4, Pixel.new)` → separate signals with unpacked dim
+- `mem`: `mem(4, Pixel.new)` → separate signals with unpacked dim
 - Meta parameters: `def build(w: 8)` with `Pixel.new(w: 16)`
 - Partial reset: only listed fields get reset in `always_ff`
 - Field access: `handler.field_name` for reads and writes

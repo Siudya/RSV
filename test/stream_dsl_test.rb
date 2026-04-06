@@ -47,10 +47,10 @@ class StreamDslTest < Minitest::Test
     assert_includes sv, "res = {nm[6], nm[4], nm[2], nm[0]};"
   end
 
-  def test_packed_arr_stream_map_preserves_word_order
-    mod = module_class("PackedArrStream") do
-      words = input("words", arr([4], uint(8)))
-      out = output("out", arr([2], uint(8)))
+  def test_mem_stream_map_preserves_word_order
+    mod = module_class("MemArrStream") do
+      words = input("words", mem([4], uint(8)))
+      out = output("out", mem([2], uint(8)))
 
       out <= words
         .sv_take(4)
@@ -60,7 +60,7 @@ class StreamDslTest < Minitest::Test
 
     sv = mod.to_sv
 
-    assert_includes sv, "output logic [1:0][7:0] out"
+    assert_includes sv, "output logic [7:0] out[1:0]"
     assert_includes sv, "assign out = {words[1], words[0]};"
   end
 
@@ -106,8 +106,7 @@ class StreamDslTest < Minitest::Test
   def test_mem_word_stream_map_preserves_word_order
     mod = module_class("MemWordStream") do
       words = input("words", mem([4], uint(8)))
-      out = output("out", arr([2], uint(8)))
-
+      out = output("out", mem([2], uint(8)))
       out <= words
         .sv_take(4)
         .sv_select { |_, i| i < 2 }
@@ -116,32 +115,16 @@ class StreamDslTest < Minitest::Test
 
     sv = mod.to_sv
 
-    assert_includes sv, "input  logic [7:0]      words[3:0]"
+    assert_includes sv, "input  logic [7:0] words[3:0]"
     assert_includes sv, "assign out = {words[1], words[0]};"
-  end
-
-  def test_mixed_multidim_stream_map_preserves_nested_shape
-    mod = module_class("MixedStreamMap") do
-      data = input("data", mem([2], arr([3], uint(8))))
-      out = output("out", arr([2, 2], uint(8)))
-
-      out <= data
-        .sv_take(2)
-        .sv_map { |row, _i| row.sv_take(2).sv_map { |v, _j| v } }
-    end.new
-
-    sv = mod.to_sv
-
-    assert_includes sv, "output logic [1:0][1:0][7:0] out"
-    assert_includes sv, "assign out = {{data[1][1], data[1][0]}, {data[0][1], data[0][0]}};"
   end
 
   def test_mixed_multidim_stream_foreach_supports_nested_views
     mod = module_class("MixedStreamForeach") do
       clk = input("clk", clock)
       rst = input("rst", reset)
-      data = input("data", mem([2], arr([3], uint(8))))
-      out = reg("out", mem([2], arr([3], uint(8))), init: mem.fill(2, arr.fill(3, uint(8, 0))))
+      data = input("data", mem([2], mem([3], uint(8))))
+      out = reg("out", mem([2], mem([3], uint(8))), init: mem.fill(2, mem.fill(3, uint(8, 0))))
 
       with_clk_and_rst(clk, rst)
       always_ff do

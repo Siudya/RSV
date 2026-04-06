@@ -45,8 +45,8 @@ class GenerateDemo < ModuleDef
     rst = input("rst", reset)
 
     # ---- Part 1: generate-for with inline logic and genvar indexing ----
-    data_in = input("data_in", arr(n_ch, uint(8)))
-    data_out = output("data_out", arr(n_ch, uint(8)), attr: { "keep" => nil })
+    data_in = input("data_in", mem(n_ch, uint(8)))
+    data_out = output("data_out", mem(n_ch, uint(8)), attr: { "keep" => nil })
 
     generate_for("i", 0, n_ch, label: "gen_reg") do |i|
       r = reg("stage_r", uint(8), init: 0)
@@ -72,7 +72,7 @@ class GenerateDemo < ModuleDef
     pipe_in = input("pipe_in", uint(data_w))
     pipe_out = output("pipe_out", uint(data_w))
 
-    meta_chain = wire("meta_chain", arr(depth + 1, uint(data_w)))
+    meta_chain = wire("meta_chain", mem(depth + 1, uint(data_w)))
     meta_chain[0] <= pipe_in
 
     stage_def = PipeStage.definition(width: data_w)

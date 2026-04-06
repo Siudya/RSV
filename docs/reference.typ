@@ -46,17 +46,11 @@
   value (e.g. `sint(16, 0x57)`). Emits as SV `localparam`. The returned handler
   can be used in expressions but cannot appear on the left side of an
   assignment.
-/ `arr(dims..., type)` / `arr([dims...], type)`: creates an anonymous packed
-  array type. Packed dimensions emit before the scalar width as standard SV
-  ranges like `[n-1:0]`. Nested calls flatten:
-  `arr([i], arr([j], arr([k], t)))` ≡ `arr([i, j, k], t)`.
 / `mem(dims..., type)` / `mem([dims...], type)`: creates an anonymous unpacked
   memory type. Unpacked dimensions emit after the variable name as standard SV
   ranges like `[n-1:0]`. Nested calls flatten:
   `mem([i], mem([j], mem([k], t)))` ≡ `mem([i, j, k], t)`.
-- `arr` and `mem` may be interleaved, but two `arr` calls or two `mem` calls
-  cannot swap their relative order.
-/ `arr.fill(...)` / `mem.fill(...)`: convenience helpers for building shaped
+/ `mem.fill(...)`: convenience helper for building shaped
   reset initializers from anonymous data types that already carry scalar init
   values.
 / `expr(name, rhs, width:)`: infers a wire width, declares a named RSV `wire`
@@ -69,7 +63,7 @@
 / `mux(sel, a, b)`: ternary mux expression. Emits `sel ? a : b` in SV. When
   `sel` is 1, selects `a`; otherwise selects `b`.
 / `mux1h(sel1h, dats)`: one-hot mux. Auto-creates a temp wire and `always_comb`
-  with `unique casez`. `dats` must be an `arr` or `mem` whose highest dimension
+  with `unique casez`. `dats` must be a `mem` whose highest dimension
   length matches `sel1h` width. Usage: `out <= mux1h(sel, dats)` — works at
   module level, in `always_comb`, `always_ff`, or `always_latch`.
 / `muxp(sel, dats, lsb_first: true)`: priority mux. Same as `mux1h` but
@@ -85,7 +79,7 @@
   predicate. The index `i` is the original element index and is not renumbered
   after filtering.
 / `expr.sv_foreach { |elem, i| ... }`: eagerly expands one block invocation per
-  selected element. Stream sources may be `uint`, `arr(...)`, or `mem(...)`, and
+  selected element. Stream sources may be `uint` or `mem(...)`, and
   enumeration always follows the outermost remaining collection dimension.
 / `expr.sv_reduce { |a, b| ... }`: left-folds the selected elements and keeps
   the emitted fold order explicit in SV.
@@ -158,7 +152,7 @@
 - Shift operators use `<<` and `>>`.
 - Bit and part selects use `sig[i]`, `sig[msb, lsb]` or `sig[msb..lsb]`,
   `sig[base, :+, width]`, and `sig[base, :-, width]`.
-- While packed or unpacked `arr(...)` / `mem(...)` dimensions remain on a
+- While `mem(...)` dimensions remain on a
   signal, `sig[...]` only accepts a single index. The index must be a hardware
   `uint` or an integer literal. Vector slicing resumes after those dimensions
   are consumed.
@@ -237,8 +231,6 @@ inferred width and computed init value:
 
 - Call `mod.v_wrapper` on a built module to generate a Verilog-compatible
   wrapper with flat ports.
-- Packed array ports (e.g. `arr(4, uint(8))`) are flattened to a single
-  `[31:0]` bit vector and connected directly.
 - Unpacked array ports (e.g. `mem(3, uint(16))`) are expanded to individual
   scalar ports (`port_0`, `port_1`, ...) and reassembled via SV array wires.
 - Bundle ports are already flattened at declaration time: each bundle field
@@ -272,7 +264,7 @@ inferred width and computed init value:
   Returns a field handle for use in the Ruby scope. The Ruby variable name
   may differ from the SV field name for encryption-friendly naming.
 - `MyBundle.new` returns a `DataType` usable with `iodecl`, `wire`,
-  `reg`, `arr`, `mem`, etc.
+  `reg`, `mem`, etc.
 - Bundle fields are flattened to individual signals at declaration time.
   E.g. `reg("px", Pixel.new)` produces `px_r`, `px_g`, `px_b`.
 - Nested bundles are recursively flattened: `outer_inner_field`.

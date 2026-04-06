@@ -60,7 +60,7 @@ module RSV
   module HandlerDelegation
     DELEGATED_METHODS = %i[
       name width signed kind init
-      packed_dims unpacked_dims base_name
+      unpacked_dims base_name
       to_s element_width
     ].freeze
 

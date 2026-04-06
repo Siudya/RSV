@@ -40,16 +40,9 @@ module RSV
     end
 
     def packed_dim(width)
-      return nil if width == 1 || width == "1"
+      return "" if width == 1 || width == "1"
 
       decl_range(width)
-    end
-
-    def packed_decl_dims(width, packed_dims)
-      dims = packed_dims.map { |dim| decl_range(dim) }
-      scalar = packed_dim(width)
-      dims << scalar if scalar
-      dims.join
     end
 
     def unpacked_decl_dims(unpacked_dims)
@@ -91,7 +84,7 @@ module RSV
 
       entries = ports.map do |port|
         signed_str = port.signed ? "signed " : ""
-        dims = packed_decl_dims(port.width, port.packed_dims)
+        dims = packed_dim(port.width)
         type_part = "logic #{signed_str}#{dims}".rstrip
         name_part = "#{port.name}#{unpacked_decl_dims(port.unpacked_dims)}"
         { dir: port.dir.to_s, type: type_part, name: name_part, attr: port.attr }
@@ -115,8 +108,8 @@ module RSV
       entries = locals.map do |sig|
         packed_field = []
         packed_field << "signed" if sig.signed
-        decl_dims = packed_decl_dims(sig.width, sig.packed_dims)
-        packed_field << decl_dims unless decl_dims.empty?
+        dims = packed_dim(sig.width)
+        packed_field << dims unless dims.empty?
         init_value = sig.init.nil? ? nil : emit_literal_init(sig.init, sig.width)
         is_const = sig.is_a?(ConstDecl)
         {
@@ -474,16 +467,12 @@ module RSV
     end
 
     def collect_mux_entries(dats)
-      if dats.is_a?(SignalHandler) && (!dats.unpacked_dims.empty? || !dats.packed_dims.empty?)
-        dim = if !dats.unpacked_dims.empty?
-          RSV.dimension_value(dats.unpacked_dims.first)
-        else
-          RSV.dimension_value(dats.packed_dims.first)
-        end
+      if dats.is_a?(SignalHandler) && !dats.unpacked_dims.empty?
+        dim = RSV.dimension_value(dats.unpacked_dims.first)
         return (0...dim).map { |i| IndexExpr.new(dats, LiteralExpr.new(i)) }
       end
 
-      raise ArgumentError, "mux1h/muxp dats must be an arr or mem signal"
+      raise ArgumentError, "mux1h/muxp dats must be a mem signal"
     end
 
     def build_mux1h_pattern(width, idx)

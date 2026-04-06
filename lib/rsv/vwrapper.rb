@@ -2,7 +2,7 @@
 
 module RSV
   # Generates a Verilog-compatible wrapper module for an SV module.
-  # Expands arr/mem into flat Verilog-friendly ports.
+  # Expands mem into flat Verilog-friendly ports.
   class VerilogWrapperGenerator
     INDENT = "  "
 
@@ -71,17 +71,15 @@ module RSV
       if has_unpacked_dims?(port)
         flatten_unpacked_port(port)
       else
-        total = compute_packed_width_from(port.width, port.packed_dims)
-        [FlatPort.new(dir_str(port.dir), total, port.name, port.name, port.signed)]
+        [FlatPort.new(dir_str(port.dir), port.width, port.name, port.name, port.signed)]
       end
     end
 
     def flatten_unpacked_port(port)
-      elem_w = compute_packed_width_from(port.width, port.packed_dims)
       count = port.unpacked_dims.reduce(1) { |acc, d| acc * dim_value(d) }
       count.times.map do |i|
         FlatPort.new(
-          dir_str(port.dir), elem_w,
+          dir_str(port.dir), port.width,
           "#{port.name}_#{i}", "#{port.name}_sv[#{i}]",
           port.signed
         )
@@ -98,10 +96,9 @@ module RSV
       ports.each do |port|
         next unless has_unpacked_dims?(port)
 
-        elem_w = compute_packed_width_from(port.width, port.packed_dims)
         count = port.unpacked_dims.reduce(1) { |acc, d| acc * dim_value(d) }
         signed_str = port.signed ? "signed " : ""
-        lines << "#{INDENT}wire #{signed_str}#{range_str(elem_w)}#{port.name}_sv [0:#{count - 1}];"
+        lines << "#{INDENT}wire #{signed_str}#{range_str(port.width)}#{port.name}_sv [0:#{count - 1}];"
         count.times do |i|
           flat_name = "#{port.name}_#{i}"
           if port.dir == :input
@@ -128,12 +125,6 @@ module RSV
       when Integer then expr
       else raise ArgumentError, "cannot flatten non-constant dimension: #{expr.class}"
       end
-    end
-
-    def compute_packed_width_from(width, packed_dims)
-      total = width
-      packed_dims.each { |d| total *= dim_value(d) }
-      total
     end
 
     def dir_str(dir)

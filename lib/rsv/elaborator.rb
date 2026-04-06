@@ -26,7 +26,6 @@ module RSV
         width: local.width,
         signed: local.signed,
         init: local.init,
-        packed_dims: local.packed_dims,
         unpacked_dims: local.unpacked_dims
       )
       return ConstDecl.new(spec, init: local.init, attr: local.attr) if local.is_a?(ConstDecl)
@@ -159,12 +158,11 @@ module RSV
         width: local.width,
         signed: local.signed,
         kind: :logic,
-        packed_dims: local.packed_dims,
         unpacked_dims: local.unpacked_dims
       )
 
       rhs = elaborate_expr(RSV.reset_init_expr(local.reset_init, local.width), target_width: local.width)
-      dims = local.unpacked_dims + local.packed_dims
+      dims = local.unpacked_dims
       build_reset_loop(lhs, dims, rhs, local.name, 0)
     end
 
@@ -271,7 +269,6 @@ module RSV
           expr.parts_low_to_high.map { |part| elaborate_expr(part) },
           width: expr.width,
           signed: expr.signed,
-          packed_dims: expr.packed_dims,
           unpacked_dims: expr.unpacked_dims
         )
       else

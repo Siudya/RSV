@@ -31,7 +31,7 @@ xmake rtl -f syn
   [`mux_cases`], [`mux`], [`mux` / `mux1h` / `muxp`],
   [`pop_count_demo`], [`pop`], [`pop_count` / `log2ceil`],
   [`case_demo`], [`cas`], [`svcase` / `svcasez` / `unique` / `priority`],
-  [`storage_streams`], [`str`], [arr/mem 形态、fill 与流式 API],
+  [`storage_streams`], [`str`], [mem 形态、fill 与流式 API],
   [`sv_plugin_demo`], [`svp`], [内嵌原始 SystemVerilog 代码],
   [`syntax_showcase`], [`syn`], [操作符、切片、类型转换与过程块],
   [`verilog_wrapper`], [`vwr`], [Verilog 兼容 wrapper 生成],
@@ -106,8 +106,8 @@ xmake rtl -f syn
 数组/存储器形态与流式操作。
 
 - 端口声明: `input`, `output`
-- 类型构造: `clock`, `reset`, `bit`, `uint`, `arr`, `mem`（嵌套混合形态）
-- 局部声明: `reg`（含 `arr.fill()`, `mem.fill()`）
+- 类型构造: `clock`, `reset`, `bit`, `uint`, `mem`（嵌套形态）
+- 局部声明: `reg`（含 `mem.fill()`）
 - 赋值: `<=`
 - 数组索引: `[]`（packed 数组、memory、混合形态）
 - 流式 API: `.sv_take()`, `.sv_select()`, `.sv_map()`, `.sv_reduce()`, `.sv_foreach()`
@@ -207,7 +207,7 @@ SystemVerilog 预处理宏指令。
 综合的 generate 块演示，结合 meta\_param、const、attr、definition/instance 等特性。
 
 - 端口声明: `input`, `output`
-- 类型构造: `clock`, `reset`, `uint`, `arr`
+- 类型构造: `clock`, `reset`, `uint`, `mem`
 - 局部声明: `reg`, `wire`, `const`
 - 硬件属性: `attr: { "keep" => nil }` 用于端口标注
 - meta 参数: `depth`, `data_w`, `mode`, `n_ch` 用作 generate 循环上界和 Ruby 条件判断
@@ -242,7 +242,7 @@ meta\_param 参数化模块。
 Verilog 兼容 wrapper 产生器，展示所有端口类型的展开。
 
 - 端口声明: `input`, `output`
-- 类型构造: `clock`, `reset`, `arr`, `mem`, `uint`, `bit`
+- 类型构造: `clock`, `reset`, `mem`, `uint`, `bit`
 - Bundle 定义: `BundleDef` + `field` 声明
 - 局部声明: `reg`(含初始值)
 - 赋值: `<=`
@@ -299,7 +299,7 @@ Bundle 类型展开为扁平信号的综合演示。
   [`input`/`output`/`inout`], [所有示例],
   [`uint`/`sint`/`bit`/`bits`], [counter, syntax\_showcase, const\_demo 等],
   [`clock`/`reset`], [counter, syntax\_showcase, storage\_streams, generate\_demo, curried\_params, verilog\_wrapper],
-  [`arr`/`mem`], [storage\_streams, mux\_cases, verilog\_wrapper, generate\_demo],
+  [`mem`], [storage\_streams, mux\_cases, verilog\_wrapper, generate\_demo],
   [`wire`/`reg`], [counter, syntax\_showcase, storage\_streams, mux\_cases 等],
   [`const`(localparam)], [const\_demo, generate\_demo],
   [`<=`/`>=` 赋值], [所有示例 / auto\_dedup, manual\_dedup, syntax\_showcase],
@@ -338,7 +338,7 @@ Bundle 类型展开为扁平信号的综合演示。
   [Bundle 嵌套], [bundle\_and\_interface],
   [Bundle 部分初始化], [bundle\_and\_interface],
   [Bundle 字段访问], [bundle\_and\_interface],
-  [Bundle + `mem`/`arr`], [bundle\_and\_interface],
+  [Bundle + `mem`], [bundle\_and\_interface],
   [Bundle 扁平展开], [bundle\_and\_interface],
   [Bundle 整体赋值], [bundle\_and\_interface],
 )

@@ -4,7 +4,7 @@ RSV is a lightweight Ruby DSL for generating readable SystemVerilog with a
 class-based module API.
 
 RSV covers class-based module construction, anonymous `bit` / `uint` / `sint`
-/ `arr` / `mem` types, procedural blocks, generate blocks, macro helpers,
+/ `mem` types, procedural blocks, generate blocks, macro helpers,
 `BundleDef` (bundle type, flattened to individual signals),
 imported black-box modules, Verilog wrapper emission, and inline
 SystemVerilog escape hatches.
@@ -81,7 +81,7 @@ This generates `build/rsv_doc.pdf`.
 | Module structure | ports, locals, continuous `assign`, readable alignment |
 | Procedural RTL | `always_ff`, `always_comb`, `always_latch`, reset injection, chained `svif`/`svelif`/`svelse` |
 | Case statements | `svcase`, `svcasez`, `svcasex` with `unique`/`priority` qualifiers and `?` wildcards |
-| Data shapes | packed `arr`, unpacked `mem`, mixed shapes, indexing and slices |
+| Data shapes | unpacked `mem`, indexing and slices |
 | Expressions | arithmetic, compare, logical, reduction, shifts, `mux`, `cat`, `fill`, `$signed` |
 | Utilities | `log2ceil`, `pop_count`, `mux1h`, `muxp` |
 | Elaboration-time features | `generate_for`, `generate_if`, `definition` / `instance`, `meta_param` |

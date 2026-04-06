@@ -200,30 +200,28 @@ module RSV
     end
 
     def fill(*dims_and_type)
-      @module_def.send(:compose_data_type, *dims_and_type, storage: @storage)
+      @module_def.send(:compose_data_type, *dims_and_type)
     end
   end
 
   # Anonymous RSV data type used to define named hardware objects.
   # Non-hardware DataType instances with init values support Ruby-time arithmetic.
   class DataType
-    attr_reader :width, :signed, :init, :packed_dims, :unpacked_dims, :bundle_type
+    attr_reader :width, :signed, :init, :unpacked_dims, :bundle_type
 
-    def initialize(width:, signed: false, init: nil, packed_dims: [], unpacked_dims: [], bundle_type: nil)
+    def initialize(width:, signed: false, init: nil, unpacked_dims: [], bundle_type: nil, **_kw)
       @width = width
       @signed = signed
       @init = init
-      @packed_dims = packed_dims.dup
       @unpacked_dims = unpacked_dims.dup
       @bundle_type = bundle_type
     end
 
-    def append_dimensions(packed: [], unpacked: [])
+    def append_dimensions(unpacked: [], **_kw)
       DataType.new(
         width: @width,
         signed: @signed,
         init: @init,
-        packed_dims: @packed_dims + packed,
         unpacked_dims: @unpacked_dims + unpacked,
         bundle_type: @bundle_type
       )
@@ -234,7 +232,7 @@ module RSV
     end
 
     def scalar?
-      @packed_dims.empty? && @unpacked_dims.empty? && @width.is_a?(Integer) && !@init.nil? && @init.is_a?(Integer)
+      @unpacked_dims.empty? && @width.is_a?(Integer) && !@init.nil? && @init.is_a?(Integer)
     end
 
     def +(other)
@@ -718,20 +716,18 @@ module RSV
 
   # Internal named signal declaration spec used by ports/locals.
   class SignalSpec
-    attr_reader :name, :width, :signed, :init, :packed_dims, :unpacked_dims, :bundle_type
+    attr_reader :name, :width, :signed, :init, :unpacked_dims, :bundle_type
 
-    def initialize(name, width:, signed: false, init: nil, packed_dims: [], unpacked_dims: [], bundle_type: nil)
+    def initialize(name, width:, signed: false, init: nil, unpacked_dims: [], bundle_type: nil, **_kw)
       @name         = name
       @width        = width
       @signed       = signed
       @init         = init
-      @packed_dims   = packed_dims.dup
       @unpacked_dims = unpacked_dims.dup
       @bundle_type  = bundle_type
     end
 
-    def append_dimensions!(packed: [], unpacked: [])
-      @packed_dims.concat(packed)
+    def append_dimensions!(unpacked: [], **_kw)
       @unpacked_dims.concat(unpacked)
       self
     end
@@ -816,26 +812,23 @@ module RSV
     include ExprOps
     include AssignableExpr
 
-    attr_reader :base, :index, :packed_dims, :unpacked_dims
+    attr_reader :base, :index, :unpacked_dims
 
     def initialize(base, index)
       @base = RSV.normalize_expr(base)
       @index = RSV.normalize_expr(index)
-      @packed_dims = RSV.expr_packed_dims(@base).dup
       @unpacked_dims = RSV.expr_unpacked_dims(@base).dup
       @element_width = RSV.element_width(@base)
 
       if !@unpacked_dims.empty?
         @unpacked_dims = @unpacked_dims.drop(1)
-      elsif !@packed_dims.empty?
-        @packed_dims = @packed_dims.drop(1)
       else
         @element_width = 1
       end
     end
 
     def width
-      RSV.flatten_packed_width(@element_width, @packed_dims) || (@packed_dims.empty? ? @element_width : nil)
+      @element_width
     end
 
     def element_width
@@ -926,13 +919,12 @@ module RSV
   class PackedCollectionExpr
     include ExprOps
 
-    attr_reader :parts_low_to_high, :width, :signed, :packed_dims, :unpacked_dims
+    attr_reader :parts_low_to_high, :width, :signed, :unpacked_dims
 
-    def initialize(parts_low_to_high, width:, signed: false, packed_dims: [], unpacked_dims: [])
+    def initialize(parts_low_to_high, width:, signed: false, unpacked_dims: [], **_kw)
       @parts_low_to_high = parts_low_to_high.map { |part| RSV.normalize_expr(part) }
       @width = width
       @signed = signed
-      @packed_dims = packed_dims.dup
       @unpacked_dims = unpacked_dims.dup
     end
 
@@ -945,12 +937,9 @@ module RSV
     def self.from(expr)
       expr = RSV.normalize_expr(expr)
       unpacked_dims = RSV.expr_unpacked_dims(expr)
-      packed_dims = RSV.expr_packed_dims(expr)
 
       entries = if !unpacked_dims.empty?
         build_unpacked_entries(expr, unpacked_dims.first)
-      elsif !packed_dims.empty?
-        build_packed_entries(expr, packed_dims.first)
       else
         build_scalar_entries(expr)
       end
@@ -969,13 +958,6 @@ module RSV
       return [StreamEntry.new(expr, 0)] if width == 1
 
       (0...width).map { |i| StreamEntry.new(IndexExpr.new(expr, LiteralExpr.new(i)), i) }
-    end
-
-    def self.build_packed_entries(expr, dim)
-      length = RSV.dimension_value(dim)
-      raise ArgumentError, "sv_stream requires statically known packed dimensions" unless length.is_a?(Integer) && length.positive?
-
-      (0...length).map { |i| StreamEntry.new(IndexExpr.new(expr, LiteralExpr.new(i)), i) }
     end
 
     def self.build_unpacked_entries(expr, dim)
@@ -1039,19 +1021,19 @@ module RSV
       first = mapped.first
       expected_shape = RSV.expr_shape_signature(first)
       unless mapped.all? { |expr| RSV.expr_shape_signature(expr) == expected_shape }
-        raise ArgumentError, "sv_map results must all have the same packed shape"
+        raise ArgumentError, "sv_map results must all have the same shape"
       end
 
       unpacked_dims = RSV.expr_unpacked_dims(first)
       unless unpacked_dims.empty?
-        raise ArgumentError, "sv_map phase 1 only supports packed result shapes"
+        raise ArgumentError, "sv_map phase 1 only supports scalar result shapes"
       end
 
       PackedCollectionExpr.new(
         mapped,
         width: RSV.element_width(first),
         signed: RSV.expr_signed(first),
-        packed_dims: [mapped.length] + RSV.expr_packed_dims(first)
+        unpacked_dims: [mapped.length]
       )
     end
   end
@@ -1065,15 +1047,14 @@ module RSV
     include ExprOps
     include AssignableExpr
 
-    attr_reader :name, :width, :signed, :kind, :init, :packed_dims, :unpacked_dims, :bundle_type
+    attr_reader :name, :width, :signed, :kind, :init, :unpacked_dims, :bundle_type
 
-    def initialize(name, width: 1, signed: false, kind: nil, init: nil, packed_dims: [], unpacked_dims: [], bundle_type: nil)
+    def initialize(name, width: 1, signed: false, kind: nil, init: nil, unpacked_dims: [], bundle_type: nil, **_kw)
       @name         = name
       @width        = width
       @signed       = signed
       @kind         = kind
       @init         = init
-      @packed_dims   = packed_dims.dup
       @unpacked_dims = unpacked_dims.dup
       @bundle_type  = bundle_type
     end
@@ -1085,14 +1066,12 @@ module RSV
         signed: @signed,
         kind: @kind,
         init: @init,
-        packed_dims: @packed_dims,
         unpacked_dims: @unpacked_dims,
         bundle_type: @bundle_type
       )
     end
 
-    def append_dimensions!(packed: [], unpacked: [])
-      @packed_dims.concat(packed)
+    def append_dimensions!(unpacked: [], **_kw)
       @unpacked_dims.concat(unpacked)
       self
     end
@@ -1157,10 +1136,6 @@ module RSV
 
     def signed
       @port.signed
-    end
-
-    def packed_dims
-      @port.packed_dims
     end
 
     def unpacked_dims
@@ -1257,21 +1232,19 @@ module RSV
 
   # Represents an input / output / inout port declaration.
   class PortDecl
-    attr_reader :dir, :name, :width, :signed, :packed_dims, :unpacked_dims, :raw_type, :attr
+    attr_reader :dir, :name, :width, :signed, :unpacked_dims, :raw_type, :attr
 
     def initialize(dir, signal, raw_type: nil, attr: nil)
       @dir          = dir    # :input | :output | :inout
       @name         = signal.name
       @width        = signal.width  # Integer or String (e.g. "WIDTH")
       @signed       = signal.signed
-      @packed_dims   = signal.packed_dims.dup
       @unpacked_dims = signal.unpacked_dims.dup
       @raw_type      = raw_type
       @attr          = attr  # Hash or nil: { "mark_debug" => "true" } or { "keep" => nil }
     end
 
-    def append_dimensions!(packed: [], unpacked: [])
-      @packed_dims.concat(packed)
+    def append_dimensions!(unpacked: [], **_kw)
       @unpacked_dims.concat(unpacked)
       self
     end
@@ -1291,14 +1264,13 @@ module RSV
 
   # Represents a localparam constant declaration.
   class ConstDecl
-    attr_reader :name, :width, :signed, :init, :packed_dims, :unpacked_dims, :attr
+    attr_reader :name, :width, :signed, :init, :unpacked_dims, :attr
 
     def initialize(signal, init:, attr: nil)
       @name         = signal.name
       @width        = signal.width
       @signed       = signal.signed
       @init         = init
-      @packed_dims   = signal.packed_dims.dup
       @unpacked_dims = signal.unpacked_dims.dup
       @attr          = attr
     end
@@ -1310,7 +1282,7 @@ module RSV
 
   # Represents a local wire / logic / reg signal declaration.
   class LocalDecl
-    attr_reader :kind, :name, :width, :signed, :init, :reset_init, :packed_dims, :unpacked_dims, :attr
+    attr_reader :kind, :name, :width, :signed, :init, :reset_init, :unpacked_dims, :attr
 
     def initialize(kind, signal, init: signal.init, reset_init: nil, attr: nil)
       @kind         = kind
@@ -1319,7 +1291,6 @@ module RSV
       @signed       = signal.signed
       @init         = init
       @reset_init    = reset_init
-      @packed_dims   = signal.packed_dims.dup
       @unpacked_dims = signal.unpacked_dims.dup
       @attr          = attr
     end
@@ -1332,8 +1303,7 @@ module RSV
       !@reset_init.nil?
     end
 
-    def append_dimensions!(packed: [], unpacked: [])
-      @packed_dims.concat(packed)
+    def append_dimensions!(unpacked: [], **_kw)
       @unpacked_dims.concat(unpacked)
       self
     end
@@ -1596,7 +1566,7 @@ module RSV
 
     case expr
     when SignalHandler, InstancePortHandler, ClockSignal, ResetSignal
-      flatten_packed_width(expr.width, expr.packed_dims)
+      expr.width
     when RawExpr
       nil
     when LiteralExpr
@@ -1622,7 +1592,7 @@ module RSV
     when FillExpr
       expr.width
     when PackedCollectionExpr
-      flatten_packed_width(expr.width, expr.packed_dims)
+      expr.width
     else
       nil
     end
@@ -1655,13 +1625,11 @@ module RSV
     return true unless init.is_a?(DataType)
 
     type.width == init.width &&
-      dims_match?(type.packed_dims, init.packed_dims) &&
       dims_match?(type.unpacked_dims, init.unpacked_dims)
   end
 
   def self.shape_dims(type_or_signal)
     [
-      type_or_signal.respond_to?(:packed_dims) ? type_or_signal.packed_dims : [],
       type_or_signal.respond_to?(:unpacked_dims) ? type_or_signal.unpacked_dims : []
     ]
   end
@@ -1758,11 +1726,6 @@ module RSV
     raise TypeError, "module definition expects an elaborated module or a definition handle"
   end
 
-  def self.expr_packed_dims(expr)
-    expr = normalize_expr(expr)
-    expr.respond_to?(:packed_dims) ? expr.packed_dims : []
-  end
-
   def self.expr_signed(expr)
     expr = normalize_expr(expr)
     expr.respond_to?(:signed) ? expr.signed : false
@@ -1778,13 +1741,12 @@ module RSV
     [
       element_width(expr),
       expr_signed(expr),
-      expr_packed_dims(expr).map { |dim| dimension_key(dim) },
       expr_unpacked_dims(expr).map { |dim| dimension_key(dim) }
     ]
   end
 
   def self.index_only_expr?(expr)
-    !expr_packed_dims(expr).empty? || !expr_unpacked_dims(expr).empty?
+    !expr_unpacked_dims(expr).empty?
   end
 
   def self.validate_index(idx)
@@ -1807,20 +1769,6 @@ module RSV
     return expr.width if expr.respond_to?(:width)
 
     nil
-  end
-
-  def self.flatten_packed_width(width, packed_dims)
-    return width if packed_dims.empty?
-    return nil unless width.is_a?(Integer)
-
-    total = width
-    packed_dims.each do |dim|
-      value = dimension_value(dim)
-      return nil unless value.is_a?(Integer)
-
-      total *= value
-    end
-    total
   end
 
   def self.dimension_value(dim)

@@ -381,11 +381,12 @@ module RSV
         )
       end
       ports = signature.fetch("ports").map do |port|
+        w = port.fetch("width")
+        port.fetch("packed_dims").each { |d| w *= d }
         signal = SignalSpec.new(
           port.fetch("name"),
-          width: port.fetch("width"),
+          width: w,
           signed: port.fetch("signed"),
-          packed_dims: port.fetch("packed_dims"),
           unpacked_dims: port.fetch("unpacked_dims")
         )
         PortDecl.new(port.fetch("direction").to_sym, signal, raw_type: port["raw_type"])

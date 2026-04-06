@@ -51,12 +51,8 @@ module RSV
     def build(*args, **kwargs)
     end
 
-    def arr(*dims_and_target)
-      compose_data_type(*dims_and_target, storage: :packed)
-    end
-
     def mem(*dims_and_target)
-      compose_data_type(*dims_and_target, storage: :unpacked)
+      compose_data_type(*dims_and_target)
     end
 
     def input(name, data_type)
@@ -96,7 +92,6 @@ module RSV
         dt = f.data_type
         if dt.bundle_type
           dim_str = ""
-          dt.packed_dims.each { |d| dim_str += "[#{RSV.format_dim(d)}]" }
           dt.unpacked_dims.each { |d| dim_str += "[#{RSV.format_dim(d)}]" }
           lines << "  #{f.dir} #{dt.bundle_type.type_name} #{f.name}#{dim_str};"
         else
@@ -128,29 +123,18 @@ module RSV
     def field_bit_width(dt)
       base = dt.width
       return 0 unless base.is_a?(Integer)
-
-      total = base
-      dt.packed_dims.each do |d|
-        return 0 unless d.is_a?(Integer)
-        total *= d
-      end
-      total
+      base
     end
 
-    def compose_data_type(*dims_and_target, storage:)
-      raise ArgumentError, "arr/mem expects dimensions + type" if dims_and_target.length < 2
+    def compose_data_type(*dims_and_target)
+      raise ArgumentError, "mem expects dimensions + type" if dims_and_target.length < 2
 
       target = RSV.normalize_data_type(dims_and_target[-1])
       dims = dims_and_target[0...-1]
       dims = dims.first if dims.length == 1 && dims.first.is_a?(Array)
       dims = Array(dims).flatten.map { |d| RSV.normalize_expr(d) }
 
-      case storage
-      when :packed
-        target.append_dimensions(packed: dims)
-      when :unpacked
-        target.append_dimensions(unpacked: dims)
-      end
+      target.append_dimensions(unpacked: dims)
     end
   end
 end

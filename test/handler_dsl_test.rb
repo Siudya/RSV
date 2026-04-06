@@ -47,7 +47,6 @@ class HandlerDslTest < Minitest::Test
     assert_respond_to mod, :sint
     assert_respond_to mod, :clock
     assert_respond_to mod, :reset
-    assert_respond_to mod, :arr
     assert_respond_to mod, :mem
     assert_respond_to mod, :mux
     assert_respond_to mod, :mux1h
@@ -376,8 +375,8 @@ class HandlerDslTest < Minitest::Test
     mod = module_class("GenForTest") {
       clk = input("clk", clock)
       rst = input("rst", reset)
-      d = input("d", arr(4, uint(8)))
-      q = output("q", arr(4, uint(8)))
+      d = input("d", mem(4, uint(8)))
+      q = output("q", mem(4, uint(8)))
       with_clk_and_rst(clk, rst)
       generate_for("i", 0, 4, label: "gen_pipe") do |i|
         r = reg("r", uint(8))
@@ -418,8 +417,8 @@ class HandlerDslTest < Minitest::Test
 
   def test_generate_for_without_label
     mod = module_class("GenForNoLabel") {
-      d = input("d", arr(2, uint(4)))
-      q = output("q", arr(2, uint(4)))
+      d = input("d", mem(2, uint(4)))
+      q = output("q", mem(2, uint(4)))
       generate_for("j", 0, 2) do |j|
         q[j] <= d[j]
       end
@@ -494,19 +493,6 @@ class HandlerDslTest < Minitest::Test
     assert_includes wrapper, ".a(a)"
     assert_includes wrapper, ".b(b)"
     refute_includes wrapper, "_sv"
-  end
-
-  def test_v_wrapper_packed_array
-    klass = module_class("WrapPacked") do
-      data = input("data", arr(4, uint(8)))
-      r = output("result", uint(1))
-      r <= data[0][0]
-    end
-    mod = klass.new("wrap_packed")
-    wrapper = mod.v_wrapper
-    assert_includes wrapper, "[  31:0] data"
-    assert_includes wrapper, ".data(data)"
-    refute_includes wrapper, "data_0"
   end
 
   def test_v_wrapper_unpacked_array
@@ -613,19 +599,6 @@ class HandlerDslTest < Minitest::Test
     assert_includes wrapper, "fifo_r"
     assert_includes wrapper, "fifo_g"
     assert_includes wrapper, "fifo_b"
-  end
-
-  def test_v_wrapper_packed_arr_bundle
-    klass = module_class("WrapPackedBundle") do
-      d = input("d", arr(4, uint(8)))
-      r = output("r", uint(1))
-      r <= d[0][0]
-    end
-    mod = klass.new("wrap_packed_bundle")
-    wrapper = mod.v_wrapper
-    # Packed arr flattens to flat bit vector (existing behavior)
-    assert_includes wrapper, "[  31:0] d"
-    assert_includes wrapper, ".d(d)"
   end
 
   private
