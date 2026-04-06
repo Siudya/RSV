@@ -76,6 +76,10 @@
   with a for-loop accumulator. Counts 1-bits in `vec`. Output width is
   `log2ceil(vec.width + 1)`. The returned handler can be reused.
   Works at module level, in `always_comb`, `always_ff`, or `always_latch`.
+/ `bundle.as_uint` / `mem.as_uint`: concatenate all leaf fields/elements into a uint.
+  For bundles, first-declared field at MSB; for mem, highest index at MSB.
+  Returns a `CatExpr`. Usage: `packed <= pxl.as_uint`, `expr("p", mem.as_uint)`.
+/ `bundle.get_width` / `mem.get_width`: total bit width including all dimensions.
 / `log2ceil(n)`: pure Ruby utility. Returns `ceil(log2(n))` — the minimum number
   of bits to address `n` items. Available in module `build` blocks and as `RSV.log2ceil(n)`.
 / `expr.sv_take(n)`: starts a stream view and keeps the first `n` elements.

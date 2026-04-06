@@ -417,6 +417,113 @@ class NewTypesDslTest < Minitest::Test
     assert_includes sv, "assign out_g = sel_muxp_lo_dats_g;"
   end
 
+  # ── as_uint ──────────────────────────────────────────────────────────────
+
+  def test_bundle_as_uint
+    pxl_cls = Class.new(RSV::BundleDef) do
+      define_singleton_method(:name) { "Pixel" }
+      def build
+        input("r", uint(8))
+        input("g", uint(8))
+        input("b", uint(8))
+      end
+    end
+
+    mod = module_class("BundleAsUint") do
+      pxl = wire("pxl", pxl_cls.new)
+      pxl_pack = wire("pxl_pack", uint(pxl.get_width))
+      pxl_pack <= pxl.as_uint
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "logic [23:0] pxl_pack"
+    assert_includes sv, "assign pxl_pack = {pxl_r, pxl_g, pxl_b};"
+  end
+
+  def test_nested_bundle_as_uint
+    pxl_cls = Class.new(RSV::BundleDef) do
+      define_singleton_method(:name) { "Pixel" }
+      def build
+        input("r", uint(8))
+        input("g", uint(8))
+        input("b", uint(8))
+      end
+    end
+
+    frm_cls = Class.new(RSV::BundleDef) do
+      define_singleton_method(:name) { "Frame" }
+      define_method(:build) do
+        input("pixel", pxl_cls.new)
+        input("x_pos", uint(12))
+        input("y_pos", uint(12))
+        input("last", bit)
+      end
+    end
+
+    mod = module_class("NestedAsUint") do
+      frm = wire("frm", frm_cls.new)
+      frm_pack = expr("frm_pack", frm.as_uint)
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "logic [48:0] frm_pack"
+    assert_includes sv, "assign frm_pack = {frm_pixel_r, frm_pixel_g, frm_pixel_b, frm_x_pos, frm_y_pos, frm_last};"
+  end
+
+  def test_mem_bundle_as_uint
+    pxl_cls = Class.new(RSV::BundleDef) do
+      define_singleton_method(:name) { "Pixel" }
+      def build
+        input("r", uint(8))
+        input("g", uint(8))
+        input("b", uint(8))
+      end
+    end
+
+    mod = module_class("MemBundleAsUint") do
+      pxls = wire("pxls", mem(4, pxl_cls.new))
+      pxls_pack = expr("pxls_pack", pxls.as_uint)
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "logic [95:0] pxls_pack"
+    assert_includes sv, "{pxls_r[3], pxls_g[3], pxls_b[3]}"
+    assert_includes sv, "{pxls_r[0], pxls_g[0], pxls_b[0]}"
+  end
+
+  def test_mem_scalar_as_uint
+    mod = module_class("MemScalarAsUint") do
+      vals = wire("vals", mem(4, uint(8)))
+      packed = expr("packed", vals.as_uint)
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "logic [31:0] packed"
+    assert_includes sv, "assign packed = {vals[3], vals[2], vals[1], vals[0]};"
+  end
+
+  def test_bundle_get_width
+    pxl_cls = Class.new(RSV::BundleDef) do
+      define_singleton_method(:name) { "Pixel" }
+      def build
+        input("r", uint(8))
+        input("g", uint(8))
+        input("b", uint(8))
+      end
+    end
+
+    mod = module_class("GetWidth") do
+      pxl = wire("pxl", pxl_cls.new)
+      pxls = wire("pxls", mem(4, pxl_cls.new))
+      wire("w1", uint(pxl.get_width))
+      wire("w2", uint(pxls.get_width))
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "logic [23:0] w1"
+    assert_includes sv, "logic [95:0] w2"
+  end
+
   # ── cat ───────────────────────────────────────────────────────────────────
 
   def test_cat_emits_concatenation

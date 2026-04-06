@@ -643,6 +643,30 @@ module RSV
       end
     end
 
+    # Total bit width of all leaf fields including unpacked dimensions.
+    def get_width
+      base = leaf_handlers.sum { |h| h.width }
+      @unpacked_dims.each { |d| base *= RSV.dimension_value(d) }
+      base
+    end
+
+    # Concatenate all leaf fields into a uint expression.
+    # First-declared field at MSB, last-declared at LSB.
+    # For mem(N, bundle), produces nested concatenations per element.
+    def as_uint
+      leaves = leaf_handlers
+      if @unpacked_dims.empty?
+        CatExpr.new(leaves)
+      else
+        dim = RSV.dimension_value(@unpacked_dims.first)
+        parts = (dim - 1).downto(0).map do |i|
+          idx = LiteralExpr.new(i)
+          CatExpr.new(leaves.map { |h| IndexExpr.new(h, idx) })
+        end
+        CatExpr.new(parts)
+      end
+    end
+
     def to_s
       @name
     end
@@ -1090,6 +1114,24 @@ module RSV
 
     def as_sint
       AsSintExpr.new(self)
+    end
+
+    # Concatenate mem elements into a uint expression.
+    # Highest index at MSB, index 0 at LSB.
+    def as_uint
+      raise ArgumentError, "as_uint requires a mem signal" if @unpacked_dims.empty?
+      dim = RSV.dimension_value(@unpacked_dims.first)
+      parts = (dim - 1).downto(0).map do |i|
+        IndexExpr.new(self, LiteralExpr.new(i))
+      end
+      CatExpr.new(parts)
+    end
+
+    # Total bit width including all unpacked dimensions.
+    def get_width
+      total = @width
+      @unpacked_dims.each { |d| total *= RSV.dimension_value(d) }
+      total
     end
 
     def method_missing(meth, *args, &blk)
