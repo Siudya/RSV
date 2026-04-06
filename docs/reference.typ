@@ -266,12 +266,12 @@ inferred width and computed init value:
 == Bundle
 
 - Subclass `RSV::BundleDef` to define a bundle type.
-- Implement field declarations in `build(...)`.
-- `field(name, type)`: declares a bundle member. The type can be any RSV data
-  type (`bit`, `uint`, `sint`, another bundle, `arr(...)`, `mem(...)`).
+- Implement field declarations in `build(...)` using direction annotations.
+- `input(name, type)`: declares an input-directed bundle field.
+- `output(name, type)`: declares an output-directed bundle field.
   Returns a field handle for use in the Ruby scope. The Ruby variable name
   may differ from the SV field name for encryption-friendly naming.
-- `MyBundle.new` returns a `DataType` usable with `input`, `output`, `wire`,
+- `MyBundle.new` returns a `DataType` usable with `iodecl`, `wire`,
   `reg`, `arr`, `mem`, etc.
 - Bundle fields are flattened to individual signals at declaration time.
   E.g. `reg("px", Pixel.new)` produces `px_r`, `px_g`, `px_b`.
@@ -287,4 +287,14 @@ inferred width and computed init value:
 - Whole-bundle assignment: `out <= reg` expands to per-field assignments.
 - Array indexing preserves bundle grouping: `fifo[0].data` works on
   `mem(N, bundle_t)`.
+
+=== IO Declarations with Bundles
+
+- `iodecl(name, bundle_type)`: declares IO ports using each field's direction.
+- `iodecl(name, flip(bundle_type))`: reverses all field directions (input↔output).
+- `iodecl(name, output(type))`: declares a scalar output port.
+- `iodecl(name, input(type))`: declares a scalar input port.
+- `iodecl(name, output(mem(N, type)))`: declares an output port with unpacked dims.
+- Local declarations (`reg`, `wire`) ignore field direction — all fields become
+  plain `logic`.
 - Example: see `examples/bundle_and_interface.rb` file.

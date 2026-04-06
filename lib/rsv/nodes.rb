@@ -539,8 +539,27 @@ module RSV
     end
   end
 
-  # A single field inside a BundleDef.
-  BundleFieldDef = Struct.new(:name, :data_type, keyword_init: true)
+  # A single field inside a BundleDef with direction.
+  BundleFieldDef = Struct.new(:name, :data_type, :dir, keyword_init: true)
+
+  # Direction-decorated data type: output(uint(8)), input(uint(8))
+  class DirectedType
+    attr_reader :dir, :data_type
+
+    def initialize(dir, data_type)
+      @dir = dir
+      @data_type = data_type
+    end
+  end
+
+  # Flipped bundle type: all field directions reversed
+  class FlippedType
+    attr_reader :data_type
+
+    def initialize(data_type)
+      @data_type = data_type
+    end
+  end
 
   # Expression node for accessing a field of a bundle-typed signal: base.field_name
   class FieldAccessExpr

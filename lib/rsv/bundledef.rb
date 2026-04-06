@@ -6,8 +6,8 @@ module RSV
   # Example:
   #   class MyBundle < RSV::BundleDef
   #     def build(width: 8)
-  #       valid = field("valid", bit)
-  #       data  = field("data",  uint(width))
+  #       valid = input("valid", bit)
+  #       data  = output("data",  uint(width))
   #     end
   #   end
   #
@@ -59,9 +59,15 @@ module RSV
       compose_data_type(*dims_and_target, storage: :unpacked)
     end
 
-    def field(name, data_type)
+    def input(name, data_type)
       type = RSV.normalize_data_type(data_type)
-      @fields << BundleFieldDef.new(name: name.to_s, data_type: type)
+      @fields << BundleFieldDef.new(name: name.to_s, data_type: type, dir: :input)
+      @fields.last
+    end
+
+    def output(name, data_type)
+      type = RSV.normalize_data_type(data_type)
+      @fields << BundleFieldDef.new(name: name.to_s, data_type: type, dir: :output)
       @fields.last
     end
 
@@ -92,13 +98,13 @@ module RSV
           dim_str = ""
           dt.packed_dims.each { |d| dim_str += "[#{RSV.format_dim(d)}]" }
           dt.unpacked_dims.each { |d| dim_str += "[#{RSV.format_dim(d)}]" }
-          lines << "  #{dt.bundle_type.type_name} #{f.name}#{dim_str};"
+          lines << "  #{f.dir} #{dt.bundle_type.type_name} #{f.name}#{dim_str};"
         else
           signed_str = dt.signed ? "signed " : ""
           w = dt.width
           dim_str = w.is_a?(Integer) && w > 1 ? "[#{w - 1}:0] " : (w.is_a?(String) ? "[#{w}-1:0] " : "")
           unpacked = dt.unpacked_dims.map { |d| "[#{RSV.format_dim(d)}]" }.join
-          lines << "  logic #{signed_str}#{dim_str}#{f.name}#{unpacked};"
+          lines << "  #{f.dir} logic #{signed_str}#{dim_str}#{f.name}#{unpacked};"
         end
       end
       lines << "} #{type_name};"

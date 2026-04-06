@@ -217,22 +217,81 @@ module RSV
       end
     end
 
-    def input(name, data_type, init: UNSET_INIT, attr: nil)
+    # Direction decorator: wraps a data type with :input direction.
+    # When given (name, type), declares an input port directly (for clock/reset convenience).
+    def input(name_or_type, data_type = nil, init: UNSET_INIT, attr: nil)
+      if data_type.nil?
+        # Direction decorator mode: input(uint(8)) → DirectedType
+        type = name_or_type
+        type = RSV.normalize_data_type(type) if type.is_a?(DataType)
+        return DirectedType.new(:input, type)
+      end
+      # Legacy-compatible direct port declaration: input("clk", clock)
       clock_type = data_type.instance_variable_get(:@_clock_type) || false
       reset_type = data_type.instance_variable_get(:@_reset_type) || false
-      declare_port(:input, build_signal_spec(name, data_type, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
+      declare_port(:input, build_signal_spec(name_or_type, data_type, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
     end
 
-    def output(name, data_type, init: UNSET_INIT, attr: nil)
+    # Direction decorator: wraps a data type with :output direction.
+    # When given (name, type), declares an output port directly (for clock/reset convenience).
+    def output(name_or_type, data_type = nil, init: UNSET_INIT, attr: nil)
+      if data_type.nil?
+        type = name_or_type
+        type = RSV.normalize_data_type(type) if type.is_a?(DataType)
+        return DirectedType.new(:output, type)
+      end
       clock_type = data_type.instance_variable_get(:@_clock_type) || false
       reset_type = data_type.instance_variable_get(:@_reset_type) || false
-      declare_port(:output, build_signal_spec(name, data_type, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
+      declare_port(:output, build_signal_spec(name_or_type, data_type, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
     end
 
-    def inout(name, data_type, init: UNSET_INIT, attr: nil)
+    def inout(name_or_type, data_type = nil, init: UNSET_INIT, attr: nil)
+      if data_type.nil?
+        type = name_or_type
+        type = RSV.normalize_data_type(type) if type.is_a?(DataType)
+        return DirectedType.new(:inout, type)
+      end
       clock_type = data_type.instance_variable_get(:@_clock_type) || false
       reset_type = data_type.instance_variable_get(:@_reset_type) || false
-      declare_port(:inout, build_signal_spec(name, data_type, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
+      declare_port(:inout, build_signal_spec(name_or_type, data_type, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
+    end
+
+    # Flip bundle direction: all input fields become output and vice versa.
+    def flip(data_type)
+      dt = data_type.is_a?(DataType) ? data_type : RSV.normalize_data_type(data_type)
+      FlippedType.new(dt)
+    end
+
+    # IO port declaration: expand directed types / bundles into module ports.
+    def iodecl(name, directed_type, init: UNSET_INIT, attr: nil)
+      case directed_type
+      when DirectedType
+        inner = directed_type.data_type
+        dir = directed_type.dir
+        if inner.is_a?(DataType) && inner.bundle_type
+          spec = build_signal_spec(name, inner, init: init)
+          flatten_bundle_iodecl(dir, spec, flipped: false, attr: attr)
+        else
+          dt = inner.is_a?(DataType) ? inner : RSV.normalize_data_type(inner)
+          clock_type = dt.instance_variable_get(:@_clock_type) || false
+          reset_type = dt.instance_variable_get(:@_reset_type) || false
+          declare_port(dir, build_signal_spec(name, dt, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
+        end
+      when FlippedType
+        inner = directed_type.data_type
+        raise ArgumentError, "flip() requires a bundle type" unless inner.is_a?(DataType) && inner.bundle_type
+        spec = build_signal_spec(name, inner, init: init)
+        flatten_bundle_iodecl(:input, spec, flipped: true, attr: attr)
+      when DataType
+        if directed_type.bundle_type
+          spec = build_signal_spec(name, directed_type, init: init)
+          flatten_bundle_iodecl(:input, spec, flipped: false, attr: attr)
+        else
+          raise ArgumentError, "iodecl requires a directed type (use input()/output()/flip())"
+        end
+      else
+        raise ArgumentError, "iodecl expects a directed type, got #{directed_type.class}"
+      end
     end
 
     # ── Internal signal declarations ────────────────────────────────────────
@@ -492,10 +551,7 @@ module RSV
 
     def declare_port(dir, spec, clock_type: false, reset_type: false, attr: nil)
       raise ArgumentError, "#{dir} does not support init" unless spec.init.nil?
-
-      if spec.bundle_type
-        return flatten_bundle_port(dir, spec, attr: attr)
-      end
+      raise ArgumentError, "Bundle types must use iodecl() for port declarations" if spec.bundle_type
 
       @ports << PortDecl.new(dir, spec, attr: attr)
       handler = build_handler(spec, dir)
@@ -518,11 +574,15 @@ module RSV
       handler
     end
 
-    def flatten_bundle_port(dir, spec, attr: nil)
+    # Direction-aware bundle port expansion for iodecl().
+    # Each field's direction comes from the BundleFieldDef.dir,
+    # optionally flipped.
+    def flatten_bundle_iodecl(base_dir, spec, flipped: false, attr: nil)
       children = {}
       spec.bundle_type.fields.each do |f|
         child_name = "#{spec.name}_#{f.name}"
         dt = f.data_type
+        field_dir = resolve_field_dir(f.dir, flipped)
         if dt.bundle_type
           child_spec = SignalSpec.new(
             child_name,
@@ -531,7 +591,7 @@ module RSV
             unpacked_dims: spec.unpacked_dims + dt.unpacked_dims,
             bundle_type: dt.bundle_type
           )
-          children[f.name] = flatten_bundle_port(dir, child_spec, attr: attr)
+          children[f.name] = flatten_bundle_iodecl(field_dir, child_spec, flipped: flipped, attr: attr)
         else
           child_spec = SignalSpec.new(
             child_name,
@@ -539,8 +599,8 @@ module RSV
             packed_dims: dt.packed_dims,
             unpacked_dims: spec.unpacked_dims + dt.unpacked_dims
           )
-          @ports << PortDecl.new(dir, child_spec, attr: attr)
-          children[f.name] = build_handler(child_spec, dir)
+          @ports << PortDecl.new(field_dir, child_spec, attr: attr)
+          children[f.name] = build_handler(child_spec, field_dir)
         end
       end
       BundleSignalGroup.new(
@@ -549,6 +609,15 @@ module RSV
         children: children,
         unpacked_dims: spec.unpacked_dims
       )
+    end
+
+    def resolve_field_dir(field_dir, flipped)
+      return field_dir unless flipped
+      case field_dir
+      when :input then :output
+      when :output then :input
+      else field_dir
+      end
     end
 
     def flatten_bundle_local(kind, spec, attr: nil)

@@ -21,9 +21,9 @@ include RSV
 # A simple pixel bundle
 class Pixel < BundleDef
   def build
-    field("r", uint(8))
-    field("g", uint(8))
-    field("b", uint(8))
+    input("r", uint(8))
+    input("g", uint(8))
+    input("b", uint(8))
   end
 end
 
@@ -51,8 +51,8 @@ end
 # ── Module with bundle ports ──
 class BundleModule < ModuleDef
   def build
-    px_in = input("px_in", Pixel.new)
-    px_out = output("px_out", Pixel.new)
+    px_in = iodecl("px_in", Pixel.new)
+    px_out = iodecl("px_out", flip(Pixel.new))
     px_out <= px_in
   end
 end
@@ -60,9 +60,9 @@ end
 # ── Module with mem(N, Bundle) port ──
 class MemBundleModule < ModuleDef
   def build
-    fifo = input("fifo", mem(2, Pixel.new))
+    fifo = iodecl("fifo", Pixel.new)
     r = output("red0", uint(8))
-    r <= fifo[0].r
+    r <= fifo.r
   end
 end
 

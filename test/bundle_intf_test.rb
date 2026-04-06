@@ -7,30 +7,30 @@ require_relative "../lib/rsv"
 
 class TestPixel < RSV::BundleDef
   def build
-    r = field("r", uint(8))
-    g = field("g", uint(8))
-    b = field("b", uint(8))
+    r = input("r", uint(8))
+    g = input("g", uint(8))
+    b = input("b", uint(8))
   end
 end
 
 class TestParamPkt < RSV::BundleDef
   def build(w: 8)
-    valid = field("valid", bit)
-    data  = field("data",  uint(w))
+    valid = input("valid", bit)
+    data  = input("data",  uint(w))
   end
 end
 
 class TestInner < RSV::BundleDef
   def build
-    x = field("x", uint(4))
-    y = field("y", uint(4))
+    x = input("x", uint(4))
+    y = input("y", uint(4))
   end
 end
 
 class TestOuter < RSV::BundleDef
   def build
-    hdr  = field("hdr",  TestInner.new)
-    data = field("data", uint(16))
+    hdr  = input("hdr",  TestInner.new)
+    data = input("data", uint(16))
   end
 end
 
@@ -39,8 +39,8 @@ end
 # Bundle meta-param variant (width via meta-param, not sv_param)
 class TestMetaBundle < RSV::BundleDef
   def build(w: 8)
-    valid = field("valid", bit)
-    data  = field("data",  uint(w))
+    valid = input("valid", bit)
+    data  = input("data",  uint(w))
   end
 end
 
@@ -49,8 +49,8 @@ class TemplatedMod < RSV::ModuleDef
   def build(dat_t:, init_fields: {})
     clk = input("clk", clock)
     rst = input("rst", reset)
-    d_in  = input("d_in", dat_t)
-    d_out = output("d_out", dat_t)
+    d_in  = iodecl("d_in", dat_t)
+    d_out = iodecl("d_out", flip(dat_t))
     d_r   = reg("d_r", dat_t, init: init_fields.empty? ? nil : init_fields)
     with_clk_and_rst(clk, rst)
     d_out <= d_r
@@ -84,8 +84,8 @@ class BundleSimpleMod < RSV::ModuleDef
     clk = input("clk", clock)
     rst = input("rst", reset)
     d = TestPixel.new
-    i = input("px_in", d)
-    o = output("px_out", d)
+    i = iodecl("px_in", d)
+    o = iodecl("px_out", flip(d))
     r = reg("px_r", d, init: { "r" => 0, "g" => 0, "b" => 0 })
     with_clk_and_rst(clk, rst)
     o <= r
@@ -121,7 +121,7 @@ class BundleMemMod < RSV::ModuleDef
   def build
     d = TestPixel.new
     m = wire("buf", mem(8, d))
-    o = output("out", d)
+    o = iodecl("out", flip(d))
     o <= m[0]
   end
 end
@@ -132,7 +132,7 @@ class BundleParamMod < RSV::ModuleDef
     d16 = TestParamPkt.new(w: 16)
     w8 = wire("w8", d8)
     w16 = wire("w16", d16)
-    o = output("out8", d8)
+    o = iodecl("out8", flip(d8))
     o <= w8
   end
 end
@@ -183,7 +183,6 @@ class BundleTest < Minitest::Test
 
   def test_bundle_nested
     sv = BundleNestedMod.new.to_sv
-    # Nested bundle: TestOuter.hdr (TestInner) → pkt_hdr_x, pkt_hdr_y
     assert_match(/logic \[3:0\]\s+pkt_hdr_x;/, sv)
     assert_match(/logic \[3:0\]\s+pkt_hdr_y;/, sv)
     assert_match(/logic \[15:0\]\s+pkt_data;/, sv)
@@ -192,17 +191,14 @@ class BundleTest < Minitest::Test
 
   def test_bundle_mem_array
     sv = BundleMemMod.new.to_sv
-    # mem(8, Pixel) → buf_r[7:0], buf_g[7:0], buf_b[7:0]
     assert_match(/logic \[7:0\]\s+buf_r\[7:0\];/, sv)
     assert_match(/logic \[7:0\]\s+buf_g\[7:0\];/, sv)
     assert_match(/logic \[7:0\]\s+buf_b\[7:0\];/, sv)
-    # Field access: m[0] → buf_r[0], buf_g[0], buf_b[0]
     assert_match(/buf_r\[0\]/, sv)
   end
 
   def test_bundle_meta_param_dedup
     sv = BundleParamMod.new.to_sv
-    # Two different widths → two distinct sets of flat signals
     assert_match(/logic\s+w8_valid;/, sv)
     assert_match(/logic \[7:0\]\s+w8_data;/, sv)
     assert_match(/logic\s+w16_valid;/, sv)
@@ -230,16 +226,14 @@ class BundleTest < Minitest::Test
 
   # --- Bundle meta-param dedup ---
 
-  def test_bundle_meta_param_dedup
+  def test_bundle_meta_param_dedup_different_widths
     sv = BundleMetaDedupMod.new.to_sv
-    # Two different widths produce different flat signal widths
     assert_match(/logic \[7:0\]\s+w8_data;/, sv)
     assert_match(/logic \[31:0\]\s+w32_data;/, sv)
   end
 
   def test_bundle_same_params_reuse_name
     sv = BundleSameParamMod.new.to_sv
-    # Same params → both w1 and w2 have same field structure
     assert_match(/logic \[15:0\]\s+w1_data;/, sv)
     assert_match(/logic \[15:0\]\s+w2_data;/, sv)
   end
@@ -248,22 +242,18 @@ class BundleTest < Minitest::Test
 
   def test_module_templated_with_bundle_param
     sv = TemplatedMod.new(dat_t: TestPixel.new, init_fields: { "r" => 0 }).to_sv
-    # Flat signal declarations
     assert_match(/input\s+logic \[7:0\]\s+d_in_r/, sv)
     assert_match(/output\s+logic \[7:0\]\s+d_out_r/, sv)
     assert_match(/logic \[7:0\]\s+d_r_r;/, sv)
-    # Partial reset: only r field
     assert_match(/d_r_r\s*<=\s*8'h0/, sv)
   end
 
   def test_module_templated_different_bundles_produce_different_sv
     sv_px  = TemplatedMod.new(dat_t: TestPixel.new).to_sv
     sv_pkt = TemplatedMod.new(dat_t: TestParamPkt.new(w: 8)).to_sv
-    # Pixel has r,g,b fields
     assert_match(/d_in_r/, sv_px)
     assert_match(/d_in_g/, sv_px)
     refute_match(/d_in_valid/, sv_px)
-    # Packet has valid,data fields
     assert_match(/d_in_valid/, sv_pkt)
     assert_match(/d_in_data/, sv_pkt)
     refute_match(/d_in_r/, sv_pkt)
@@ -273,7 +263,6 @@ class BundleTest < Minitest::Test
 
   def test_bundle_whole_assign_expands_to_per_field
     sv = BundleSimpleMod.new.to_sv
-    # o <= r becomes per-field assigns
     assert_match(/assign\s+px_out_r\s*=\s*px_r_r;/, sv)
     assert_match(/assign\s+px_out_g\s*=\s*px_r_g;/, sv)
     assert_match(/assign\s+px_out_b\s*=\s*px_r_b;/, sv)
@@ -281,9 +270,127 @@ class BundleTest < Minitest::Test
 
   def test_bundle_mem_indexed_assign_expands
     sv = BundleMemMod.new.to_sv
-    # o <= m[0] → out_r <= buf_r[0], etc.
     assert_match(/assign\s+out_r\s*=\s*buf_r\[0\];/, sv)
     assert_match(/assign\s+out_g\s*=\s*buf_g\[0\];/, sv)
     assert_match(/assign\s+out_b\s*=\s*buf_b\[0\];/, sv)
+  end
+
+  # --- iodecl / flip / direction tests ---
+
+  def test_iodecl_with_scalar_output
+    mod_class = Class.new(RSV::ModuleDef) do
+      define_method(:build) do
+        iodecl("io_b", output(uint(24)))
+      end
+    end
+    sv = mod_class.new("TestScalarOut").to_sv
+    assert_match(/output\s+logic \[23:0\]\s+io_b/, sv)
+  end
+
+  def test_iodecl_with_scalar_input
+    mod_class = Class.new(RSV::ModuleDef) do
+      define_method(:build) do
+        iodecl("io_a", input(uint(8)))
+      end
+    end
+    sv = mod_class.new("TestScalarIn").to_sv
+    assert_match(/input\s+logic \[7:0\]\s+io_a/, sv)
+  end
+
+  def test_iodecl_with_mem_output
+    mod_class = Class.new(RSV::ModuleDef) do
+      define_method(:build) do
+        iodecl("io_c", output(mem(2, uint(24))))
+      end
+    end
+    sv = mod_class.new("TestMemOut").to_sv
+    assert_match(/output\s+logic \[23:0\]\s+io_c\[1:0\]/, sv)
+  end
+
+  def test_iodecl_with_bundle_uses_field_dirs
+    mod_class = Class.new(RSV::ModuleDef) do
+      define_method(:build) do
+        pxl_t = TestPixel.new
+        iodecl("io_a", pxl_t)
+      end
+    end
+    sv = mod_class.new("TestBundleIO").to_sv
+    # TestPixel fields are all input
+    assert_match(/input\s+logic \[7:0\]\s+io_a_r/, sv)
+    assert_match(/input\s+logic \[7:0\]\s+io_a_g/, sv)
+    assert_match(/input\s+logic \[7:0\]\s+io_a_b/, sv)
+  end
+
+  def test_iodecl_with_flip_reverses_dirs
+    mod_class = Class.new(RSV::ModuleDef) do
+      define_method(:build) do
+        pxl_t = TestPixel.new
+        iodecl("io_d", flip(pxl_t))
+      end
+    end
+    sv = mod_class.new("TestFlipIO").to_sv
+    # Flipped: all TestPixel input fields become output
+    assert_match(/output\s+logic \[7:0\]\s+io_d_r/, sv)
+    assert_match(/output\s+logic \[7:0\]\s+io_d_g/, sv)
+    assert_match(/output\s+logic \[7:0\]\s+io_d_b/, sv)
+  end
+
+  def test_iodecl_mixed_dirs_bundle
+    mixed_bundle_class = Class.new(RSV::BundleDef) do
+      define_singleton_method(:name) { "MixedBundle" }
+      define_method(:build) do
+        input("ready", bit)
+        output("valid", bit)
+        output("data", uint(8))
+      end
+    end
+
+    mod_class = Class.new(RSV::ModuleDef) do
+      define_method(:build) do
+        iodecl("ch", mixed_bundle_class.new)
+      end
+    end
+    sv = mod_class.new("TestMixedIO").to_sv
+    assert_match(/input\s+logic\s+ch_ready/, sv)
+    assert_match(/output\s+logic\s+ch_valid/, sv)
+    assert_match(/output\s+logic \[7:0\]\s+ch_data/, sv)
+  end
+
+  def test_iodecl_flip_mixed_dirs
+    mixed_bundle_class = Class.new(RSV::BundleDef) do
+      define_singleton_method(:name) { "MixedBundle2" }
+      define_method(:build) do
+        input("ready", bit)
+        output("valid", bit)
+        output("data", uint(8))
+      end
+    end
+
+    mod_class = Class.new(RSV::ModuleDef) do
+      define_method(:build) do
+        iodecl("ch", flip(mixed_bundle_class.new))
+      end
+    end
+    sv = mod_class.new("TestFlipMixedIO").to_sv
+    # Flipped: input→output, output→input
+    assert_match(/output\s+logic\s+ch_ready/, sv)
+    assert_match(/input\s+logic\s+ch_valid/, sv)
+    assert_match(/input\s+logic \[7:0\]\s+ch_data/, sv)
+  end
+
+  def test_bundle_as_reg_ignores_direction
+    mod_class = Class.new(RSV::ModuleDef) do
+      define_method(:build) do
+        pxl_t = TestPixel.new
+        r = reg("pxl_r", mem(16, pxl_t))
+      end
+    end
+    sv = mod_class.new("TestRegBundle").to_sv
+    # No input/output in local declarations
+    assert_match(/logic \[7:0\]\s+pxl_r_r\[15:0\];/, sv)
+    assert_match(/logic \[7:0\]\s+pxl_r_g\[15:0\];/, sv)
+    assert_match(/logic \[7:0\]\s+pxl_r_b\[15:0\];/, sv)
+    refute_match(/input.*pxl_r/, sv)
+    refute_match(/output.*pxl_r/, sv)
   end
 end

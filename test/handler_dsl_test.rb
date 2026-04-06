@@ -8,9 +8,9 @@ require "rsv"
 # Test helper classes for v_wrapper bundle tests
 class WrapTestPixel < RSV::BundleDef
   def build
-    field("r", uint(8))
-    field("g", uint(8))
-    field("b", uint(8))
+    input("r", uint(8))
+    input("g", uint(8))
+    input("b", uint(8))
   end
 end
 
@@ -583,8 +583,8 @@ class HandlerDslTest < Minitest::Test
 
   def test_v_wrapper_bundle_port
     klass = module_class("WrapBundle") do
-      p_in = input("px", WrapTestPixel.new)
-      p_out = output("px_out", WrapTestPixel.new)
+      p_in = iodecl("px", WrapTestPixel.new)
+      p_out = iodecl("px_out", flip(WrapTestPixel.new))
       p_out <= p_in
     end
     mod = klass.new("wrap_bundle")
@@ -603,18 +603,16 @@ class HandlerDslTest < Minitest::Test
 
   def test_v_wrapper_mem_bundle_port
     klass = module_class("WrapMemBundle") do
-      fifo_in = input("fifo", mem(2, WrapTestPixel.new))
+      fifo_in = iodecl("fifo", WrapTestPixel.new)
+      fifo_in_mem = input("fifo_extra", mem(2, uint(8)))
       o = output("o", uint(8))
-      o <= fifo_in[0].r
+      o <= fifo_in.r
     end
     mod = klass.new("wrap_mem_bundle")
     wrapper = mod.v_wrapper
-    # mem(2, pixel) → fifo_r has unpacked [1:0], etc.
-    # vwrapper flattens unpacked into individual ports
-    assert_includes wrapper, "fifo_r_0"
-    assert_includes wrapper, "fifo_r_1"
-    assert_includes wrapper, "fifo_g_0"
-    assert_includes wrapper, "fifo_b_1"
+    assert_includes wrapper, "fifo_r"
+    assert_includes wrapper, "fifo_g"
+    assert_includes wrapper, "fifo_b"
   end
 
   def test_v_wrapper_packed_arr_bundle

@@ -7,27 +7,27 @@ require "fileutils"
 # Simple bundle
 class Pixel < RSV::BundleDef
   def build
-    r = field("r", uint(8))
-    g = field("g", uint(8))
-    b = field("b", uint(8))
+    r = input("r", uint(8))
+    g = input("g", uint(8))
+    b = input("b", uint(8))
   end
 end
 
 # Bundle with meta_param — width is a Ruby argument
 class DataPacket < RSV::BundleDef
   def build(w: 8)
-    valid = field("valid", bit)
-    data  = field("data",  uint(w))
+    valid = input("valid", bit)
+    data  = input("data",  uint(w))
   end
 end
 
 # Nested bundle
 class FrameHeader < RSV::BundleDef
   def build
-    pixel = field("pixel",  Pixel.new)
-    x_pos = field("x_pos",  uint(12))
-    y_pos = field("y_pos",  uint(12))
-    last  = field("last",   bit)
+    pixel = input("pixel",  Pixel.new)
+    x_pos = input("x_pos",  uint(12))
+    y_pos = input("y_pos",  uint(12))
+    last  = input("last",   bit)
   end
 end
 
@@ -39,8 +39,8 @@ class PixelProcessor < RSV::ModuleDef
     clk = input("clk", clock)
     rst = input("rst", reset)
 
-    px_in  = input("px_in", Pixel.new)
-    px_out = output("px_out", Pixel.new)
+    px_in  = iodecl("px_in", Pixel.new)
+    px_out = iodecl("px_out", flip(Pixel.new))
 
     # Partial reset — only r is cleared on reset, g and b are NOT reset
     px_reg = reg("px_reg", Pixel.new, init: { "r" => 0 })
@@ -81,8 +81,8 @@ class PacketRouter < RSV::ModuleDef
 
     # Bundle width matches the meta-param (concrete at elaboration time)
     pkt_t = DataPacket.new(w: pkt_w)
-    pkt_in  = input("pkt_in",  pkt_t)
-    pkt_out = output("pkt_out", pkt_t)
+    pkt_in  = iodecl("pkt_in",  pkt_t)
+    pkt_out = iodecl("pkt_out", flip(pkt_t))
 
     # Partial reset — only valid bit is cleared; data retains previous value
     pkt_r = reg("pkt_r", pkt_t, init: { "valid" => 0 })
@@ -105,8 +105,8 @@ class PipeReg < RSV::ModuleDef
   def build(dat_t:, init_fields: {})
     clk = input("clk", clock)
     rst = input("rst", reset)
-    d_in  = input("d_in", dat_t)
-    d_out = output("d_out", dat_t)
+    d_in  = iodecl("d_in", dat_t)
+    d_out = iodecl("d_out", flip(dat_t))
     d_r = reg("d_r", dat_t, init: init_fields.empty? ? nil : init_fields)
     with_clk_and_rst(clk, rst)
     d_out <= d_r

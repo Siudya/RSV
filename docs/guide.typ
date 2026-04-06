@@ -257,25 +257,30 @@ signatures only; it does not translate the imported module body into RSV.
 
 == Bundle usage
 
-Subclass `RSV::BundleDef` and use `field` inside `build` to declare members.
-The class produces a `DataType` usable with all RSV declarations.
-Bundle fields are flattened to individual signals at declaration time.
+Subclass `RSV::BundleDef` and use `input`/`output` inside `build` to declare
+members with direction annotations. The class produces a `DataType` usable with
+all RSV declarations. Bundle fields are flattened to individual signals at
+declaration time. Direction is respected only for IO ports (`iodecl`); local
+signals (`reg`/`wire`) ignore direction.
 
 ```ruby
 class Pixel < RSV::BundleDef
   def build
-    r = field("r", uint(8))
-    g = field("g", uint(8))
-    b = field("b", uint(8))
+    r = input("r", uint(8))
+    g = input("g", uint(8))
+    b = input("b", uint(8))
   end
 end
 
 class PixProc < RSV::ModuleDef
   def build
     clk = input("clk", clock); rst = input("rst", reset)
+    px_in  = iodecl("px_in", Pixel.new)        # fields keep their dirs
+    px_out = iodecl("px_out", flip(Pixel.new))  # dirs reversed
     px = reg("px", Pixel.new, init: { "r" => 0, "g" => 0, "b" => 0 })
     with_clk_and_rst(clk, rst)
-    always_ff { px.r <= 1 }
+    px_out <= px
+    always_ff { px.r <= px_in.r }
   end
 end
 ```
@@ -284,10 +289,13 @@ A `reg("px", Pixel.new)` declaration generates three separate signals:
 `px_r`, `px_g`, `px_b`. Field access `px.r` maps directly to `px_r`.
 
 Bundles support:
-- Nested bundles: `field "inner", OtherBundle.new` (recursively flattened)
+- Nested bundles: `input "inner", OtherBundle.new` (recursively flattened)
 - `arr`/`mem`: `mem(4, Pixel.new)` → separate signals with unpacked dim
 - Meta parameters: `def build(w: 8)` with `Pixel.new(w: 16)`
 - Partial reset: only listed fields get reset in `always_ff`
 - Field access: `handler.field_name` for reads and writes
-- Field handles: `r = field("r", type)` — Ruby name may differ from SV name
+- Field handles: `r = input("r", type)` — Ruby name may differ from SV name
 - Whole-bundle assignment: `out <= reg` expands to per-field assignments
+- IO declarations: `iodecl("name", bundle)` uses field directions;
+  `iodecl("name", flip(bundle))` reverses all directions
+- Scalar IO: `iodecl("name", output(uint(8)))` or `iodecl("name", input(type))`
