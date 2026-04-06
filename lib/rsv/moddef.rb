@@ -911,30 +911,65 @@ module RSV
         @stmts << AlwaysComb.new([stmt])
         w
       when Mux1hExpr
-        sel_part = wire_name_part(rhs.sel)
-        dat_part = mux_dats_name_part(rhs.dats)
-        name = unique_auto_wire_name("#{sel_part}_mux1h_#{dat_part}")
-        dt = infer_mux_data_type(rhs.dats)
-        w = wire(name, dt)
-        stmt = MuxCaseStmt.new(RSV.normalize_expr(w), rhs.sel, rhs.dats, case_type: :unique)
-        @stmts << AlwaysComb.new([stmt])
-        w
+        expand_mux_rhs(rhs.sel, rhs.dats, case_type: :unique)
       when MuxpExpr
-        sel_part = wire_name_part(rhs.sel)
-        dat_part = mux_dats_name_part(rhs.dats)
-        suffix = rhs.lsb_first ? "lo" : "hi"
-        name = unique_auto_wire_name("#{sel_part}_muxp_#{suffix}_#{dat_part}")
-        dt = infer_mux_data_type(rhs.dats)
+        expand_mux_rhs(rhs.sel, rhs.dats, case_type: :priority, lsb_first: rhs.lsb_first)
+      end
+    end
+
+    def expand_mux_rhs(sel, dats, case_type:, lsb_first: true)
+      if dats.is_a?(BundleSignalGroup)
+        expand_mux_bundle(sel, dats, case_type: case_type, lsb_first: lsb_first)
+      else
+        sel_part = wire_name_part(sel)
+        dat_part = mux_dats_name_part(dats)
+        if case_type == :priority
+          suffix = lsb_first ? "lo" : "hi"
+          name = unique_auto_wire_name("#{sel_part}_muxp_#{suffix}_#{dat_part}")
+        else
+          name = unique_auto_wire_name("#{sel_part}_mux1h_#{dat_part}")
+        end
+        dt = infer_mux_data_type(dats)
         w = wire(name, dt)
-        stmt = MuxCaseStmt.new(RSV.normalize_expr(w), rhs.sel, rhs.dats,
-                               case_type: :priority, lsb_first: rhs.lsb_first)
+        stmt = MuxCaseStmt.new(RSV.normalize_expr(w), sel, dats,
+                               case_type: case_type, lsb_first: lsb_first)
         @stmts << AlwaysComb.new([stmt])
         w
       end
     end
 
+    def expand_mux_bundle(sel, bundle_group, case_type:, lsb_first: true)
+      children = {}
+      bundle_group.children.each do |fname, child|
+        if child.is_a?(BundleSignalGroup)
+          children[fname] = expand_mux_bundle(sel, child, case_type: case_type, lsb_first: lsb_first)
+        else
+          sel_part = wire_name_part(sel)
+          if case_type == :priority
+            suffix = lsb_first ? "lo" : "hi"
+            name = unique_auto_wire_name("#{sel_part}_muxp_#{suffix}_#{child.name}")
+          else
+            name = unique_auto_wire_name("#{sel_part}_mux1h_#{child.name}")
+          end
+          dt = infer_mux_data_type(child)
+          w = wire(name, dt)
+          stmt = MuxCaseStmt.new(RSV.normalize_expr(w), sel, child,
+                                 case_type: case_type, lsb_first: lsb_first)
+          @stmts << AlwaysComb.new([stmt])
+          children[fname] = w
+        end
+      end
+      BundleSignalGroup.new(
+        bundle_group.name,
+        bundle_type: bundle_group.bundle_type,
+        children: children
+      )
+    end
+
     def mux_dats_name_part(dats)
       if dats.is_a?(SignalHandler)
+        dats.name
+      elsif dats.is_a?(BundleSignalGroup)
         dats.name
       elsif dats.is_a?(Array) && !dats.empty?
         wire_name_part(dats.first)

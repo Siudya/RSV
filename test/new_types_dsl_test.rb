@@ -354,6 +354,69 @@ class NewTypesDslTest < Minitest::Test
     assert_includes sv, "sel_mux1h_dats_1"
   end
 
+  # ── mux1h/muxp with bundle data ──────────────────────────────────────────
+
+  def test_mux1h_bundle_data
+    pxl_cls = Class.new(RSV::BundleDef) do
+      define_singleton_method(:name) { "Pixel" }
+      def build
+        input("r", uint(8))
+        input("g", uint(8))
+        input("b", uint(8))
+      end
+    end
+
+    mod = module_class("Mux1hBundle") do
+      sel = input("sel", uint(2))
+      dats = wire("dats", mem([2], pxl_cls.new))
+      out = wire("out", pxl_cls.new)
+
+      res = mux1h(sel, dats)
+      out <= res
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "logic [7:0] sel_mux1h_dats_r"
+    assert_includes sv, "logic [7:0] sel_mux1h_dats_g"
+    assert_includes sv, "logic [7:0] sel_mux1h_dats_b"
+    assert_includes sv, "unique case (sel)"
+    # verify per-field mux
+    assert_includes sv, "sel_mux1h_dats_r = dats_r[0];"
+    assert_includes sv, "sel_mux1h_dats_r = dats_r[1];"
+    assert_includes sv, "sel_mux1h_dats_g = dats_g[0];"
+    assert_includes sv, "sel_mux1h_dats_b = dats_b[0];"
+    # verify bundle assignment to out
+    assert_includes sv, "assign out_r = sel_mux1h_dats_r;"
+    assert_includes sv, "assign out_g = sel_mux1h_dats_g;"
+    assert_includes sv, "assign out_b = sel_mux1h_dats_b;"
+  end
+
+  def test_muxp_bundle_data
+    pxl_cls = Class.new(RSV::BundleDef) do
+      define_singleton_method(:name) { "Pixel" }
+      def build
+        input("r", uint(8))
+        input("g", uint(8))
+      end
+    end
+
+    mod = module_class("MuxpBundle") do
+      sel = input("sel", uint(2))
+      dats = wire("dats", mem([2], pxl_cls.new))
+      out = wire("out", pxl_cls.new)
+
+      res = muxp(sel, dats)
+      out <= res
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "logic [7:0] sel_muxp_lo_dats_r"
+    assert_includes sv, "logic [7:0] sel_muxp_lo_dats_g"
+    assert_includes sv, "priority casez (sel)"
+    assert_includes sv, "assign out_r = sel_muxp_lo_dats_r;"
+    assert_includes sv, "assign out_g = sel_muxp_lo_dats_g;"
+  end
+
   # ── cat ───────────────────────────────────────────────────────────────────
 
   def test_cat_emits_concatenation

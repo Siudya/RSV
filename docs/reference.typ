@@ -64,12 +64,14 @@
   `sel` is 1, selects `a`; otherwise selects `b`.
 / `mux1h(sel1h, dats)`: one-hot mux. Eagerly creates a temp wire and `always_comb`
   with `unique case` (hex one-hot patterns), returning the wire handler directly.
-  `dats` must be a `mem` whose highest dimension length matches `sel1h` width.
+  `dats` must be a `mem` whose highest dimension length matches `sel1h` width,
+  or a bundle `mem` for per-field muxing.
   Zero selector yields `'0`, default yields `'x`. The returned handler can be
   reused across multiple assignments: `res = mux1h(sel, dats); out <= res`.
   Works at module level, in `always_comb`, `always_ff`, or `always_latch`.
 / `muxp(sel, dats, lsb_first: true)`: priority mux. Same as `mux1h` but
-  emits `priority casez`. The `lsb_first:` option controls priority order.
+  emits `priority casez`. Supports bundle `dats` for per-field muxing.
+  The `lsb_first:` option controls priority order.
 / `pop_count(vec)`: population count. Eagerly creates a temp wire and `always_comb`
   with a for-loop accumulator. Counts 1-bits in `vec`. Output width is
   `log2ceil(vec.width + 1)`. The returned handler can be reused.
