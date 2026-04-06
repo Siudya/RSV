@@ -62,16 +62,17 @@
   Use to cast an unsigned signal to signed for arithmetic.
 / `mux(sel, a, b)`: ternary mux expression. Emits `sel ? a : b` in SV. When
   `sel` is 1, selects `a`; otherwise selects `b`.
-/ `mux1h(sel1h, dats)`: one-hot mux. Auto-creates a temp wire and `always_comb`
-  with `unique casez`. `dats` must be a `mem` whose highest dimension
-  length matches `sel1h` width. Usage: `out <= mux1h(sel, dats)` — works at
-  module level, in `always_comb`, `always_ff`, or `always_latch`.
+/ `mux1h(sel1h, dats)`: one-hot mux. Eagerly creates a temp wire and `always_comb`
+  with `unique casez`, returning the wire handler directly. `dats` must be a `mem`
+  whose highest dimension length matches `sel1h` width. The returned handler can be
+  reused across multiple assignments: `res = mux1h(sel, dats); out <= res`.
+  Works at module level, in `always_comb`, `always_ff`, or `always_latch`.
 / `muxp(sel, dats, lsb_first: true)`: priority mux. Same as `mux1h` but
   emits `priority casez`. The `lsb_first:` option controls priority order.
-/ `pop_count(vec)`: population count. Auto-creates a temp wire and `always_comb`
+/ `pop_count(vec)`: population count. Eagerly creates a temp wire and `always_comb`
   with a for-loop accumulator. Counts 1-bits in `vec`. Output width is
-  `log2ceil(vec.width + 1)`. Usage: `out <= pop_count(vec)` — works at
-  module level, in `always_comb`, `always_ff`, or `always_latch`.
+  `log2ceil(vec.width + 1)`. The returned handler can be reused.
+  Works at module level, in `always_comb`, `always_ff`, or `always_latch`.
 / `log2ceil(n)`: pure Ruby utility. Returns `ceil(log2(n))` — the minimum number
   of bits to address `n` items. Available in module `build` blocks and as `RSV.log2ceil(n)`.
 / `expr.sv_take(n)`: starts a stream view and keeps the first `n` elements.

@@ -289,6 +289,48 @@ class NewTypesDslTest < Minitest::Test
     assert_includes sv, "assign out = sel_muxp_lo_dats;"
   end
 
+  # ── eager expansion reuse ─────────────────────────────────────────────────
+
+  def test_mux1h_eager_reuse
+    mod = module_class("Mux1hReuse") do
+      sel = input("sel", uint(3))
+      dats = input("dats", mem([3], uint(8)))
+      out_a = output("out_a", uint(8))
+      out_b = wire("out_b", uint(8))
+
+      res = mux1h(sel, dats)
+      out_a <= res
+
+      always_comb do
+        out_b <= res
+      end
+    end.new
+
+    sv = mod.to_sv
+    # single temp wire, reused in both assign and always_comb
+    assert_includes sv, "assign out_a = sel_mux1h_dats;"
+    assert_includes sv, "out_b = sel_mux1h_dats;"
+  end
+
+  def test_mux1h_separate_calls_get_separate_wires
+    mod = module_class("Mux1hSep") do
+      sel = input("sel", uint(3))
+      dats = input("dats", mem([3], uint(8)))
+      out_a = wire("out_a", uint(8))
+      out_b = wire("out_b", uint(8))
+
+      out_a <= mux1h(sel, dats)
+
+      always_comb do
+        out_b <= mux1h(sel, dats)
+      end
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "sel_mux1h_dats"
+    assert_includes sv, "sel_mux1h_dats_1"
+  end
+
   # ── cat ───────────────────────────────────────────────────────────────────
 
   def test_cat_emits_concatenation

@@ -88,11 +88,15 @@ module RSV
     end
 
     def mux1h(sel1h, dats)
-      Mux1hExpr.new(sel1h, dats)
+      mod = RSV.current_module_def
+      raise ArgumentError, "mux1h requires a module context" unless mod
+      mod.send(:expand_complex_rhs, Mux1hExpr.new(sel1h, dats))
     end
 
     def muxp(sel, dats, lsb_first: true)
-      MuxpExpr.new(sel, dats, lsb_first: lsb_first)
+      mod = RSV.current_module_def
+      raise ArgumentError, "muxp requires a module context" unless mod
+      mod.send(:expand_complex_rhs, MuxpExpr.new(sel, dats, lsb_first: lsb_first))
     end
 
     def mux(sel, a, b)
@@ -100,7 +104,9 @@ module RSV
     end
 
     def pop_count(vec)
-      PopCountExpr.new(vec)
+      mod = RSV.current_module_def
+      raise ArgumentError, "pop_count requires a module context" unless mod
+      mod.send(:expand_complex_rhs, PopCountExpr.new(vec))
     end
 
     def log2ceil(n)
@@ -118,13 +124,6 @@ module RSV
     private
 
     def append_assignment(lhs, rhs)
-      # Expand mux1h/muxp/pop_count via module-level temp wire + always_comb
-      if rhs.is_a?(Mux1hExpr) || rhs.is_a?(MuxpExpr) || rhs.is_a?(PopCountExpr)
-        mod = RSV.current_module_def
-        raise ArgumentError, "mux1h/muxp/pop_count requires a module context" unless mod
-        rhs = mod.send(:expand_complex_rhs, rhs)
-      end
-
       if RSV.contains_instance_port?(lhs) || RSV.contains_instance_port?(rhs)
         raise ArgumentError, "instance ports cannot be assigned inside procedural blocks"
       end

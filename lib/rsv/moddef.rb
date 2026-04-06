@@ -345,15 +345,15 @@ module RSV
     end
 
     def mux1h(sel1h, dats)
-      Mux1hExpr.new(sel1h, dats)
+      expand_complex_rhs(Mux1hExpr.new(sel1h, dats))
     end
 
     def muxp(sel, dats, lsb_first: true)
-      MuxpExpr.new(sel, dats, lsb_first: lsb_first)
+      expand_complex_rhs(MuxpExpr.new(sel, dats, lsb_first: lsb_first))
     end
 
     def pop_count(vec)
-      PopCountExpr.new(vec)
+      expand_complex_rhs(PopCountExpr.new(vec))
     end
 
     def log2ceil(n)
@@ -735,11 +735,6 @@ module RSV
 
       if lhs_port || rhs_port
         return connect_instance_endpoint(lhs_port || rhs_port, lhs_port ? rhs : lhs)
-      end
-
-      if rhs.is_a?(Mux1hExpr) || rhs.is_a?(MuxpExpr) || rhs.is_a?(PopCountExpr)
-        wire_handler = expand_complex_rhs(rhs)
-        rhs = wire_handler
       end
 
       stmt = AssignStmt.new(RSV.normalize_expr(lhs), RSV.normalize_expr(rhs))

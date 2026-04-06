@@ -31,7 +31,8 @@ SystemVerilog.
   wildcards.
 + Use `log2ceil(n)` to compute bit widths at Ruby time, and
   `cnt <= pop_count(vec)` for population count. `mux1h`, `muxp`, and
-  `pop_count` auto-create temp wires and work at module level, inside
+  `pop_count` eagerly create temp wires and return wire handlers that can be
+  reused across multiple assignments. Work at module level, inside
   `always_comb`, `always_ff`, or `always_latch`.
 + Adjust `module_name` inside `build(...)` if one Ruby class needs to emit a
   non-default SV module name.

@@ -126,7 +126,7 @@ xmake rtl -f syn
 - 局部声明: `wire`
 - 赋值: `<=`
 - 选择器表达式: `mux()`（三元选择）, `mux1h()`（独热选择）, `muxp()`（优先级选择）
-- `mux1h`/`muxp` 使用赋值语法: `out <= mux1h(sel, dats)`, `lsb_first:`
+- `mux1h`/`muxp` 即时展开返回线网句柄，可跨赋值复用: `res = mux1h(sel, dats); out <= res`
 - 组合逻辑: `always_comb`
 
 == pop_count_demo.rb
@@ -137,9 +137,9 @@ population count 与 log2ceil 位宽计算。
 - 类型构造: `clock`, `reset`, `uint`
 - 局部声明: `reg`（含初始值）
 - `log2ceil(n)`: 编译期位宽计算（ceil(log2(n))）
-- `pop_count(vec)`: 人口计数，自动生成临时线网和 `always_comb` 展开为 for 循环累加器
-- 模块级使用: `cnt <= pop_count(vec)` 自动展开
-- 寄存器锁存: `always_ff` 内 `cnt_r <= pop_count(vec)` 自动展开
+- `pop_count(vec)`: 人口计数，即时生成临时线网和 `always_comb`，返回可复用句柄
+- 模块级使用: `res = pop_count(vec); cnt <= res` 即时展开
+- 寄存器锁存: `always_ff` 内 `cnt_r <= pop_count(vec)` 即时展开
 
 == case_demo.rb
 
