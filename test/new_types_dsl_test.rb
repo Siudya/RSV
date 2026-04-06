@@ -553,6 +553,57 @@ class NewTypesDslTest < Minitest::Test
     assert_includes sv, "out = {a, b};"
   end
 
+  def test_cat_bundle_argument
+    pxl_cls = Class.new(RSV::BundleDef) do
+      define_singleton_method(:name) { "Pixel" }
+      def build
+        input("r", uint(8))
+        input("g", uint(8))
+        input("b", uint(8))
+      end
+    end
+
+    mod = module_class("CatBundle") do
+      pxl = wire("pxl", pxl_cls.new)
+      out = wire("out", uint(24))
+      out <= cat(pxl)
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "assign out = {pxl_r, pxl_g, pxl_b};"
+  end
+
+  def test_cat_mem_argument
+    mod = module_class("CatMem") do
+      vals = wire("vals", mem(4, uint(8)))
+      out = wire("out", uint(32))
+      out <= cat(vals)
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "assign out = {vals[3], vals[2], vals[1], vals[0]};"
+  end
+
+  def test_cat_mixed_bundle_and_scalar
+    pxl_cls = Class.new(RSV::BundleDef) do
+      define_singleton_method(:name) { "Pixel" }
+      def build
+        input("r", uint(8))
+        input("g", uint(8))
+      end
+    end
+
+    mod = module_class("CatMixed") do
+      pxl = wire("pxl", pxl_cls.new)
+      extra = wire("extra", uint(8))
+      out = wire("out", uint(24))
+      out <= cat(pxl, extra)
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "assign out = {pxl_r, pxl_g, extra};"
+  end
+
   # ── fill ──────────────────────────────────────────────────────────────────
 
   def test_fill_emits_replication

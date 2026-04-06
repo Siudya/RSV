@@ -429,7 +429,16 @@ module RSV
     attr_reader :parts
 
     def initialize(parts)
-      @parts = parts.map { |p| RSV.normalize_expr(p) }
+      expanded = parts.flat_map do |p|
+        if p.is_a?(BundleSignalGroup)
+          p.as_uint.parts
+        elsif p.is_a?(SignalHandler) && !p.unpacked_dims.empty?
+          p.as_uint.parts
+        else
+          [RSV.normalize_expr(p)]
+        end
+      end
+      @parts = expanded
     end
 
     def width

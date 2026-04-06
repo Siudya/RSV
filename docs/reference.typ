@@ -60,6 +60,8 @@
 
 / `handler.as_sint`: returns an expression that emits `$signed(handler)` in SV.
   Use to cast an unsigned signal to signed for arithmetic.
+/ `cat(*parts)`: bit concatenation. Emits `{a, b, c}` in SV. Parts can be
+  scalars, bundles, or mem signals. Bundles and mem are auto-expanded via `as_uint`.
 / `mux(sel, a, b)`: ternary mux expression. Emits `sel ? a : b` in SV. When
   `sel` is 1, selects `a`; otherwise selects `b`.
 / `mux1h(sel1h, dats)`: one-hot mux. Eagerly creates a temp wire and `always_comb`
