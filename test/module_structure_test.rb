@@ -5,7 +5,11 @@ require "minitest/autorun"
 $LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
 require "rsv"
 
-module ClassModuleTestFixtures
+# ── 模块结构测试 ─────────────────────────────────────────────────────────────
+# 覆盖: class-based module, definition/instance, 去重, 自动布线,
+#       module_name override, local wire interconnect, direct connections
+
+module ModuleStructureTestFixtures
   class Counter < RSV::ModuleDef
     def initialize(width: 8)
       super()
@@ -42,7 +46,7 @@ module ClassModuleTestFixtures
   end
 end
 
-class ClassModuleTest < Minitest::Test
+class ModuleStructureTest < Minitest::Test
   def test_module_def_must_be_subclassed
     assert_raises(ArgumentError) do
       RSV::ModuleDef.new("Legacy") do
@@ -51,7 +55,7 @@ class ClassModuleTest < Minitest::Test
   end
 
   def test_to_sv_can_write_to_stdout_with_dash
-    mod = ClassModuleTestFixtures::Counter.new(width: 8)
+    mod = ModuleStructureTestFixtures::Counter.new(width: 8)
     expected = <<~SV.chomp
       module Counter (
         input  logic       clk,
@@ -82,7 +86,7 @@ class ClassModuleTest < Minitest::Test
   end
 
   def test_submodule_class_instances_allow_late_port_connections
-    top = ClassModuleTestFixtures::Top.new
+    top = ModuleStructureTestFixtures::Top.new
     expected = <<~SV.chomp
       module Top (
         input  logic       clk,
@@ -345,7 +349,6 @@ class ClassModuleTest < Minitest::Test
     counter_8_def = counter_class.definition(width: 8)
     counter_16_def = counter_class.definition(width: 16)
 
-    # Different widths produce different SV → different definitions
     refute_equal counter_8_def.module_name, counter_16_def.module_name
   end
 
@@ -458,5 +461,37 @@ class ClassModuleTest < Minitest::Test
     assert_includes top_sv, "assign u_consumer_rx_mem[1][2] = u_producer_tx_mem_0_1;"
     assert_includes top_sv, ".tx_mem(u_producer_tx_mem)"
     assert_includes top_sv, ".rx_mem(u_consumer_rx_mem)"
+  end
+
+  # ── handlers_can_be_used_in_instance_connections (from handler_dsl) ────
+
+  def test_handlers_can_be_used_in_instance_connections
+    counter_class = Class.new(RSV::ModuleDef) do
+      define_singleton_method(:name) { "Counter" }
+
+      define_method(:build) do
+        clk = input("clk", bit)
+        count = output("count", uint(16))
+      end
+    end
+
+    mod = Class.new(RSV::ModuleDef) do
+      define_singleton_method(:name) { "Top" }
+
+      define_method(:build) do
+        clk = input("clk", bit)
+        count = wire("count", uint(16))
+
+        counter = counter_class.new(inst_name: "u_counter")
+        counter.clk <= clk
+        count <= counter.count
+      end
+    end.new
+
+    sv = mod.to_sv
+
+    assert_includes sv, "Counter u_counter ("
+    assert_includes sv, ".clk(clk)"
+    assert_includes sv, ".count(count)"
   end
 end

@@ -5,7 +5,11 @@ require "minitest/autorun"
 $LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
 require "rsv"
 
-class SequentialDslTest < Minitest::Test
+# ── 时序逻辑测试 ─────────────────────────────────────────────────────────────
+# 覆盖: always_ff/comb/latch, with_clk_and_rst, 复位注入,
+#       reg/wire 赋值上下文规则, expr 推断, 多时钟域
+
+class SequentialTest < Minitest::Test
   def test_expr_creates_inferred_logic_and_assign
     c = nil
     mod = module_class("ExprTop") do
@@ -38,13 +42,13 @@ class SequentialDslTest < Minitest::Test
   end
 
   def test_reg_assignment_requires_always_ff_or_always_latch
-      error = assert_raises(ArgumentError) do
-        module_class("BadRegAssign") do
+    error = assert_raises(ArgumentError) do
+      module_class("BadRegAssign") do
         a = wire("a", uint(8))
         r = reg("r", uint(8), init: 0)
 
         r <= a
-        end.new.to_sv
+      end.new.to_sv
     end
 
     assert_equal "reg signal r must be assigned inside always_ff or always_latch", error.message
@@ -84,8 +88,8 @@ class SequentialDslTest < Minitest::Test
   end
 
   def test_reg_cannot_be_assigned_in_always_comb
-      error = assert_raises(ArgumentError) do
-        module_class("BadRegComb") do
+    error = assert_raises(ArgumentError) do
+      module_class("BadRegComb") do
         a = input("a", uint(8))
         r = reg("r", uint(8), init: 0)
 
@@ -99,8 +103,8 @@ class SequentialDslTest < Minitest::Test
   end
 
   def test_wire_cannot_be_assigned_in_always_ff
-      error = assert_raises(ArgumentError) do
-        module_class("BadWireFf") do
+    error = assert_raises(ArgumentError) do
+      module_class("BadWireFf") do
         clk = input("clk", bit)
         rst = input("rst", bit)
         d = input("d", uint(8))
@@ -119,8 +123,8 @@ class SequentialDslTest < Minitest::Test
   end
 
   def test_wire_cannot_be_assigned_in_always_latch
-      error = assert_raises(ArgumentError) do
-        module_class("BadWireLatch") do
+    error = assert_raises(ArgumentError) do
+      module_class("BadWireLatch") do
         en = input("en", bit)
         d = input("d", uint(8))
         w = wire("w", uint(8))
@@ -137,8 +141,8 @@ class SequentialDslTest < Minitest::Test
   end
 
   def test_signal_cannot_be_assigned_by_assign_and_always_block
-      error = assert_raises(ArgumentError) do
-        module_class("MixedDrivers") do
+    error = assert_raises(ArgumentError) do
+      module_class("MixedDrivers") do
         a = input("a", uint(8))
         b = input("b", uint(8))
         w = wire("w", uint(8))
@@ -155,8 +159,8 @@ class SequentialDslTest < Minitest::Test
   end
 
   def test_signal_cannot_be_assigned_in_multiple_always_blocks
-      error = assert_raises(ArgumentError) do
-        module_class("DoubleAlways") do
+    error = assert_raises(ArgumentError) do
+      module_class("DoubleAlways") do
         a = input("a", uint(8))
         b = input("b", uint(8))
         w = wire("w", uint(8))
@@ -313,6 +317,22 @@ class SequentialDslTest < Minitest::Test
     assert_includes sv, "always_ff @(posedge clk_1 or posedge rst_1) begin"
     assert_includes sv, "cnt1 <= 16'h45;"
     assert_includes sv, "cnt1 < 16'd97"
+  end
+
+  def test_string_based_always_ff_is_removed
+    error = assert_raises(ArgumentError) do
+      module_class("NoStringAlwaysFf") do
+        clk = input("clk", bit)
+        rst_n = input("rst_n", bit)
+        value = reg("value", uint(8))
+
+        always_ff("posedge #{clk} or negedge #{rst_n}") do
+          value <= 0
+        end
+      end.new
+    end
+
+    assert_equal "always_ff expects no arguments or explicit clock/reset", error.message
   end
 
   private

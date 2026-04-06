@@ -5,162 +5,12 @@ require "minitest/autorun"
 $LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
 require "rsv"
 
-class NewTypesDslTest < Minitest::Test
-  # ── bits & uint alias ─────────────────────────────────────────────────────
+# ── 复合表达式测试 ───────────────────────────────────────────────────────────
+# 覆盖: mux/cat/fill, mux1h/muxp (含 bundle), pop_count/log2ceil,
+#       as_uint/get_width, as_type 类型转换
 
-  def test_bits_is_equivalent_to_uint
-    mod = module_class("BitsAlias") do
-      input("a", bits(8))
-      output("b", uint(8))
-    end.new
-
-    sv = mod.to_sv
-    assert_includes sv, "logic [7:0] a"
-    assert_includes sv, "logic [7:0] b"
-  end
-
-  # ── sint ──────────────────────────────────────────────────────────────────
-
-  def test_sint_emits_signed_logic
-    mod = module_class("SintDecl") do
-      input("a", sint(16))
-      output("b", sint(8))
-      w = wire("w", sint(32))
-      r = reg("r", sint(16))
-    end.new
-
-    sv = mod.to_sv
-    assert_includes sv, "logic signed [15:0] a"
-    assert_includes sv, "logic signed [7:0]  b"
-    assert_includes sv, "logic signed [31:0] w"
-    assert_includes sv, "logic signed [15:0] r"
-  end
-
-  # ── as_sint ───────────────────────────────────────────────────────────────
-
-  def test_as_sint_emits_dollar_signed
-    mod = module_class("AsSintTop") do
-      a = input("a", uint(8))
-      b = output("b", sint(8))
-      b <= a.as_sint
-    end.new
-
-    sv = mod.to_sv
-    assert_includes sv, "assign b = $signed(a);"
-  end
-
-  # ── clock type ────────────────────────────────────────────────────────────
-
-  def test_clock_neg_emits_negedge
-    mod = module_class("ClkNeg") do
-      clk = input("clk", clock)
-      rst = input("rst", reset)
-      cnt = reg("cnt", uint(8), init: 0)
-
-      with_clk_and_rst(clk.neg, rst)
-      always_ff do
-        svif(1) do
-          cnt <= cnt + 1
-        end
-      end
-    end.new
-
-    sv = mod.to_sv
-    assert_includes sv, "always_ff @(negedge clk or posedge rst)"
-  end
-
-  # ── reset type ────────────────────────────────────────────────────────────
-
-  def test_reset_neg_emits_negedge_and_inverted_condition
-    mod = module_class("RstNeg") do
-      clk = input("clk", clock)
-      rst = input("rst", reset)
-      cnt = reg("cnt", uint(8), init: 0)
-
-      with_clk_and_rst(clk, rst.neg)
-      always_ff do
-        svif(1) do
-          cnt <= cnt + 1
-        end
-      end
-    end.new
-
-    sv = mod.to_sv
-    assert_includes sv, "always_ff @(posedge clk or negedge rst)"
-    assert_includes sv, "if (!rst)"
-  end
-
-  def test_clock_and_reset_both_negated
-    mod = module_class("BothNeg") do
-      clk = input("clk", clock)
-      rst = input("rst_n", reset)
-      cnt = reg("cnt", uint(8), init: 0)
-
-      with_clk_and_rst(clk.neg, rst.neg)
-      always_ff do
-        svif(1) do
-          cnt <= cnt + 1
-        end
-      end
-    end.new
-
-    sv = mod.to_sv
-    assert_includes sv, "always_ff @(negedge clk or negedge rst_n)"
-    assert_includes sv, "if (!rst_n)"
-  end
-
-  def test_clock_reset_positive_edge_default
-    mod = module_class("PosEdge") do
-      clk = input("clk", clock)
-      rst = input("rst", reset)
-      cnt = reg("cnt", uint(8), init: 0)
-
-      with_clk_and_rst(clk, rst)
-      always_ff do
-        svif(1) do
-          cnt <= cnt + 1
-        end
-      end
-    end.new
-
-    sv = mod.to_sv
-    assert_includes sv, "always_ff @(posedge clk or posedge rst)"
-    assert_includes sv, "if (rst)"
-  end
-
-  # ── mem nesting flattening ────────────────────────────────────────────
-
-  def test_nested_mem_flattens
-    mod = module_class("NestedMem") do
-      wire("x", mem([2], mem([3], mem([4], uint(8)))))
-    end.new
-
-    expected_mod = module_class("NestedMem2") do
-      wire("x", mem([2, 3, 4], uint(8)))
-    end.new
-
-    assert_equal expected_mod.to_sv.gsub("NestedMem2", "NestedMem"), mod.to_sv
-  end
-
-  # ── complex expression test ───────────────────────────────────────────────
-
-  def test_complex_expression_translates_correctly
-    mod = module_class("ComplexExpr") do
-      a = input("a", uint(8))
-      b = input("b", uint(8))
-      c = input("c", uint(8))
-      d = input("d", uint(8))
-      e = input("e", uint(8))
-      out = output("out", uint(8))
-
-      out <= (a + b) * (c + d) / e
-    end.new
-
-    sv = mod.to_sv
-    assert_includes sv, "assign out = (a + b) * (c + d) / e;"
-  end
-
-  # ── mux ternary ──────────────────────────────────────────────────────────
+class ExpressionTest < Minitest::Test
+  # ── mux ternary ────────────────────────────────────────────────────────
 
   def test_mux_emits_ternary
     mod = module_class("MuxTop") do
@@ -192,7 +42,7 @@ class NewTypesDslTest < Minitest::Test
     assert_includes sv, "assign out = s0 ? (s1 ? a : b) : c;"
   end
 
-  # ── mux1h ────────────────────────────────────────────────────────────────
+  # ── mux1h ──────────────────────────────────────────────────────────────
 
   def test_mux1h_emits_unique_case
     mod = module_class("Mux1hTop") do
@@ -254,7 +104,7 @@ class NewTypesDslTest < Minitest::Test
     assert_includes sv, "default: sel_mux1h_dats = 'x;"
   end
 
-  # ── muxp ─────────────────────────────────────────────────────────────────
+  # ── muxp ───────────────────────────────────────────────────────────────
 
   def test_muxp_emits_priority_casez
     mod = module_class("MuxpTop") do
@@ -312,7 +162,7 @@ class NewTypesDslTest < Minitest::Test
     assert_includes sv, "assign out = sel_muxp_lo_dats;"
   end
 
-  # ── eager expansion reuse ─────────────────────────────────────────────────
+  # ── eager expansion reuse ──────────────────────────────────────────────
 
   def test_mux1h_eager_reuse
     mod = module_class("Mux1hReuse") do
@@ -330,7 +180,6 @@ class NewTypesDslTest < Minitest::Test
     end.new
 
     sv = mod.to_sv
-    # single temp wire, reused in both assign and always_comb
     assert_includes sv, "assign out_a = sel_mux1h_dats;"
     assert_includes sv, "out_b = sel_mux1h_dats;"
   end
@@ -354,7 +203,7 @@ class NewTypesDslTest < Minitest::Test
     assert_includes sv, "sel_mux1h_dats_1"
   end
 
-  # ── mux1h/muxp with bundle data ──────────────────────────────────────────
+  # ── mux1h/muxp with bundle data ───────────────────────────────────────
 
   def test_mux1h_bundle_data
     pxl_cls = Class.new(RSV::BundleDef) do
@@ -380,12 +229,10 @@ class NewTypesDslTest < Minitest::Test
     assert_includes sv, "logic [7:0] sel_mux1h_dats_g"
     assert_includes sv, "logic [7:0] sel_mux1h_dats_b"
     assert_includes sv, "unique case (sel)"
-    # verify per-field mux
     assert_includes sv, "sel_mux1h_dats_r = dats_r[0];"
     assert_includes sv, "sel_mux1h_dats_r = dats_r[1];"
     assert_includes sv, "sel_mux1h_dats_g = dats_g[0];"
     assert_includes sv, "sel_mux1h_dats_b = dats_b[0];"
-    # verify bundle assignment to out
     assert_includes sv, "assign out_r = sel_mux1h_dats_r;"
     assert_includes sv, "assign out_g = sel_mux1h_dats_g;"
     assert_includes sv, "assign out_b = sel_mux1h_dats_b;"
@@ -417,18 +264,10 @@ class NewTypesDslTest < Minitest::Test
     assert_includes sv, "assign out_g = sel_muxp_lo_dats_g;"
   end
 
-  # ── as_uint ──────────────────────────────────────────────────────────────
+  # ── as_uint ────────────────────────────────────────────────────────────
 
   def test_bundle_as_uint
-    pxl_cls = Class.new(RSV::BundleDef) do
-      define_singleton_method(:name) { "Pixel" }
-      def build
-        input("r", uint(8))
-        input("g", uint(8))
-        input("b", uint(8))
-      end
-    end
-
+    pxl_cls = pixel_bundle
     mod = module_class("BundleAsUint") do
       pxl = wire("pxl", pxl_cls.new)
       pxl_pack = wire("pxl_pack", uint(pxl.get_width))
@@ -441,14 +280,7 @@ class NewTypesDslTest < Minitest::Test
   end
 
   def test_nested_bundle_as_uint
-    pxl_cls = Class.new(RSV::BundleDef) do
-      define_singleton_method(:name) { "Pixel" }
-      def build
-        input("r", uint(8))
-        input("g", uint(8))
-        input("b", uint(8))
-      end
-    end
+    pxl_cls = pixel_bundle
 
     frm_cls = Class.new(RSV::BundleDef) do
       define_singleton_method(:name) { "Frame" }
@@ -471,15 +303,7 @@ class NewTypesDslTest < Minitest::Test
   end
 
   def test_mem_bundle_as_uint
-    pxl_cls = Class.new(RSV::BundleDef) do
-      define_singleton_method(:name) { "Pixel" }
-      def build
-        input("r", uint(8))
-        input("g", uint(8))
-        input("b", uint(8))
-      end
-    end
-
+    pxl_cls = pixel_bundle
     mod = module_class("MemBundleAsUint") do
       pxls = wire("pxls", mem(4, pxl_cls.new))
       pxls_pack = expr("pxls_pack", pxls.as_uint)
@@ -503,15 +327,7 @@ class NewTypesDslTest < Minitest::Test
   end
 
   def test_bundle_get_width
-    pxl_cls = Class.new(RSV::BundleDef) do
-      define_singleton_method(:name) { "Pixel" }
-      def build
-        input("r", uint(8))
-        input("g", uint(8))
-        input("b", uint(8))
-      end
-    end
-
+    pxl_cls = pixel_bundle
     mod = module_class("GetWidth") do
       pxl = wire("pxl", pxl_cls.new)
       pxls = wire("pxls", mem(4, pxl_cls.new))
@@ -524,7 +340,7 @@ class NewTypesDslTest < Minitest::Test
     assert_includes sv, "logic [95:0] w2"
   end
 
-  # ── cat ───────────────────────────────────────────────────────────────────
+  # ── cat ────────────────────────────────────────────────────────────────
 
   def test_cat_emits_concatenation
     mod = module_class("CatTest") do
@@ -554,15 +370,7 @@ class NewTypesDslTest < Minitest::Test
   end
 
   def test_cat_bundle_argument
-    pxl_cls = Class.new(RSV::BundleDef) do
-      define_singleton_method(:name) { "Pixel" }
-      def build
-        input("r", uint(8))
-        input("g", uint(8))
-        input("b", uint(8))
-      end
-    end
-
+    pxl_cls = pixel_bundle
     mod = module_class("CatBundle") do
       pxl = wire("pxl", pxl_cls.new)
       out = wire("out", uint(24))
@@ -604,43 +412,7 @@ class NewTypesDslTest < Minitest::Test
     assert_includes sv, "assign out = {pxl_r, pxl_g, extra};"
   end
 
-  # ── mem reverse ──────────────────────────────────────────────────────────
-
-  def test_mem_reverse
-    mod = module_class("MemReverse") do
-      pos = wire("pos", mem(4, uint(8)))
-      pos.reverse
-    end.new
-
-    sv = mod.to_sv
-    assert_includes sv, "logic [7:0] pos[3:0]"
-    assert_includes sv, "logic [7:0] pos_reverse[3:0]"
-    assert_includes sv, "for (int _rv_i = 0; _rv_i < 4; _rv_i = _rv_i + 1) begin"
-    assert_includes sv, "pos_reverse[_rv_i] = pos[3 - _rv_i];"
-  end
-
-  def test_bundle_mem_reverse
-    pxl_cls = Class.new(RSV::BundleDef) do
-      define_singleton_method(:name) { "Pixel" }
-      def build
-        input("r", uint(8))
-        input("g", uint(8))
-      end
-    end
-
-    mod = module_class("BundleMemReverse") do
-      pxls = wire("pxls", mem(3, pxl_cls.new))
-      pxls.reverse
-    end.new
-
-    sv = mod.to_sv
-    assert_includes sv, "logic [7:0] pxls_r_reverse[2:0]"
-    assert_includes sv, "logic [7:0] pxls_g_reverse[2:0]"
-    assert_includes sv, "pxls_r_reverse[_rv_i] = pxls_r[2 - _rv_i];"
-    assert_includes sv, "pxls_g_reverse[_rv_i] = pxls_g[2 - _rv_i];"
-  end
-
-  # ── fill ──────────────────────────────────────────────────────────────────
+  # ── fill ───────────────────────────────────────────────────────────────
 
   def test_fill_emits_replication
     mod = module_class("FillTest") do
@@ -666,293 +438,7 @@ class NewTypesDslTest < Minitest::Test
     assert_includes sv, "out = {8{a}};"
   end
 
-  # ── index type checking ────────────────────────────────────────────────
-
-  def test_arr_mem_index_with_uint_works
-    mod = module_class("IdxUint") do
-      idx = input("idx", uint(2))
-      dats = wire("dats", mem([4], uint(8)))
-      out = output("out", uint(8))
-      out <= dats[idx]
-    end.new
-
-    sv = mod.to_sv
-    assert_includes sv, "assign out = dats[idx];"
-  end
-
-  def test_mem_index_with_literal_works
-    mod = module_class("IdxLit") do
-      dats = wire("dats", mem([4], uint(8)))
-      out = output("out", uint(8))
-      out <= dats[2]
-    end.new
-
-    sv = mod.to_sv
-    assert_includes sv, "assign out = dats[2];"
-  end
-
-  def test_mem_index_with_sint_raises
-    error = assert_raises(ArgumentError) do
-      module_class("IdxSint") do
-        idx = input("idx", sint(2))
-        dats = wire("dats", mem([4], uint(8)))
-        dats[idx]
-      end.new
-    end
-
-    assert_includes error.message, "unsigned"
-  end
-
-  # ── runtime arithmetic on non-hardware data types ─────────────────────
-
-  def test_runtime_uint_arithmetic
-    a = RSV::DataType.new(width: 8, init: 10)
-    b = RSV::DataType.new(width: 8, init: 5)
-
-    sum = a + b
-    assert_equal 15, sum.init
-    assert_equal 9, sum.width
-
-    product = a * b
-    assert_equal 50, product.init
-    assert_equal 16, product.width
-
-    diff = a - b
-    assert_equal 5, diff.init
-
-    quotient = a / b
-    assert_equal 2, quotient.init
-  end
-
-  def test_runtime_sint_arithmetic
-    a = RSV::DataType.new(width: 8, signed: true, init: 10)
-    b = RSV::DataType.new(width: 8, signed: true, init: 3)
-
-    sum = a + b
-    assert_equal 13, sum.init
-    assert sum.signed
-  end
-
-  def test_runtime_reduce_operations
-    val = RSV::DataType.new(width: 4, init: 0b1010)
-    assert_equal 1, val.or_r.init
-    assert_equal 0, val.and_r.init
-
-    full = RSV::DataType.new(width: 4, init: 0b1111)
-    assert_equal 1, full.and_r.init
-  end
-
-  def test_runtime_compare
-    a = RSV::DataType.new(width: 8, init: 10)
-    b = RSV::DataType.new(width: 8, init: 10)
-    c = RSV::DataType.new(width: 8, init: 5)
-
-    assert_equal 1, a.eq(b).init
-    assert_equal 0, a.eq(c).init
-    assert_equal 0, a.ne(b).init
-    assert_equal 1, a.ne(c).init
-  end
-
-  # ── svcase ─────────────────────────────────────────────────────────────────
-
-  def test_svcase_emits_case
-    mod = module_class("CaseTest") do
-      sel = input("sel", uint(2))
-      out = wire("out", uint(8))
-
-      always_comb do
-        svcase(sel) do
-          is(0) { out <= 0x10 }
-          is(1) { out <= 0x20 }
-          is(2) { out <= 0x30 }
-          fallin { out <= 0xFF }
-        end
-      end
-    end.new
-
-    sv = mod.to_sv
-    assert_includes sv, "case (sel)"
-    assert_includes sv, "0: begin"
-    assert_includes sv, "out = 8'd16;"
-    assert_includes sv, "1: begin"
-    assert_includes sv, "2: begin"
-    assert_includes sv, "default: begin"
-    assert_includes sv, "out = 8'd255;"
-    assert_includes sv, "endcase"
-  end
-
-  def test_svcasez_emits_casez
-    mod = module_class("CasezTest") do
-      sel = input("sel", uint(4))
-      out = wire("out", uint(8))
-
-      always_comb do
-        svcasez(sel) do
-          is(0b0001) { out <= 0xA }
-          is(0b0010) { out <= 0xB }
-          fallin { out <= 0 }
-        end
-      end
-    end.new
-
-    sv = mod.to_sv
-    assert_includes sv, "casez (sel)"
-    assert_includes sv, "endcase"
-  end
-
-  def test_svcase_unique
-    mod = module_class("UniqueCase") do
-      sel = input("sel", uint(2))
-      out = wire("out", uint(8))
-
-      always_comb do
-        svcase(sel, unique: true) do
-          is(0) { out <= 1 }
-          is(1) { out <= 2 }
-          fallin { out <= 0 }
-        end
-      end
-    end.new
-
-    sv = mod.to_sv
-    assert_includes sv, "unique case (sel)"
-    assert_includes sv, "endcase"
-  end
-
-  def test_svcase_priority
-    mod = module_class("PriorityCase") do
-      sel = input("sel", uint(2))
-      out = wire("out", uint(8))
-
-      always_comb do
-        svcase(sel, priority: true) do
-          is(0) { out <= 1 }
-          fallin { out <= 0 }
-        end
-      end
-    end.new
-
-    sv = mod.to_sv
-    assert_includes sv, "priority case (sel)"
-  end
-
-  def test_svcasez_unique
-    mod = module_class("UniqueCasez") do
-      sel = input("sel", uint(4))
-      out = wire("out", uint(8))
-
-      always_comb do
-        svcasez(sel, unique: true) do
-          is(0b0001) { out <= 1 }
-          fallin { out <= 0 }
-        end
-      end
-    end.new
-
-    sv = mod.to_sv
-    assert_includes sv, "unique casez (sel)"
-  end
-
-  def test_svcasez_wildcard
-    mod = module_class("CasezWild") do
-      sel = input("sel", uint(4))
-      out = wire("out", uint(8))
-
-      always_comb do
-        svcasez(sel) do
-          is("4'b1??0") { out <= 0xA }
-          is("4'b??01") { out <= 0xB }
-          fallin { out <= 0 }
-        end
-      end
-    end.new
-
-    sv = mod.to_sv
-    assert_includes sv, "casez (sel)"
-    assert_includes sv, "4'b1??0: begin"
-    assert_includes sv, "4'b??01: begin"
-  end
-
-  def test_svcase_multi_val_branch
-    mod = module_class("MultiVal") do
-      sel = input("sel", uint(3))
-      out = wire("out", uint(8))
-
-      always_comb do
-        svcase(sel) do
-          is(0, 1) { out <= 0xAA }
-          is(2, 3) { out <= 0xBB }
-          fallin { out <= 0 }
-        end
-      end
-    end.new
-
-    sv = mod.to_sv
-    assert_includes sv, "case (sel)"
-    assert_includes sv, "0, 1: begin"
-    assert_includes sv, "2, 3: begin"
-  end
-
-  def test_svcase_in_always_ff
-    mod = module_class("CaseFF") do
-      clk = input("clk", clock)
-      rst = input("rst", reset)
-      sel = input("sel", uint(2))
-      r = reg("r", uint(8), init: 0)
-
-      with_clk_and_rst(clk, rst)
-      always_ff do
-        svcase(sel) do
-          is(0) { r <= 0x10 }
-          is(1) { r <= 0x20 }
-          fallin { r <= 0 }
-        end
-      end
-    end.new
-
-    sv = mod.to_sv
-    assert_includes sv, "always_ff @(posedge clk"
-    assert_includes sv, "case (sel)"
-    assert_includes sv, "r <= 8'd16;"
-    assert_includes sv, "endcase"
-  end
-
-  # ── svif unique/priority ─────────────────────────────────────────────────
-
-  def test_svif_unique
-    mod = module_class("UniqueIf") do
-      a = input("a", uint(2))
-      out = wire("out", uint(8))
-
-      always_comb do
-        svif(a.eq(0), unique: true) { out <= 1 }
-        .svelif(a.eq(1)) { out <= 2 }
-        .svelse { out <= 0 }
-      end
-    end.new
-
-    sv = mod.to_sv
-    assert_includes sv, "unique if (a == 2'd0) begin"
-    assert_includes sv, "end else if (a == 2'd1) begin"
-    assert_includes sv, "end else begin"
-  end
-
-  def test_svif_priority
-    mod = module_class("PriorityIf") do
-      a = input("a", uint(2))
-      out = wire("out", uint(8))
-
-      always_comb do
-        svif(a.eq(0), priority: true) { out <= 1 }
-        .svelse { out <= 0 }
-      end
-    end.new
-
-    sv = mod.to_sv
-    assert_includes sv, "priority if (a == 2'd0) begin"
-  end
-
-  # ── log2ceil ───────────────────────────────────────────────────────────────
+  # ── log2ceil ───────────────────────────────────────────────────────────
 
   def test_log2ceil
     assert_equal 0, RSV.log2ceil(1)
@@ -970,14 +456,14 @@ class NewTypesDslTest < Minitest::Test
 
   def test_log2ceil_in_build
     mod = module_class("Log2CeilMod") do
-      w = log2ceil(8 + 1)   # 4 bits for 0..8
+      w = log2ceil(8 + 1)
       _cnt = wire("cnt", uint(w))
     end.new
     sv = mod.to_sv
     assert_includes sv, "logic [3:0] cnt"
   end
 
-  # ── pop_count ──────────────────────────────────────────────────────────────
+  # ── pop_count ──────────────────────────────────────────────────────────
 
   def test_pop_count_basic
     mod = module_class("PopCntBasic") do
@@ -1048,7 +534,7 @@ class NewTypesDslTest < Minitest::Test
     assert_includes sv, "assign cnt = vec_pop_count;"
   end
 
-  # ── as_type ────────────────────────────────────────────────────────────────
+  # ── as_type ────────────────────────────────────────────────────────────
 
   def test_as_type_uint_to_uint_same_width
     mod = module_class("AsTypeSame") do
@@ -1091,14 +577,7 @@ class NewTypesDslTest < Minitest::Test
   end
 
   def test_as_type_bundle_to_uint
-    pxl_cls = Class.new(RSV::BundleDef) do
-      define_singleton_method(:name) { "Pixel" }
-      def build
-        input("r", uint(8))
-        input("g", uint(8))
-        input("b", uint(8))
-      end
-    end
+    pxl_cls = pixel_bundle
     mod = module_class("BundleToUint") do
       pxl = wire("pxl", pxl_cls.new)
       out = wire("out", uint(24))
@@ -1109,14 +588,7 @@ class NewTypesDslTest < Minitest::Test
   end
 
   def test_as_type_uint_to_bundle
-    pxl_cls = Class.new(RSV::BundleDef) do
-      define_singleton_method(:name) { "Pixel" }
-      def build
-        input("r", uint(8))
-        input("g", uint(8))
-        input("b", uint(8))
-      end
-    end
+    pxl_cls = pixel_bundle
     mod = module_class("UintToBundle") do
       a = input("a", uint(24))
       pxl = a.as_type(pxl_cls.new)
@@ -1159,14 +631,6 @@ class NewTypesDslTest < Minitest::Test
   end
 
   def test_as_type_bundle_to_bundle_different
-    pxl_cls = Class.new(RSV::BundleDef) do
-      define_singleton_method(:name) { "Pixel" }
-      def build
-        input("r", uint(8))
-        input("g", uint(8))
-        input("b", uint(8))
-      end
-    end
     pair_cls = Class.new(RSV::BundleDef) do
       define_singleton_method(:name) { "Pair" }
       def build
@@ -1174,6 +638,7 @@ class NewTypesDslTest < Minitest::Test
         input("y", uint(12))
       end
     end
+    pxl_cls = pixel_bundle
     mod = module_class("BundleToBundle") do
       pxl = wire("pxl", pxl_cls.new)
       pair = pxl.as_type(pair_cls.new)
@@ -1188,14 +653,7 @@ class NewTypesDslTest < Minitest::Test
   end
 
   def test_as_type_truncation_uint_to_bundle
-    pxl_cls = Class.new(RSV::BundleDef) do
-      define_singleton_method(:name) { "Pixel" }
-      def build
-        input("r", uint(8))
-        input("g", uint(8))
-        input("b", uint(8))
-      end
-    end
+    pxl_cls = pixel_bundle
     mod = module_class("TruncToBundle") do
       a = input("a", uint(32))
       pxl = a.as_type(pxl_cls.new)
@@ -1207,14 +665,7 @@ class NewTypesDslTest < Minitest::Test
   end
 
   def test_as_type_extension_uint_to_bundle
-    pxl_cls = Class.new(RSV::BundleDef) do
-      define_singleton_method(:name) { "Pixel" }
-      def build
-        input("r", uint(8))
-        input("g", uint(8))
-        input("b", uint(8))
-      end
-    end
+    pxl_cls = pixel_bundle
     mod = module_class("ExtendToBundle") do
       a = input("a", uint(16))
       pxl = a.as_type(pxl_cls.new)
@@ -1226,14 +677,7 @@ class NewTypesDslTest < Minitest::Test
   end
 
   def test_as_type_uint_to_mem_bundle
-    pxl_cls = Class.new(RSV::BundleDef) do
-      define_singleton_method(:name) { "Pixel" }
-      def build
-        input("r", uint(8))
-        input("g", uint(8))
-        input("b", uint(8))
-      end
-    end
+    pxl_cls = pixel_bundle
     mod = module_class("UintToMemBundle") do
       a = input("a", uint(48))
       m = a.as_type(mem(2, pxl_cls.new))
@@ -1247,6 +691,17 @@ class NewTypesDslTest < Minitest::Test
   end
 
   private
+
+  def pixel_bundle
+    Class.new(RSV::BundleDef) do
+      define_singleton_method(:name) { "Pixel" }
+      def build
+        input("r", uint(8))
+        input("g", uint(8))
+        input("b", uint(8))
+      end
+    end
+  end
 
   def module_class(name, &build_block)
     build_block ||= proc {}

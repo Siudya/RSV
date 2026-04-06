@@ -1,7 +1,12 @@
 # frozen_string_literal: true
 
 require "minitest/autorun"
-require_relative "../lib/rsv"
+
+$LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
+require "rsv"
+
+# ── Bundle类型测试 ───────────────────────────────────────────────────────────
+# 覆盖: Bundle 基础/嵌套/mem/参数化, iodecl/flip, 模板化, whole assign
 
 # ── Bundle test classes ──────────────────────────────────────────────────────
 
@@ -36,7 +41,6 @@ end
 
 # ── Bundle-as-parameter test classes ─────────────────────────────────────────
 
-# Bundle meta-param variant (width via meta-param, not sv_param)
 class TestMetaBundle < RSV::BundleDef
   def build(w: 8)
     valid = input("valid", bit)
@@ -44,7 +48,6 @@ class TestMetaBundle < RSV::BundleDef
   end
 end
 
-# Module accepting bundle type as meta parameter — template-style
 class TemplatedMod < RSV::ModuleDef
   def build(dat_t:, init_fields: {})
     clk = input("clk", clock)
@@ -58,7 +61,6 @@ class TemplatedMod < RSV::ModuleDef
   end
 end
 
-# Modules for dedup tests
 class BundleMetaDedupMod < RSV::ModuleDef
   def build
     w8  = wire("w8",  TestMetaBundle.new(w: 8))
@@ -315,7 +317,6 @@ class BundleTest < Minitest::Test
       end
     end
     sv = mod_class.new("TestBundleIO").to_sv
-    # TestPixel fields are all input
     assert_match(/input\s+logic \[7:0\]\s+io_a_r/, sv)
     assert_match(/input\s+logic \[7:0\]\s+io_a_g/, sv)
     assert_match(/input\s+logic \[7:0\]\s+io_a_b/, sv)
@@ -329,7 +330,6 @@ class BundleTest < Minitest::Test
       end
     end
     sv = mod_class.new("TestFlipIO").to_sv
-    # Flipped: all TestPixel input fields become output
     assert_match(/output\s+logic \[7:0\]\s+io_d_r/, sv)
     assert_match(/output\s+logic \[7:0\]\s+io_d_g/, sv)
     assert_match(/output\s+logic \[7:0\]\s+io_d_b/, sv)
@@ -372,7 +372,6 @@ class BundleTest < Minitest::Test
       end
     end
     sv = mod_class.new("TestFlipMixedIO").to_sv
-    # Flipped: input→output, output→input
     assert_match(/output\s+logic\s+ch_ready/, sv)
     assert_match(/input\s+logic\s+ch_valid/, sv)
     assert_match(/input\s+logic \[7:0\]\s+ch_data/, sv)
@@ -386,7 +385,6 @@ class BundleTest < Minitest::Test
       end
     end
     sv = mod_class.new("TestRegBundle").to_sv
-    # No input/output in local declarations
     assert_match(/logic \[7:0\]\s+pxl_r_r\[15:0\];/, sv)
     assert_match(/logic \[7:0\]\s+pxl_r_g\[15:0\];/, sv)
     assert_match(/logic \[7:0\]\s+pxl_r_b\[15:0\];/, sv)

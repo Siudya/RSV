@@ -5,7 +5,10 @@ require "minitest/autorun"
 $LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
 require "rsv"
 
-class OperatorDslTest < Minitest::Test
+# ── 运算符测试 ───────────────────────────────────────────────────────────────
+# 覆盖: 算术/比较/逻辑/位运算/移位/切片/索引部分选择, 复合表达式
+
+class OperatorTest < Minitest::Test
   def test_expanded_operators_emit_systemverilog_forms
     mod = module_class("OperatorTop") do
       a = input("a", uint(8))
@@ -158,6 +161,22 @@ class OperatorDslTest < Minitest::Test
     refute_respond_to sig, :or_
     refute_respond_to sig, :reduce_and
     refute_respond_to sig, :reduce_or
+  end
+
+  def test_complex_expression_translates_correctly
+    mod = module_class("ComplexExpr") do
+      a = input("a", uint(8))
+      b = input("b", uint(8))
+      c = input("c", uint(8))
+      d = input("d", uint(8))
+      e = input("e", uint(8))
+      out = output("out", uint(8))
+
+      out <= (a + b) * (c + d) / e
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "assign out = (a + b) * (c + d) / e;"
   end
 
   private

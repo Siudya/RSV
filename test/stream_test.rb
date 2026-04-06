@@ -5,7 +5,10 @@ require "minitest/autorun"
 $LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
 require "rsv"
 
-class StreamDslTest < Minitest::Test
+# ── 流式API测试 ──────────────────────────────────────────────────────────────
+# 覆盖: sv_take, sv_select, sv_foreach, sv_reduce, sv_map (uint/mem/bit)
+
+class StreamTest < Minitest::Test
   def test_uint_stream_foreach_reduce_and_map_emit_expected_sv
     mod = module_class("UintStream") do
       clk = input("clk", clock)

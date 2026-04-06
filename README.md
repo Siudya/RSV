@@ -102,7 +102,22 @@ RSV/
 ├── docs/       # Detailed Typst documentation
 ├── scripts/    # xmake task definitions
 ├── build/      # Generated PDFs and RTL
-└── test/       # Minitest regression tests
+└── test/       # Minitest regression tests (按功能分类)
+    ├── type_system_test.rb       # 类型系统
+    ├── declaration_test.rb       # 声明与对齐
+    ├── operator_test.rb          # 运算符与切片
+    ├── control_flow_test.rb      # 控制流 (svcase/svif)
+    ├── sequential_test.rb        # 时序逻辑 (always_ff/comb/latch)
+    ├── expression_test.rb        # 复合表达式 (mux/cat/as_type)
+    ├── array_memory_test.rb      # 数组与存储器
+    ├── bundle_test.rb            # Bundle 类型
+    ├── stream_test.rb            # 流式 API
+    ├── module_structure_test.rb  # 模块结构与去重
+    ├── macro_generate_test.rb    # 宏与 generate
+    ├── integration_test.rb       # 集成 (plugin/wrapper/import)
+    ├── examples_suite_test.rb    # 全示例集成验证
+    ├── xmake_doc_test.rb         # 文档构建测试
+    └── xmake_rtl_test.rb         # RTL 构建测试
 ```
 
 ## Documentation
