@@ -1,4 +1,4 @@
-= 示例文件特性覆盖
+= RSV 示例与特性覆盖
 
 本文档描述 `examples/` 目录下每一个示例文件所覆盖的 RSV 特性。
 
@@ -19,20 +19,22 @@ xmake rtl -f syn
 #table(
   columns: (auto, auto, auto),
   [*名称*], [*别名*], [*特性摘要*],
-  [`counter`], [`ctr`], [基础顺序计数器（meta_param 参数化）],
-  [`curried_params`], [`cur`], [`meta_param` 参数化模块],
-  [`generate_demo`], [`gen`], [generate 块、属性与多级流水],
-  [`global_dedup`], [`glb`], [自动/手动去重、自动布线、未连接端口、`export_all`],
-  [`import_demo`], [`imp`], [导入外部 SystemVerilog 模块签名],
-  [`macro_demo`], [`mac`], [宏定义、条件编译与宏引用],
-  [`mux_cases`], [`mux`], [`mux` / `mux1h` / `muxp`],
-  [`pop_count_demo`], [`pop`], [`pop_count` / `log2ceil`],
-  [`case_demo`], [`cas`], [`svcase` / `svcasez` / `unique` / `priority`],
-  [`storage_streams`], [`str`], [vec 形态、fill 与流式 API],
-  [`sv_plugin_demo`], [`svp`], [内嵌原始 SystemVerilog 代码],
-  [`syntax_showcase`], [`syn`], [操作符、切片、类型转换与过程块],
-  [`type_conv_demo`], [`tcv`], [`as_type` 在 scalar/bundle/vec 间相互转换],
-  [`verilog_wrapper`], [`vwr`], [Verilog 兼容 wrapper 生成],
+  [`bundle_and_interface`], [`bdi`], [`BundleDef` 类型定义与打平展开],
+  [`case_demo`], [`cas`], [`case` / `casez` / `casex`、`unique` / `priority` 与 `?` 通配],
+  [`const_demo`], [`cst`], [`const` 本地参数与带类型常量],
+  [`counter`], [`ctr`], [基于 meta 参数的顺序计数器],
+  [`curried_params`], [`cur`], [meta 参数模块与复用定义句柄],
+  [`generate_demo`], [`gen`], [generate 块、属性与流水线],
+  [`global_dedup`], [`glb`], [自动/手动去重、自动布线与未连接端口],
+  [`import_demo`], [`imp`], [借助 `pyslang` 导入外部 SystemVerilog 模块],
+  [`macro_demo`], [`mac`], [SystemVerilog 宏指令与宏引用],
+  [`mux_cases`], [`mux`], [`mux`、`mux1h`、`muxp`、打平与反转],
+  [`pop_count_demo`], [`pop`], [`pop_count` 与 `log2ceil` 位宽工具],
+  [`storage_streams`], [`str`], [数组/存储器形态、`fill` 与流式视图],
+  [`sv_plugin_demo`], [`svp`], [通过 `sv_plugin` 内嵌原始 SystemVerilog],
+  [`syntax_showcase`], [`syn`], [运算符、切片、类型转换与过程块],
+  [`type_conv_demo`], [`tcv`], [`as_type` 在标量、`BundleDef` 类型与数组间转换],
+  [`verilog_wrapper`], [`vwr`], [为 RSV 模块生成 Verilog 兼容封装层],
 )
 
 == counter.rb
@@ -81,7 +83,7 @@ xmake rtl -f syn
 - 类型构造: `clock`, `reset`, `bit`, `uint`, `vec`（嵌套形态）
 - 局部声明: `reg`（含 `vec.fill()`）
 - 赋值: `<=`
-- 数组索引: `[]`（packed 数组、memory、混合形态）
+- 数组索引: `[]`（打包数组、存储器、混合形态）
 - 流式 API: `.sv_take()`, `.sv_select()`, `.sv_map()`, `.sv_reduce()`, `.sv_foreach()`
 - 块参数: `|a, b|`, `|v, _i|`, `|row, _i|`
 - 组合逻辑: `always_comb`
@@ -103,7 +105,7 @@ xmake rtl -f syn
 
 == pop_count_demo.rb
 
-population count 与 log2ceil 位宽计算。
+人口计数与 `log2ceil` 位宽计算。
 
 - 端口声明: `input`, `output`
 - 类型构造: `clock`, `reset`, `uint`
@@ -211,20 +213,20 @@ meta\_param 参数化模块。
 
 == verilog_wrapper.rb
 
-Verilog 兼容 wrapper 产生器，展示所有端口类型的展开。
+Verilog 兼容封装层生成示例，展示各种端口类型的展开方式。
 
 - 端口声明: `input`, `output`
 - 类型构造: `clock`, `reset`, `vec`, `uint`, `bit`
-- Bundle 定义: `BundleDef` + `field` 声明
+- Bundle 定义: `RSV::BundleDef` + `input` / `output` 字段声明
 - 局部声明: `reg`(含初始值)
 - 赋值: `<=`
 - 数组/存储器索引: `[]`
 - 算术运算: `+`
 - 时序逻辑: `always_ff`, `with_clk_and_rst`
-- Verilog wrapper: `v_wrapper(path, wrapper_name:)` 生成端口打平的 Verilog 兼容顶层
-  - packed 数组端口打平为位向量直连
-  - unpacked 数组端口展开为独立标量端口
-  - bundle 端口已在声明时展开为扁平信号，wrapper 直接转发
+- Verilog 兼容封装层: `v_wrapper(path, wrapper_name:)` 生成端口打平的顶层
+  - 打包数组端口打平为位向量直连
+  - 非打包数组端口展开为独立标量端口
+  - Bundle 端口已在声明时展开为扁平信号，封装层直接转发
 - 输出: `to_sv(path)`, `v_wrapper(path)`
 
 == sv_plugin_demo.rb
@@ -244,21 +246,21 @@ Verilog 兼容 wrapper 产生器，展示所有端口类型的展开。
 
 供 `import_demo.rb` 使用的外部 SystemVerilog 参考模块，不含 RSV 代码。
 
-提供: 模块参数 (`WIDTH`, `DEPTH`)、时钟/复位端口、unpacked 数组输出、
+提供: 模块参数 (`WIDTH`, `DEPTH`)、时钟/复位端口、非打包数组输出、
 `always_comb` 组合逻辑、三元表达式、位切片等标准 SV 语法。
 
 == bundle_and_interface.rb
 
-Bundle 类型展开为扁平信号的综合演示。
+文件名保留了历史命名；当前内容聚焦 Bundle 类型的定义、打平与参数化，不再演示接口类型。
 
-- Bundle 定义: `RSV::BundleDef` 子类，`field` 声明字段
+- Bundle 定义: `RSV::BundleDef` 子类，使用 `input` / `output` 声明字段
 - Bundle 参数化: `build(w: 8)` 与 `DataPacket.new(w: 16)`
 - Bundle 嵌套: 在另一个 Bundle 的字段中引用其他 Bundle（递归展开）
-- Bundle 作为端口类型: `input("px_in", Pixel.new)`, `output("px_out", Pixel.new)`
+- Bundle 作为端口类型: `let :px_in, input(Pixel.new)`, `let :px_out, flip(Pixel.new)`
 - Bundle 作为 reg 类型: `reg("px_r", Pixel.new, init: { ... })`
 - Bundle 部分初始化: 仅列出的字段在 `always_ff` 中产生 reset
 - Bundle 字段访问: `handler.field_name` 读写（直接映射为展开后的信号名）
-- Bundle 与 vec 组合: `vec(N, BundleType.new)` → 每个字段带 unpacked 维度
+- Bundle 与 vec 组合: `vec(N, BundleType.new)` → 每个字段带非打包维度
 - Bundle 整体赋值: `out <= reg` 展开为逐字段赋值
 - 模板化模块: Bundle 类型作为模块元参数传递
 - 输出: `RSV::App.main([...])` 多顶层模块
@@ -274,20 +276,20 @@ Bundle 类型展开为扁平信号的综合演示。
 - 左赋值 `<=` 与右赋值 `>=` 两种端口连接语法
 - 未连接端口标注: `/* unused port */`
 - 全局 `ElaborationRegistry` + `RSV.export_all(dir)` 一键导出
-- `RSV::App.main(top)`: CLI 入口
+- `RSV::App.main(top)`: 命令行入口
 
 == type_conv_demo.rb
 
 `as_type` 类型转换 API 的综合演示。
 
-- scalar → scalar: 截断（保留 LSB）与零扩展（补 MSB）
+- 标量 → 标量: 截断（保留低位）与零扩展（补高位）
 - uint → sint: 有符号重解释
-- uint → bundle: 按字段位宽切片重组
-- bundle → uint: 展平为 packed uint
+- uint → Bundle: 按字段位宽切片重组
+- Bundle → uint: 展平为打包 `uint`
 - uint → vec: 切片为数组元素
-- bundle → bundle: 跨类型转换（展平 + 重组）
-- uint → vec(bundle): 按元素大小切片为 bundle 数组
-- `RSV::App.main(top)`: CLI 入口
+- Bundle → Bundle: 跨类型转换（展平 + 重组）
+- uint → vec(Bundle): 按元素大小切片为 Bundle 数组
+- `RSV::App.main(top)`: 命令行入口
 
 == 特性覆盖矩阵
 
@@ -321,7 +323,7 @@ Bundle 类型展开为扁平信号的综合演示。
   [子模块间自动布线], [global\_dedup], [`module_structure_test`],
   [`definition`/`instance` 手动去重], [global\_dedup], [`module_structure_test`],
   [全局自动去重 `ElaborationRegistry`], [global\_dedup], [`module_structure_test`],
-  [`RSV::App` CLI 入口], [所有示例], [-],
+  [`RSV::App` 命令行入口], [所有示例], [-],
   [`RSV.import_sv`], [import\_demo], [`integration_test`],
   [`sv_def`/`sv_ifdef`/`sv_ifndef` 等宏指令], [macro\_demo], [`macro_generate_test`],
   [`sv_dref` 宏引用], [macro\_demo], [`macro_generate_test`],
@@ -329,7 +331,7 @@ Bundle 类型展开为扁平信号的综合演示。
   [generate-for + definition/instance], [generate\_demo], [`macro_generate_test`],
   [Ruby 条件控制 (mode 选择)], [generate\_demo], [-],
   [`meta_param` 参数化], [curried\_params, counter, generate\_demo], [`integration_test`],
-  [`v_wrapper` Verilog wrapper], [verilog\_wrapper], [`integration_test`],
+  [`v_wrapper` Verilog 兼容封装层], [verilog\_wrapper], [`integration_test`],
   [`v_wrapper` Bundle 端口展开], [verilog\_wrapper], [`integration_test`],
   [`sv_plugin` 内嵌 SV 代码], [sv\_plugin\_demo], [`integration_test`],
   [流式 API (`sv_map` 等)], [storage\_streams], [`stream_test`],

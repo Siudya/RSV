@@ -1,20 +1,20 @@
 local example_catalog = {
-  {name = "bundle_and_interface", alias = "bdi", summary = "bundle (struct) and interface definitions"},
-  {name = "case_demo", alias = "cas", summary = "case/casez/casex with unique/priority and ? wildcards"},
-  {name = "const_demo", alias = "cst", summary = "const localparam declarations and typed constants"},
-  {name = "counter", alias = "ctr", summary = "parameterized sequential counter"},
-  {name = "curried_params", alias = "cur", summary = "sv_param and curried parameter application"},
-  {name = "generate_demo", alias = "gen", summary = "generate blocks, attributes, and staged pipelines"},
-  {name = "global_dedup", alias = "glb", summary = "auto/manual dedup, auto-wiring, unused port, export_all"},
-  {name = "import_demo", alias = "imp", summary = "import existing SystemVerilog modules with pyslang"},
-  {name = "macro_demo", alias = "mac", summary = "SystemVerilog macro directives and macro references"},
-  {name = "mux_cases", alias = "mux", summary = "mux, mux1h, muxp, bundle mux, as_uint, cat, reverse"},
-  {name = "pop_count_demo", alias = "pop", summary = "pop_count and log2ceil bit-width utilities"},
-  {name = "storage_streams", alias = "str", summary = "arr/mem storage shapes, fill helpers, and stream views"},
-  {name = "sv_plugin_demo", alias = "svp", summary = "inline SystemVerilog embedding with sv_plugin"},
-  {name = "syntax_showcase", alias = "syn", summary = "operators, slices, casts, and procedural blocks"},
-  {name = "type_conv_demo", alias = "tcv", summary = "as_type conversion between scalar, bundle, and mem"},
-  {name = "verilog_wrapper", alias = "vwr", summary = "Verilog-compatible wrapper generation for RSV modules"}
+  {name = "bundle_and_interface", alias = "bdi", summary = "BundleDef 类型定义与打平展开"},
+  {name = "case_demo", alias = "cas", summary = "case/casez/casex、unique/priority 与 ? 通配"},
+  {name = "const_demo", alias = "cst", summary = "const 本地参数与带类型常量"},
+  {name = "counter", alias = "ctr", summary = "基于 meta 参数的顺序计数器"},
+  {name = "curried_params", alias = "cur", summary = "meta 参数模块与复用定义句柄"},
+  {name = "generate_demo", alias = "gen", summary = "generate 块、属性与流水线"},
+  {name = "global_dedup", alias = "glb", summary = "自动/手动去重、自动布线与未连接端口"},
+  {name = "import_demo", alias = "imp", summary = "借助 pyslang 导入外部 SystemVerilog 模块"},
+  {name = "macro_demo", alias = "mac", summary = "SystemVerilog 宏指令与宏引用"},
+  {name = "mux_cases", alias = "mux", summary = "mux、mux1h、muxp、打平与反转"},
+  {name = "pop_count_demo", alias = "pop", summary = "pop_count 与 log2ceil 位宽工具"},
+  {name = "storage_streams", alias = "str", summary = "数组/存储器形态、fill 与流式视图"},
+  {name = "sv_plugin_demo", alias = "svp", summary = "通过 sv_plugin 内嵌原始 SystemVerilog"},
+  {name = "syntax_showcase", alias = "syn", summary = "运算符、切片、类型转换与过程块"},
+  {name = "type_conv_demo", alias = "tcv", summary = "as_type 在标量、BundleDef 类型与数组间转换"},
+  {name = "verilog_wrapper", alias = "vwr", summary = "为 RSV 模块生成 Verilog 兼容封装层"}
 }
 
 local example_by_alias = {}
@@ -32,7 +32,7 @@ local function resolve_example_name(name)
 end
 
 local function list_examples()
-  print("name                    alias  feature summary")
+  print("名称                    别名   特性摘要")
   print("----------------------  -----  -----------------------------------------------")
   for _, entry in ipairs(example_catalog) do
     print(string.format("%-22s  %-5s  %s", entry.name, entry.alias, entry.summary))
@@ -81,12 +81,12 @@ task("rtl")
   end)
 
   set_menu {
-    usage = "xmake rtl -f <name-or-alias> [-d dir] [-o outdir] | xmake rtl -l",
-    description = "Run a built-in example by name/alias or list built-in example features",
+    usage = "xmake rtl -f <名称或别名> [-d 目录] [-o 输出目录] | xmake rtl -l",
+    description = "运行内置示例，或列出示例别名与特性摘要",
     options = {
-      {"f", "script", "kv", nil, "Ruby script basename or built-in example alias"},
-      {"d", "directory", "kv", "examples", "Directory that contains the Ruby script"},
-      {"o", "outdir", "kv", "build/rtl", "Output directory for generated SV files"},
-      {"l", "list", "k", nil, "List built-in examples, aliases, and feature summaries"}
+      {"f", "script", "kv", nil, "Ruby 脚本名或内置示例别名"},
+      {"d", "directory", "kv", "examples", "包含 Ruby 脚本的目录"},
+      {"o", "outdir", "kv", "build/rtl", "生成的 SV 输出目录"},
+      {"l", "list", "k", nil, "列出内置示例、别名与特性摘要"}
     }
   }

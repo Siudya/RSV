@@ -9,6 +9,6 @@ task("clean")
 
   set_menu {
     usage = "xmake clean",
-    description = "Remove the build directory",
+    description = "删除 build 目录",
     options = {}
   }

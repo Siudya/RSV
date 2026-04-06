@@ -40,13 +40,13 @@ class XmakeRtlTest < Minitest::Test
     stdout, stderr, status = Open3.capture3("xmake", "rtl", "-l", chdir: PROJECT_ROOT)
 
     assert status.success?, "expected `xmake rtl -l` to succeed\nstdout:\n#{stdout}\nstderr:\n#{stderr}"
-    assert_includes stdout, "alias"
+    assert_includes stdout, "别名"
     assert_includes stdout, "counter"
     assert_includes stdout, "ctr"
-    assert_includes stdout, "parameterized sequential counter"
+    assert_includes stdout, "基于 meta 参数的顺序计数器"
     assert_includes stdout, "sv_plugin_demo"
     assert_includes stdout, "svp"
-    assert_includes stdout, "inline SystemVerilog"
+    assert_includes stdout, "内嵌原始 SystemVerilog"
   end
 
   def test_xmake_rtl_accepts_example_aliases

@@ -15,6 +15,6 @@ task("doc")
 
   set_menu {
     usage = "xmake doc",
-    description = "Compile Typst docs to build/rsv_doc.pdf",
+    description = "把 Typst 文档编译为 build/rsv_doc.pdf",
     options = {}
   }
