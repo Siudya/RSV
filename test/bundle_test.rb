@@ -21,7 +21,7 @@ end
 class TestParamPkt < RSV::BundleDef
   def build(w: 8)
     valid = input("valid", bit)
-    data  = input("data",  uint(w))
+    data  = input("data", uint(w))
   end
 end
 
@@ -34,7 +34,7 @@ end
 
 class TestOuter < RSV::BundleDef
   def build
-    hdr  = input("hdr",  TestInner.new)
+    hdr  = input("hdr", TestInner.new)
     data = input("data", uint(16))
   end
 end
@@ -44,14 +44,14 @@ end
 class TestMetaBundle < RSV::BundleDef
   def build(w: 8)
     valid = input("valid", bit)
-    data  = input("data",  uint(w))
+    data  = input("data", uint(w))
   end
 end
 
 class TemplatedMod < RSV::ModuleDef
   def build(dat_t:, init_fields: {})
-    clk = input("clk", clock)
-    rst = input("rst", reset)
+    clk = iodecl("clk", input(clock))
+    rst = iodecl("rst", input(reset))
     d_in  = iodecl("d_in", dat_t)
     d_out = iodecl("d_out", flip(dat_t))
     d_r   = reg("d_r", dat_t, init: init_fields.empty? ? nil : init_fields)
@@ -65,7 +65,7 @@ class BundleMetaDedupMod < RSV::ModuleDef
   def build
     w8  = wire("w8",  TestMetaBundle.new(w: 8))
     w32 = wire("w32", TestMetaBundle.new(w: 32))
-    o   = output("o", uint(8))
+    o   = iodecl("o", output(uint(8)))
     o <= w8.data
   end
 end
@@ -74,7 +74,7 @@ class BundleSameParamMod < RSV::ModuleDef
   def build
     w1 = wire("w1", TestMetaBundle.new(w: 16))
     w2 = wire("w2", TestMetaBundle.new(w: 16))
-    o  = output("o", uint(16))
+    o  = iodecl("o", output(uint(16)))
     o <= w1.data
   end
 end
@@ -83,8 +83,8 @@ end
 
 class BundleSimpleMod < RSV::ModuleDef
   def build
-    clk = input("clk", clock)
-    rst = input("rst", reset)
+    clk = iodecl("clk", input(clock))
+    rst = iodecl("rst", input(reset))
     d = TestPixel.new
     i = iodecl("px_in", d)
     o = iodecl("px_out", flip(d))
@@ -101,8 +101,8 @@ end
 
 class BundlePartialResetMod < RSV::ModuleDef
   def build
-    clk = input("clk", clock)
-    rst = input("rst", reset)
+    clk = iodecl("clk", input(clock))
+    rst = iodecl("rst", input(reset))
     d = TestPixel.new
     r = reg("px_r", d, init: { "r" => 0 })
     with_clk_and_rst(clk, rst)
@@ -114,7 +114,7 @@ class BundleNestedMod < RSV::ModuleDef
   def build
     d = TestOuter.new
     w = wire("pkt", d)
-    o = output("data_out", uint(16))
+    o = iodecl("data_out", output(uint(16)))
     o <= w.data
   end
 end
@@ -396,7 +396,7 @@ class BundleTest < Minitest::Test
     mod_class = Class.new(RSV::ModuleDef) do
       define_method(:build) do
         fifo = iodecl("fifo", vec(8, TestPixel.new))
-        o = output("o", uint(8))
+        o = iodecl("o", output(uint(8)))
         o <= fifo[0].r
       end
     end

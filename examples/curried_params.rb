@@ -19,7 +19,7 @@ class ParamCounter < ModuleDef
   def build(width: 8, enable_wrap: true)
     let :clk, input(clock)
     let :rst, input(reset)
-    out = output("count", uint(width))
+    out = iodecl("count", output(uint(width)))
     let :count_r, reg(uint(width), init: 0)
     out <= count_r
 

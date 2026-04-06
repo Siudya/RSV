@@ -14,8 +14,8 @@ class TypeSystemTest < Minitest::Test
 
   def test_bits_is_equivalent_to_uint
     mod = module_class("BitsAlias") do
-      input("a", bits(8))
-      output("b", uint(8))
+      iodecl("a", input(bits(8)))
+      iodecl("b", output(uint(8)))
     end.new
 
     sv = mod.to_sv
@@ -27,8 +27,8 @@ class TypeSystemTest < Minitest::Test
 
   def test_sint_emits_signed_logic
     mod = module_class("SintDecl") do
-      input("a", sint(16))
-      output("b", sint(8))
+      iodecl("a", input(sint(16)))
+      iodecl("b", output(sint(8)))
       w = wire("w", sint(32))
       r = reg("r", sint(16))
     end.new
@@ -44,8 +44,8 @@ class TypeSystemTest < Minitest::Test
 
   def test_as_sint_emits_dollar_signed
     mod = module_class("AsSintTop") do
-      a = input("a", uint(8))
-      b = output("b", sint(8))
+      a = iodecl("a", input(uint(8)))
+      b = iodecl("b", output(sint(8)))
       b <= a.as_sint
     end.new
 
@@ -57,8 +57,8 @@ class TypeSystemTest < Minitest::Test
 
   def test_clock_neg_emits_negedge
     mod = module_class("ClkNeg") do
-      clk = input("clk", clock)
-      rst = input("rst", reset)
+      clk = iodecl("clk", input(clock))
+      rst = iodecl("rst", input(reset))
       cnt = reg("cnt", uint(8), init: 0)
 
       with_clk_and_rst(clk.neg, rst)
@@ -77,8 +77,8 @@ class TypeSystemTest < Minitest::Test
 
   def test_reset_neg_emits_negedge_and_inverted_condition
     mod = module_class("RstNeg") do
-      clk = input("clk", clock)
-      rst = input("rst", reset)
+      clk = iodecl("clk", input(clock))
+      rst = iodecl("rst", input(reset))
       cnt = reg("cnt", uint(8), init: 0)
 
       with_clk_and_rst(clk, rst.neg)
@@ -96,8 +96,8 @@ class TypeSystemTest < Minitest::Test
 
   def test_clock_and_reset_both_negated
     mod = module_class("BothNeg") do
-      clk = input("clk", clock)
-      rst = input("rst_n", reset)
+      clk = iodecl("clk", input(clock))
+      rst = iodecl("rst_n", input(reset))
       cnt = reg("cnt", uint(8), init: 0)
 
       with_clk_and_rst(clk.neg, rst.neg)
@@ -115,8 +115,8 @@ class TypeSystemTest < Minitest::Test
 
   def test_clock_reset_positive_edge_default
     mod = module_class("PosEdge") do
-      clk = input("clk", clock)
-      rst = input("rst", reset)
+      clk = iodecl("clk", input(clock))
+      rst = iodecl("rst", input(reset))
       cnt = reg("cnt", uint(8), init: 0)
 
       with_clk_and_rst(clk, rst)
@@ -136,8 +136,8 @@ class TypeSystemTest < Minitest::Test
 
   def test_inout_port_emits_inout_logic
     mod = module_class("InoutPort") do
-      inout("sda", bit)
-      inout("bus", uint(8))
+      iodecl("sda", inout(bit))
+      iodecl("bus", inout(uint(8)))
     end.new
 
     sv = mod.to_sv
@@ -155,9 +155,9 @@ class TypeSystemTest < Minitest::Test
       mem_p = vec(8, word_t)
       mem_t = vec(16, word_t)
 
-      input("clk", bit_t)
-      input("rst", bit_t)
-      out = output("out", word_t)
+      iodecl("clk", input(bit_t))
+      iodecl("rst", input(bit_t))
+      out = iodecl("out", output(word_t))
 
       wire("wire_a", bit_t)
       wire_b = wire("wire_b", word_t)
@@ -194,8 +194,8 @@ class TypeSystemTest < Minitest::Test
       mem_p = vec(8, word_t)
       mem_t = vec(16, word_t)
 
-      clk = input("clk", bit_t)
-      rst = input("rst", bit_t)
+      clk = iodecl("clk", input(bit_t))
+      rst = iodecl("rst", input(bit_t))
       reg_p = reg("reg_p", mem_p, init: vec.fill(8, uint(16, 0x75)))
       reg_m = reg("reg_m", mem_t, init: vec.fill(16, uint(16, 0x33)))
 

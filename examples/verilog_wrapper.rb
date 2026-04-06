@@ -61,7 +61,7 @@ end
 class MemBundleModule < ModuleDef
   def build
     let :fifo, input(Pixel.new)
-    r = output("red0", uint(8))
+    r = iodecl("red0", output(uint(8)))
     r <= fifo.r
   end
 end

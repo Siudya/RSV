@@ -14,10 +14,10 @@ class ExpressionTest < Minitest::Test
 
   def test_mux_emits_ternary
     mod = module_class("MuxTop") do
-      sel = input("sel", bit)
-      a = input("a", uint(8))
-      b = input("b", uint(8))
-      out = output("out", uint(8))
+      sel = iodecl("sel", input(bit))
+      a = iodecl("a", input(uint(8)))
+      b = iodecl("b", input(uint(8)))
+      out = iodecl("out", output(uint(8)))
 
       out <= mux(sel, a, b)
     end.new
@@ -28,12 +28,12 @@ class ExpressionTest < Minitest::Test
 
   def test_mux_nested
     mod = module_class("MuxNested") do
-      s0 = input("s0", bit)
-      s1 = input("s1", bit)
-      a = input("a", uint(8))
-      b = input("b", uint(8))
-      c = input("c", uint(8))
-      out = output("out", uint(8))
+      s0 = iodecl("s0", input(bit))
+      s1 = iodecl("s1", input(bit))
+      a = iodecl("a", input(uint(8)))
+      b = iodecl("b", input(uint(8)))
+      c = iodecl("c", input(uint(8)))
+      out = iodecl("out", output(uint(8)))
 
       out <= mux(s0, mux(s1, a, b), c)
     end.new
@@ -46,8 +46,8 @@ class ExpressionTest < Minitest::Test
 
   def test_mux1h_emits_unique_case
     mod = module_class("Mux1hTop") do
-      sel = input("sel", uint(3))
-      dats = input("dats", vec([3], uint(8)))
+      sel = iodecl("sel", input(uint(3)))
+      dats = iodecl("dats", input(vec([3], uint(8))))
       out = wire("out", uint(8))
 
       always_comb do
@@ -70,9 +70,9 @@ class ExpressionTest < Minitest::Test
 
   def test_mux1h_module_level
     mod = module_class("Mux1hMod") do
-      sel = input("sel", uint(3))
-      dats = input("dats", vec([3], uint(8)))
-      out = output("out", uint(8))
+      sel = iodecl("sel", input(uint(3)))
+      dats = iodecl("dats", input(vec([3], uint(8))))
+      out = iodecl("out", output(uint(8)))
       out <= mux1h(sel, dats)
     end.new
 
@@ -84,8 +84,8 @@ class ExpressionTest < Minitest::Test
 
   def test_mux1h_wide_sel_hex_format
     mod = module_class("Mux1hWide") do
-      sel = input("sel", uint(16))
-      dats = input("dats", vec([16], uint(64)))
+      sel = iodecl("sel", input(uint(16)))
+      dats = iodecl("dats", input(vec([16], uint(64))))
       out = wire("out", uint(64))
 
       always_comb do
@@ -108,8 +108,8 @@ class ExpressionTest < Minitest::Test
 
   def test_muxp_emits_priority_casez
     mod = module_class("MuxpTop") do
-      sel = input("sel", uint(3))
-      dats = input("dats", vec([3], uint(8)))
+      sel = iodecl("sel", input(uint(3)))
+      dats = iodecl("dats", input(vec([3], uint(8))))
       out = wire("out", uint(8))
 
       always_comb do
@@ -131,8 +131,8 @@ class ExpressionTest < Minitest::Test
 
   def test_muxp_msb_first
     mod = module_class("MuxpMsb") do
-      sel = input("sel", uint(3))
-      dats = input("dats", vec([3], uint(8)))
+      sel = iodecl("sel", input(uint(3)))
+      dats = iodecl("dats", input(vec([3], uint(8))))
       out = wire("out", uint(8))
 
       always_comb do
@@ -150,9 +150,9 @@ class ExpressionTest < Minitest::Test
 
   def test_muxp_module_level
     mod = module_class("MuxpMod") do
-      sel = input("sel", uint(3))
-      dats = input("dats", vec([3], uint(8)))
-      out = output("out", uint(8))
+      sel = iodecl("sel", input(uint(3)))
+      dats = iodecl("dats", input(vec([3], uint(8))))
+      out = iodecl("out", output(uint(8)))
       out <= muxp(sel, dats)
     end.new
 
@@ -166,9 +166,9 @@ class ExpressionTest < Minitest::Test
 
   def test_mux1h_eager_reuse
     mod = module_class("Mux1hReuse") do
-      sel = input("sel", uint(3))
-      dats = input("dats", vec([3], uint(8)))
-      out_a = output("out_a", uint(8))
+      sel = iodecl("sel", input(uint(3)))
+      dats = iodecl("dats", input(vec([3], uint(8))))
+      out_a = iodecl("out_a", output(uint(8)))
       out_b = wire("out_b", uint(8))
 
       res = mux1h(sel, dats)
@@ -186,8 +186,8 @@ class ExpressionTest < Minitest::Test
 
   def test_mux1h_separate_calls_get_separate_wires
     mod = module_class("Mux1hSep") do
-      sel = input("sel", uint(3))
-      dats = input("dats", vec([3], uint(8)))
+      sel = iodecl("sel", input(uint(3)))
+      dats = iodecl("dats", input(vec([3], uint(8))))
       out_a = wire("out_a", uint(8))
       out_b = wire("out_b", uint(8))
 
@@ -216,7 +216,7 @@ class ExpressionTest < Minitest::Test
     end
 
     mod = module_class("Mux1hBundle") do
-      sel = input("sel", uint(2))
+      sel = iodecl("sel", input(uint(2)))
       dats = wire("dats", vec([2], pxl_cls.new))
       out = wire("out", pxl_cls.new)
 
@@ -248,7 +248,7 @@ class ExpressionTest < Minitest::Test
     end
 
     mod = module_class("MuxpBundle") do
-      sel = input("sel", uint(2))
+      sel = iodecl("sel", input(uint(2)))
       dats = wire("dats", vec([2], pxl_cls.new))
       out = wire("out", pxl_cls.new)
 
@@ -344,10 +344,10 @@ class ExpressionTest < Minitest::Test
 
   def test_cat_emits_concatenation
     mod = module_class("CatTest") do
-      a = input("a", uint(4))
-      b = input("b", uint(4))
-      c = input("c", uint(8))
-      out = output("out", uint(16))
+      a = iodecl("a", input(uint(4)))
+      b = iodecl("b", input(uint(4)))
+      c = iodecl("c", input(uint(8)))
+      out = iodecl("out", output(uint(16)))
       out <= cat(a, b, c)
     end.new
 
@@ -357,8 +357,8 @@ class ExpressionTest < Minitest::Test
 
   def test_cat_inside_always_comb
     mod = module_class("CatComb") do
-      a = input("a", uint(4))
-      b = input("b", uint(4))
+      a = iodecl("a", input(uint(4)))
+      b = iodecl("b", input(uint(4)))
       out = wire("out", uint(8))
       always_comb do
         out <= cat(a, b)
@@ -416,8 +416,8 @@ class ExpressionTest < Minitest::Test
 
   def test_fill_emits_replication
     mod = module_class("FillTest") do
-      a = input("a", uint(4))
-      out = output("out", uint(16))
+      a = iodecl("a", input(uint(4)))
+      out = iodecl("out", output(uint(16)))
       out <= fill(4, a)
     end.new
 
@@ -427,7 +427,7 @@ class ExpressionTest < Minitest::Test
 
   def test_fill_inside_always_comb
     mod = module_class("FillComb") do
-      a = input("a", uint(1))
+      a = iodecl("a", input(uint(1)))
       out = wire("out", uint(8))
       always_comb do
         out <= fill(8, a)
@@ -467,7 +467,7 @@ class ExpressionTest < Minitest::Test
 
   def test_pop_count_basic
     mod = module_class("PopCntBasic") do
-      vec = input("vec", uint(8))
+      vec = iodecl("vec", input(uint(8)))
       cnt = wire("cnt", uint(log2ceil(8 + 1)))
 
       always_comb do
@@ -486,7 +486,7 @@ class ExpressionTest < Minitest::Test
 
   def test_pop_count_4bit
     mod = module_class("PopCnt4") do
-      vec = input("vec", uint(4))
+      vec = iodecl("vec", input(uint(4)))
       cnt = wire("cnt", uint(log2ceil(4 + 1)))
 
       always_comb do
@@ -504,9 +504,9 @@ class ExpressionTest < Minitest::Test
 
   def test_pop_count_always_ff
     mod = module_class("PopCntFF") do
-      clk = input("clk", clock)
-      rst = input("rst", reset)
-      vec = input("vec", uint(4))
+      clk = iodecl("clk", input(clock))
+      rst = iodecl("rst", input(reset))
+      vec = iodecl("vec", input(uint(4)))
       cnt = reg("cnt", uint(3), init: 0)
 
       with_clk_and_rst(clk, rst)
@@ -523,8 +523,8 @@ class ExpressionTest < Minitest::Test
 
   def test_pop_count_module_level
     mod = module_class("PopCntTop") do
-      vec = input("vec", uint(4))
-      cnt = output("cnt", uint(3))
+      vec = iodecl("vec", input(uint(4)))
+      cnt = iodecl("cnt", output(uint(3)))
       cnt <= pop_count(vec)
     end.new
 
@@ -538,7 +538,7 @@ class ExpressionTest < Minitest::Test
 
   def test_as_type_uint_to_uint_same_width
     mod = module_class("AsTypeSame") do
-      a = input("a", uint(8))
+      a = iodecl("a", input(uint(8)))
       b = wire("b", uint(8))
       b <= a.as_type(uint(8))
     end.new
@@ -548,7 +548,7 @@ class ExpressionTest < Minitest::Test
 
   def test_as_type_uint_truncate
     mod = module_class("AsTypeTrunc") do
-      a = input("a", uint(16))
+      a = iodecl("a", input(uint(16)))
       b = wire("b", uint(8))
       b <= a.as_type(uint(8))
     end.new
@@ -558,7 +558,7 @@ class ExpressionTest < Minitest::Test
 
   def test_as_type_uint_zero_extend
     mod = module_class("AsTypeExtend") do
-      a = input("a", uint(8))
+      a = iodecl("a", input(uint(8)))
       b = wire("b", uint(16))
       b <= a.as_type(uint(16))
     end.new
@@ -568,7 +568,7 @@ class ExpressionTest < Minitest::Test
 
   def test_as_type_uint_to_sint
     mod = module_class("AsTypeSint") do
-      a = input("a", uint(8))
+      a = iodecl("a", input(uint(8)))
       b = wire("b", sint(8))
       b <= a.as_type(sint(8))
     end.new
@@ -590,7 +590,7 @@ class ExpressionTest < Minitest::Test
   def test_as_type_uint_to_bundle
     pxl_cls = pixel_bundle
     mod = module_class("UintToBundle") do
-      a = input("a", uint(24))
+      a = iodecl("a", input(uint(24)))
       pxl = a.as_type(pxl_cls.new)
       out_r = wire("out_r", uint(8))
       out_g = wire("out_g", uint(8))
@@ -607,7 +607,7 @@ class ExpressionTest < Minitest::Test
 
   def test_as_type_uint_to_mem
     mod = module_class("UintToMem") do
-      a = input("a", uint(32))
+      a = iodecl("a", input(uint(32)))
       m = a.as_type(vec(4, uint(8)))
       out = wire("out", uint(8))
       out <= m[0]
@@ -622,7 +622,7 @@ class ExpressionTest < Minitest::Test
 
   def test_as_type_mem_to_uint
     mod = module_class("MemToUint") do
-      m = input("m", vec(4, uint(8)))
+      m = iodecl("m", input(vec(4, uint(8))))
       out = wire("out", uint(32))
       out <= m.as_type(uint(32))
     end.new
@@ -655,7 +655,7 @@ class ExpressionTest < Minitest::Test
   def test_as_type_truncation_uint_to_bundle
     pxl_cls = pixel_bundle
     mod = module_class("TruncToBundle") do
-      a = input("a", uint(32))
+      a = iodecl("a", input(uint(32)))
       pxl = a.as_type(pxl_cls.new)
       out = wire("out", uint(8))
       out <= pxl.r
@@ -667,7 +667,7 @@ class ExpressionTest < Minitest::Test
   def test_as_type_extension_uint_to_bundle
     pxl_cls = pixel_bundle
     mod = module_class("ExtendToBundle") do
-      a = input("a", uint(16))
+      a = iodecl("a", input(uint(16)))
       pxl = a.as_type(pxl_cls.new)
       out = wire("out", uint(8))
       out <= pxl.b
@@ -679,7 +679,7 @@ class ExpressionTest < Minitest::Test
   def test_as_type_uint_to_mem_bundle
     pxl_cls = pixel_bundle
     mod = module_class("UintToMemBundle") do
-      a = input("a", uint(48))
+      a = iodecl("a", input(uint(48)))
       m = a.as_type(vec(2, pxl_cls.new))
       out = wire("out", uint(8))
       out <= m[0].r

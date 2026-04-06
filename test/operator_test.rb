@@ -11,9 +11,9 @@ require "rsv"
 class OperatorTest < Minitest::Test
   def test_expanded_operators_emit_systemverilog_forms
     mod = module_class("OperatorTop") do
-      a = input("a", uint(8))
-      b = input("b", uint(8))
-      out = output("out", uint(8))
+      a = iodecl("a", input(uint(8)))
+      b = iodecl("b", input(uint(8)))
+      out = iodecl("out", output(uint(8)))
 
       eq = wire("eq", bit)
       neq = wire("neq", bit)
@@ -126,9 +126,9 @@ class OperatorTest < Minitest::Test
 
   def test_left_and_right_assignment_forms_are_equivalent
     mod = module_class("AssignDir") do
-      a = input("a", uint(8))
-      left = output("left", uint(8))
-      right = output("right", uint(8))
+      a = iodecl("a", input(uint(8)))
+      left = iodecl("left", output(uint(8)))
+      right = iodecl("right", output(uint(8)))
 
       left <= a
       a >= right
@@ -165,12 +165,12 @@ class OperatorTest < Minitest::Test
 
   def test_complex_expression_translates_correctly
     mod = module_class("ComplexExpr") do
-      a = input("a", uint(8))
-      b = input("b", uint(8))
-      c = input("c", uint(8))
-      d = input("d", uint(8))
-      e = input("e", uint(8))
-      out = output("out", uint(8))
+      a = iodecl("a", input(uint(8)))
+      b = iodecl("b", input(uint(8)))
+      c = iodecl("c", input(uint(8)))
+      d = iodecl("d", input(uint(8)))
+      e = iodecl("e", input(uint(8)))
+      out = iodecl("out", output(uint(8)))
 
       out <= (a + b) * (c + d) / e
     end.new

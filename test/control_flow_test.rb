@@ -14,7 +14,7 @@ class ControlFlowTest < Minitest::Test
 
   def test_svcase_emits_case
     mod = module_class("CaseTest") do
-      sel = input("sel", uint(2))
+      sel = iodecl("sel", input(uint(2)))
       out = wire("out", uint(8))
 
       always_comb do
@@ -40,7 +40,7 @@ class ControlFlowTest < Minitest::Test
 
   def test_svcasez_emits_casez
     mod = module_class("CasezTest") do
-      sel = input("sel", uint(4))
+      sel = iodecl("sel", input(uint(4)))
       out = wire("out", uint(8))
 
       always_comb do
@@ -61,7 +61,7 @@ class ControlFlowTest < Minitest::Test
 
   def test_svcasex_emits_casex
     mod = module_class("CasexTest") do
-      sel = input("sel", uint(4))
+      sel = iodecl("sel", input(uint(4)))
       out = wire("out", uint(8))
 
       always_comb do
@@ -85,7 +85,7 @@ class ControlFlowTest < Minitest::Test
 
   def test_svcase_unique
     mod = module_class("UniqueCase") do
-      sel = input("sel", uint(2))
+      sel = iodecl("sel", input(uint(2)))
       out = wire("out", uint(8))
 
       always_comb do
@@ -104,7 +104,7 @@ class ControlFlowTest < Minitest::Test
 
   def test_svcase_priority
     mod = module_class("PriorityCase") do
-      sel = input("sel", uint(2))
+      sel = iodecl("sel", input(uint(2)))
       out = wire("out", uint(8))
 
       always_comb do
@@ -121,7 +121,7 @@ class ControlFlowTest < Minitest::Test
 
   def test_svcasez_unique
     mod = module_class("UniqueCasez") do
-      sel = input("sel", uint(4))
+      sel = iodecl("sel", input(uint(4)))
       out = wire("out", uint(8))
 
       always_comb do
@@ -140,7 +140,7 @@ class ControlFlowTest < Minitest::Test
 
   def test_svcasez_wildcard
     mod = module_class("CasezWild") do
-      sel = input("sel", uint(4))
+      sel = iodecl("sel", input(uint(4)))
       out = wire("out", uint(8))
 
       always_comb do
@@ -160,7 +160,7 @@ class ControlFlowTest < Minitest::Test
 
   def test_svcase_multi_val_branch
     mod = module_class("MultiVal") do
-      sel = input("sel", uint(3))
+      sel = iodecl("sel", input(uint(3)))
       out = wire("out", uint(8))
 
       always_comb do
@@ -182,9 +182,9 @@ class ControlFlowTest < Minitest::Test
 
   def test_svcase_in_always_ff
     mod = module_class("CaseFF") do
-      clk = input("clk", clock)
-      rst = input("rst", reset)
-      sel = input("sel", uint(2))
+      clk = iodecl("clk", input(clock))
+      rst = iodecl("rst", input(reset))
+      sel = iodecl("sel", input(uint(2)))
       r = reg("r", uint(8), init: 0)
 
       with_clk_and_rst(clk, rst)
@@ -208,7 +208,7 @@ class ControlFlowTest < Minitest::Test
 
   def test_svif_unique
     mod = module_class("UniqueIf") do
-      a = input("a", uint(2))
+      a = iodecl("a", input(uint(2)))
       out = wire("out", uint(8))
 
       always_comb do
@@ -226,7 +226,7 @@ class ControlFlowTest < Minitest::Test
 
   def test_svif_priority
     mod = module_class("PriorityIf") do
-      a = input("a", uint(2))
+      a = iodecl("a", input(uint(2)))
       out = wire("out", uint(8))
 
       always_comb do

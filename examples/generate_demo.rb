@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 # examples/generate_demo.rb
 #
 # Comprehensive generate block demonstration, combining generate-for,
@@ -17,8 +18,8 @@
 # Run:
 #   xmake rtl -f gen
 
-$LOAD_PATH.unshift(File.join(__dir__, "..", "lib"))
-require "rsv"
+$LOAD_PATH.unshift(File.join(__dir__, '..', 'lib'))
+require 'rsv'
 include RSV
 
 # ---------- Sub-modules ----------
@@ -46,10 +47,10 @@ class GenerateDemo < ModuleDef
 
     # ---- Part 1: generate-for with inline logic and genvar indexing ----
     let :data_in, input(vec(n_ch, uint(8)))
-    let :data_out, output(vec(n_ch, uint(8))), attr: { "keep" => nil }
+    let :data_out, output(vec(n_ch, uint(8))), attr: { 'keep' => nil }
 
-    generate_for("i", 0, n_ch, label: "gen_reg") do |i|
-      r = reg("stage_r", uint(8), init: 0)
+    generate_for('i', 0, n_ch, label: 'gen_reg') do |i|
+      r = reg('stage_r', uint(8), init: 0)
       with_clk_and_rst(clk, rst)
       always_ff do
         r <= data_in[i]
@@ -60,13 +61,13 @@ class GenerateDemo < ModuleDef
     # ---- Part 2: mode-dependent logic (Ruby if, since mode is a Ruby integer) ----
     let :flag, wire(uint(8))
 
-    if mode == 0
-      flag <= data_in[0]
-    elsif mode == 1
-      flag <= ~data_in[0]
-    else
-      flag <= 0
-    end
+    flag <= if mode == 0
+              data_in[0]
+            elsif mode == 1
+              ~data_in[0]
+            else
+              0
+            end
 
     # ---- Part 3: generate-for with definition/instance (meta-param sub-module) ----
     let :pipe_in, input(uint(data_w))
@@ -77,8 +78,8 @@ class GenerateDemo < ModuleDef
 
     stage_def = PipeStage.definition(width: data_w)
 
-    generate_for("j", 0, depth, label: "gen_meta_stage") do |j|
-      s = instance(stage_def, inst_name: "u_meta_stage")
+    generate_for('j', 0, depth, label: 'gen_meta_stage') do |j|
+      s = instance(stage_def, inst_name: 'u_meta_stage')
       s.clk <= clk
       s.rst <= rst
       s.din <= meta_chain[j]
@@ -87,19 +88,19 @@ class GenerateDemo < ModuleDef
 
     pipe_out <= meta_chain[depth]
 
-    # ---- Part 4: generate-if with const inside block ----
+    # ---- Part 4: use meta params to prune the codes ----
     let :status, wire(uint(8))
 
-    if mode < 2
-      status <= const("STATUS_VAL", uint(8, 0xAA))
-    else
-      status <= const("STATUS_VAL", uint(8, 0x55))
-    end
+    status <= if mode < 2
+                const('STATUS_VAL', uint(8, 0xAA))
+              else
+                const('STATUS_VAL', uint(8, 0x55))
+              end
   end
 end
 
 # ---------- Output ----------
 
-demo = GenerateDemo.new("generate_demo", depth: 3, data_w: 8, mode: 0, n_ch: 4)
+demo = GenerateDemo.new('generate_demo', depth: 3, data_w: 8, mode: 0, n_ch: 4)
 
 RSV::App.main(demo)

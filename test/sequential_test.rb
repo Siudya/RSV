@@ -15,7 +15,7 @@ class SequentialTest < Minitest::Test
     mod = module_class("ExprTop") do
       a = wire("a", uint(4))
       b = wire("b", uint(16))
-      out = output("out", uint(16))
+      out = iodecl("out", output(uint(16)))
       c = expr("c", a + b)
 
       out <= c
@@ -56,8 +56,8 @@ class SequentialTest < Minitest::Test
 
   def test_wire_can_be_assigned_in_assign_and_always_comb
     mod = module_class("WireAssigns") do
-      a = input("a", uint(8))
-      out = output("out", uint(8))
+      a = iodecl("a", input(uint(8)))
+      out = iodecl("out", output(uint(8)))
       tmp = wire("tmp", uint(8))
 
       out <= tmp
@@ -90,7 +90,7 @@ class SequentialTest < Minitest::Test
   def test_reg_cannot_be_assigned_in_always_comb
     error = assert_raises(ArgumentError) do
       module_class("BadRegComb") do
-        a = input("a", uint(8))
+        a = iodecl("a", input(uint(8)))
         r = reg("r", uint(8), init: 0)
 
         always_comb do
@@ -105,9 +105,9 @@ class SequentialTest < Minitest::Test
   def test_wire_cannot_be_assigned_in_always_ff
     error = assert_raises(ArgumentError) do
       module_class("BadWireFf") do
-        clk = input("clk", bit)
-        rst = input("rst", bit)
-        d = input("d", uint(8))
+        clk = iodecl("clk", input(bit))
+        rst = iodecl("rst", input(bit))
+        d = iodecl("d", input(uint(8)))
         w = wire("w", uint(8))
 
         with_clk_and_rst(clk, rst)
@@ -125,8 +125,8 @@ class SequentialTest < Minitest::Test
   def test_wire_cannot_be_assigned_in_always_latch
     error = assert_raises(ArgumentError) do
       module_class("BadWireLatch") do
-        en = input("en", bit)
-        d = input("d", uint(8))
+        en = iodecl("en", input(bit))
+        d = iodecl("d", input(uint(8)))
         w = wire("w", uint(8))
 
         always_latch do
@@ -143,8 +143,8 @@ class SequentialTest < Minitest::Test
   def test_signal_cannot_be_assigned_by_assign_and_always_block
     error = assert_raises(ArgumentError) do
       module_class("MixedDrivers") do
-        a = input("a", uint(8))
-        b = input("b", uint(8))
+        a = iodecl("a", input(uint(8)))
+        b = iodecl("b", input(uint(8)))
         w = wire("w", uint(8))
 
         w <= a
@@ -161,8 +161,8 @@ class SequentialTest < Minitest::Test
   def test_signal_cannot_be_assigned_in_multiple_always_blocks
     error = assert_raises(ArgumentError) do
       module_class("DoubleAlways") do
-        a = input("a", uint(8))
-        b = input("b", uint(8))
+        a = iodecl("a", input(uint(8)))
+        b = iodecl("b", input(uint(8)))
         w = wire("w", uint(8))
 
         always_comb do
@@ -215,8 +215,8 @@ class SequentialTest < Minitest::Test
 
   def test_reg_can_be_assigned_in_always_latch_using_blocking_assignment
     mod = module_class("LatchTop") do
-      en = input("en", bit)
-      d = input("d", uint(8))
+      en = iodecl("en", input(bit))
+      d = iodecl("d", input(uint(8)))
       q = reg("q", uint(8))
 
       always_latch do
@@ -248,8 +248,8 @@ class SequentialTest < Minitest::Test
 
   def test_reg_declarations_emit_resettable_always_ff
     mod = module_class("Counter") do
-      clk0 = input("clk_0", bit)
-      rst0 = input("rst_0", bit)
+      clk0 = iodecl("clk_0", input(bit))
+      rst0 = iodecl("rst_0", input(bit))
       cnt = reg("cnt", uint(16), init: 0x75)
       err = reg("err", uint(16))
 
@@ -288,10 +288,10 @@ class SequentialTest < Minitest::Test
 
   def test_with_clk_and_rst_switches_sequential_domain
     mod = module_class("Top") do
-      clk0 = input("clk_0", bit)
-      rst0 = input("rst_0", bit)
-      clk1 = input("clk_1", bit)
-      rst1 = input("rst_1", bit)
+      clk0 = iodecl("clk_0", input(bit))
+      rst0 = iodecl("rst_0", input(bit))
+      clk1 = iodecl("clk_1", input(bit))
+      rst1 = iodecl("rst_1", input(bit))
       cnt0 = reg("cnt0", uint(16), init: 0x75)
       cnt1 = reg("cnt1", uint(16), init: 0x45)
 
@@ -322,8 +322,8 @@ class SequentialTest < Minitest::Test
   def test_string_based_always_ff_is_removed
     error = assert_raises(ArgumentError) do
       module_class("NoStringAlwaysFf") do
-        clk = input("clk", bit)
-        rst_n = input("rst_n", bit)
+        clk = iodecl("clk", input(bit))
+        rst_n = iodecl("rst_n", input(bit))
         value = reg("value", uint(8))
 
         always_ff("posedge #{clk} or negedge #{rst_n}") do

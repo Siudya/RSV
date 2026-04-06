@@ -30,11 +30,11 @@ class ArrayMemoryTest < Minitest::Test
 
   def test_indexed_memory_assignments_emit_expected_sv
     mod = module_class("IndexAssign") do
-      clk = input("clk", bit)
-      rst = input("rst", bit)
-      idx = input("idx", uint(2))
-      data = input("data", uint(8))
-      mem_out = output("mem_out", uint(8))
+      clk = iodecl("clk", input(bit))
+      rst = iodecl("rst", input(bit))
+      idx = iodecl("idx", input(uint(2)))
+      data = iodecl("data", input(uint(8)))
+      mem_out = iodecl("mem_out", output(uint(8)))
 
       mem_reg = reg("mem_reg", vec([4], uint(8)))
 
@@ -93,9 +93,9 @@ class ArrayMemoryTest < Minitest::Test
 
   def test_arr_mem_index_with_uint_works
     mod = module_class("IdxUint") do
-      idx = input("idx", uint(2))
+      idx = iodecl("idx", input(uint(2)))
       dats = wire("dats", vec([4], uint(8)))
-      out = output("out", uint(8))
+      out = iodecl("out", output(uint(8)))
       out <= dats[idx]
     end.new
 
@@ -106,7 +106,7 @@ class ArrayMemoryTest < Minitest::Test
   def test_mem_index_with_literal_works
     mod = module_class("IdxLit") do
       dats = wire("dats", vec([4], uint(8)))
-      out = output("out", uint(8))
+      out = iodecl("out", output(uint(8)))
       out <= dats[2]
     end.new
 
@@ -117,7 +117,7 @@ class ArrayMemoryTest < Minitest::Test
   def test_mem_index_with_sint_raises
     error = assert_raises(ArgumentError) do
       module_class("IdxSint") do
-        idx = input("idx", sint(2))
+        idx = iodecl("idx", input(sint(2)))
         dats = wire("dats", vec([4], uint(8)))
         dats[idx]
       end.new

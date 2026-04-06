@@ -34,9 +34,15 @@
   handler supports `.neg` for active-low resets:
   `with_clk_and_rst(clk, rst.neg)` → `always_ff @(... negedge rst)` and
   `if (!rst)`.
-/ `input(name, type, attr:)`: declares an input port and returns a handler.
-/ `output(name, type, attr:)`: declares an output port and returns a handler.
-/ `inout(name, type, attr:)`: declares an inout port and returns a handler.
+/ `input(type)`: direction decorator. Wraps a data type with input direction
+  for use with `iodecl` or `let`.
+/ `output(type)`: direction decorator. Wraps a data type with output direction.
+/ `inout(type)`: direction decorator. Wraps a data type with inout direction.
+/ `iodecl(name, directed_type, init:, attr:)`: declares a port (or bundle port).
+  Use with `input(type)`, `output(type)`, or `flip(bundle)`.
+/ `let(:sym, qualified_type, attr:)`: unified declaration that registers an
+  accessor. Delegates to `iodecl` for directed types, `wire`/`reg`/`const`/`expr`
+  for internal signals.
 / `wire(name, type, init:, attr:)`: declares a combinational RSV signal and returns a
   handler. It emits as SV `logic`.
 / `reg(name, type, init:, attr:)`: declares a resettable register-like signal. It emits
@@ -237,7 +243,7 @@ inferred width and computed init value:
   (* mark_debug = "true" *)
   logic [7:0] sig;
   ```
-- Example: `output("dout", uint(8), attr: { "keep" => nil })`
+- Example: `iodecl("dout", output(uint(8)), attr: { "keep" => nil })`
   emits:
   ```systemverilog
   (* keep *)

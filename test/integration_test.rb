@@ -18,15 +18,15 @@ end
 
 class MetaParamIntegModule < RSV::ModuleDef
   def build(width: 8)
-    input("d", uint(width))
-    output("q", uint(width))
+    iodecl("d", input(uint(width)))
+    iodecl("q", output(uint(width)))
   end
 end
 
 class MetaParamIntegExprModule < RSV::ModuleDef
   def build(n: 4)
-    a = input("a", uint(n))
-    y = output("y", uint(n))
+    a = iodecl("a", input(uint(n)))
+    y = iodecl("y", output(uint(n)))
     y <= a + n
   end
 end
@@ -36,7 +36,7 @@ class IntegrationTest < Minitest::Test
 
   def test_sv_plugin_module_level
     klass = module_class("PluginMod") do
-      input("a", uint(8))
+      iodecl("a", input(uint(8)))
       sv_plugin "// custom comment"
       sv_plugin "assign foo = bar;"
     end
@@ -48,7 +48,7 @@ class IntegrationTest < Minitest::Test
 
   def test_sv_plugin_multiline
     klass = module_class("PluginMulti") do
-      input("clk", clock)
+      iodecl("clk", input(clock))
       sv_plugin "always @(posedge clk) begin\n  $display(\"hello\");\nend"
     end
     mod = klass.new("plugin_multi")
@@ -60,9 +60,9 @@ class IntegrationTest < Minitest::Test
 
   def test_sv_plugin_inside_always_ff
     klass = module_class("PluginProc") do
-      clk = input("clk", clock)
-      rst = input("rst", reset)
-      a = input("a", uint(8))
+      clk = iodecl("clk", input(clock))
+      rst = iodecl("rst", input(reset))
+      a = iodecl("a", input(uint(8)))
       r = reg("r", uint(8), init: 0)
       with_clk_and_rst(clk, rst)
       always_ff do
@@ -79,8 +79,8 @@ class IntegrationTest < Minitest::Test
 
   def test_v_wrapper_scalar_ports
     klass = module_class("WrapScalar") do
-      a = input("a", uint(8))
-      b = output("b", uint(8))
+      a = iodecl("a", input(uint(8)))
+      b = iodecl("b", output(uint(8)))
       b <= a
     end
     mod = klass.new("wrap_scalar")
@@ -95,8 +95,8 @@ class IntegrationTest < Minitest::Test
 
   def test_v_wrapper_unpacked_array
     klass = module_class("WrapUnpacked") do
-      m = input("mem_in", vec(3, uint(16)))
-      r = output("result", uint(16))
+      m = iodecl("mem_in", input(vec(3, uint(16))))
+      r = iodecl("result", output(uint(16)))
       r <= m[0]
     end
     mod = klass.new("wrap_unpacked")
@@ -111,8 +111,8 @@ class IntegrationTest < Minitest::Test
 
   def test_v_wrapper_custom_name
     klass = module_class("WrapCustom") do
-      x = input("x", uint(1))
-      y = output("y", uint(1))
+      x = iodecl("x", input(uint(1)))
+      y = iodecl("y", output(uint(1)))
       y <= x
     end
     mod = klass.new("wrap_custom")
@@ -141,8 +141,8 @@ class IntegrationTest < Minitest::Test
   def test_v_wrapper_mem_bundle_port
     klass = module_class("WrapMemBundle") do
       fifo_in = iodecl("fifo", WrapTestPixelInteg.new)
-      fifo_in_mem = input("fifo_extra", vec(2, uint(8)))
-      o = output("o", uint(8))
+      fifo_in_mem = iodecl("fifo_extra", input(vec(2, uint(8))))
+      o = iodecl("o", output(uint(8)))
       o <= fifo_in.r
     end
     mod = klass.new("wrap_mem_bundle")
@@ -215,10 +215,10 @@ class IntegrationTest < Minitest::Test
       define_singleton_method(:name) { "ImportedTop" }
 
       define_method(:build) do
-        clk = input("clk", bit)
-        rst_n = input("rst_n", bit)
-        din = input("din", uint(12))
-        dout = output("dout", uint(12))
+        clk = iodecl("clk", input(bit))
+        rst_n = iodecl("rst_n", input(bit))
+        din = iodecl("din", input(uint(12)))
+        dout = iodecl("dout", output(uint(12)))
 
         counter = imported.new(inst_name: "u_counter", WIDTH: 16)
         counter.clk <= clk
@@ -261,10 +261,10 @@ class IntegrationTest < Minitest::Test
       define_singleton_method(:name) { "ImportedTop" }
 
       define_method(:build) do |imported_def:|
-        clk = input("clk", bit)
-        rst_n = input("rst_n", bit)
-        din = input("din", uint(12))
-        dout = output("dout", uint(12))
+        clk = iodecl("clk", input(bit))
+        rst_n = iodecl("rst_n", input(bit))
+        din = iodecl("din", input(uint(12)))
+        dout = iodecl("dout", output(uint(12)))
 
         counter = instance(imported_def, inst_name: "u_counter")
         counter.clk <= clk

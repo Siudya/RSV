@@ -15,9 +15,9 @@ module ModuleStructureTestFixtures
     def initialize(width: 8)
       super()
 
-      clk = input("clk", bit)
-      rst = input("rst", bit)
-      count = output("count", uint(width))
+      clk = iodecl("clk", input(bit))
+      rst = iodecl("rst", input(bit))
+      count = iodecl("count", output(uint(width)))
       count_r = reg("count_r", uint(width), init: 0)
 
       count <= count_r
@@ -35,9 +35,9 @@ module ModuleStructureTestFixtures
     def initialize
       super()
 
-      clk = input("clk", bit)
-      rst = input("rst", bit)
-      count = output("count", uint(8))
+      clk = iodecl("clk", input(bit))
+      rst = iodecl("rst", input(bit))
+      count = iodecl("count", output(uint(8)))
 
       u_counter = Counter.new(inst_name: "u_counter", width: 8)
       u_counter.clk <= clk
@@ -117,9 +117,9 @@ class ModuleStructureTest < Minitest::Test
       define_method(:build) do |width: 8|
         self.module_name = "NamedCounterW#{width}"
 
-        clk = input("clk", bit)
-        rst = input("rst", bit)
-        count = output("count", uint(width))
+        clk = iodecl("clk", input(bit))
+        rst = iodecl("rst", input(bit))
+        count = iodecl("count", output(uint(width)))
         count_r = reg("count_r", uint(width), init: 0)
 
         count <= count_r
@@ -144,9 +144,9 @@ class ModuleStructureTest < Minitest::Test
       define_singleton_method(:name) { "VariantCounter" }
 
       define_method(:build) do |width: 8|
-        clk = input("clk", bit)
-        rst = input("rst", bit)
-        count = output("count", uint(width))
+        clk = iodecl("clk", input(bit))
+        rst = iodecl("rst", input(bit))
+        count = iodecl("count", output(uint(width)))
         count_r = reg("count_r", uint(width), init: 0)
 
         count <= count_r
@@ -172,11 +172,11 @@ class ModuleStructureTest < Minitest::Test
       define_singleton_method(:name) { "VariantTop" }
 
       define_method(:build) do
-        clk = input("clk", bit)
-        rst = input("rst", bit)
-        count_a = output("count_a", uint(8))
-        count_b = output("count_b", uint(8))
-        count_c = output("count_c", uint(16))
+        clk = iodecl("clk", input(bit))
+        rst = iodecl("rst", input(bit))
+        count_a = iodecl("count_a", output(uint(8)))
+        count_b = iodecl("count_b", output(uint(8)))
+        count_c = iodecl("count_c", output(uint(16)))
 
         counter_a = counter_class.new(inst_name: "u_counter_a", width: 8)
         counter_b = counter_class.new(inst_name: "u_counter_b", width: 8)
@@ -221,9 +221,9 @@ class ModuleStructureTest < Minitest::Test
       define_method(:build) do |width: 8|
         self.class.increment_build_count
 
-        clk = input("clk", bit)
-        rst = input("rst", bit)
-        count = output("count", uint(width))
+        clk = iodecl("clk", input(bit))
+        rst = iodecl("rst", input(bit))
+        count = iodecl("count", output(uint(width)))
         count_r = reg("count_r", uint(width), init: 0)
 
         count <= count_r
@@ -243,10 +243,10 @@ class ModuleStructureTest < Minitest::Test
       define_singleton_method(:name) { "ManualTop" }
 
       define_method(:build) do |counter_def:|
-        clk = input("clk", bit)
-        rst = input("rst", bit)
-        count_a = output("count_a", uint(8))
-        count_b = output("count_b", uint(8))
+        clk = iodecl("clk", input(bit))
+        rst = iodecl("rst", input(bit))
+        count_a = iodecl("count_a", output(uint(8)))
+        count_b = iodecl("count_b", output(uint(8)))
 
         counter_a = instance(counter_def, inst_name: "u_counter_a")
         counter_b = instance(counter_def, inst_name: "u_counter_b")
@@ -286,9 +286,9 @@ class ModuleStructureTest < Minitest::Test
 
       define_method(:build) do |width: 8|
         self.class.increment_build_count
-        clk = input("clk", bit)
-        rst = input("rst", bit)
-        count = output("count", uint(width))
+        clk = iodecl("clk", input(bit))
+        rst = iodecl("rst", input(bit))
+        count = iodecl("count", output(uint(width)))
         count_r = reg("count_r", uint(width), init: 0)
 
         count <= count_r
@@ -308,9 +308,9 @@ class ModuleStructureTest < Minitest::Test
       define_singleton_method(:name) { "WrappedTop" }
 
       define_method(:build) do |counter_template:|
-        clk = input("clk", bit)
-        rst = input("rst", bit)
-        count = output("count", uint(16))
+        clk = iodecl("clk", input(bit))
+        rst = iodecl("rst", input(bit))
+        count = iodecl("count", output(uint(16)))
         counter_def = definition(counter_template)
         counter = instance(counter_def, inst_name: "u_counter")
 
@@ -331,9 +331,9 @@ class ModuleStructureTest < Minitest::Test
       define_singleton_method(:name) { "DuplicateCounter" }
 
       define_method(:build) do |width: 8|
-        clk = input("clk", bit)
-        rst = input("rst", bit)
-        count = output("count", uint(width))
+        clk = iodecl("clk", input(bit))
+        rst = iodecl("rst", input(bit))
+        count = iodecl("count", output(uint(width)))
         count_r = reg("count_r", uint(width), init: 0)
 
         count <= count_r
@@ -358,8 +358,8 @@ class ModuleStructureTest < Minitest::Test
       define_singleton_method(:name) { "PipelineStage" }
 
       define_method(:build) do
-        din = input("din", uint(8))
-        dout = output("dout", uint(8))
+        din = iodecl("din", input(uint(8)))
+        dout = iodecl("dout", output(uint(8)))
 
         dout <= din
       end
@@ -369,8 +369,8 @@ class ModuleStructureTest < Minitest::Test
       define_singleton_method(:name) { "InterconnectTop" }
 
       define_method(:build) do
-        din = input("din", uint(8))
-        dout = output("dout", uint(8))
+        din = iodecl("din", input(uint(8)))
+        dout = iodecl("dout", output(uint(8)))
         stage_link = wire("stage_link", uint(8))
 
         stage_a = stage_class.new(inst_name: "u_stage_a")
@@ -395,8 +395,8 @@ class ModuleStructureTest < Minitest::Test
       define_singleton_method(:name) { "DirectStage" }
 
       define_method(:build) do
-        din = input("din", uint(8))
-        dout = output("dout", uint(8))
+        din = iodecl("din", input(uint(8)))
+        dout = iodecl("dout", output(uint(8)))
 
         dout <= din
       end
@@ -406,8 +406,8 @@ class ModuleStructureTest < Minitest::Test
       define_singleton_method(:name) { "DirectInterconnectTop" }
 
       define_method(:build) do
-        din = input("din", uint(8))
-        dout = output("dout", uint(8))
+        din = iodecl("din", input(uint(8)))
+        dout = iodecl("dout", output(uint(8)))
 
         stage_a = stage_class.new(inst_name: "u_stage_a")
         stage_b = stage_class.new(inst_name: "u_stage_b")
@@ -430,7 +430,7 @@ class ModuleStructureTest < Minitest::Test
       define_singleton_method(:name) { "ArrayProducer" }
 
       define_method(:build) do
-        output("tx_mem", vec([2, 3], uint(8)))
+        iodecl("tx_mem", output(vec([2, 3], uint(8))))
       end
     end
 
@@ -438,7 +438,7 @@ class ModuleStructureTest < Minitest::Test
       define_singleton_method(:name) { "ArrayConsumer" }
 
       define_method(:build) do
-        input("rx_mem", vec([2, 3], uint(8)))
+        iodecl("rx_mem", input(vec([2, 3], uint(8))))
       end
     end
 
@@ -471,8 +471,8 @@ class ModuleStructureTest < Minitest::Test
       define_singleton_method(:name) { "Counter" }
 
       define_method(:build) do
-        clk = input("clk", bit)
-        count = output("count", uint(16))
+        clk = iodecl("clk", input(bit))
+        count = iodecl("count", output(uint(16)))
       end
     end
 
@@ -480,7 +480,7 @@ class ModuleStructureTest < Minitest::Test
       define_singleton_method(:name) { "Top" }
 
       define_method(:build) do
-        clk = input("clk", bit)
+        clk = iodecl("clk", input(bit))
         count = wire("count", uint(16))
 
         counter = counter_class.new(inst_name: "u_counter")
@@ -505,8 +505,8 @@ class ModuleStructureTest < Minitest::Test
       define_singleton_method(:name) { "RegTestCounter" }
 
       define_method(:build) do |width: 8|
-        input("clk", bit)
-        output("count", uint(width))
+        iodecl("clk", input(bit))
+        iodecl("count", output(uint(width)))
       end
     end
 
@@ -525,8 +525,8 @@ class ModuleStructureTest < Minitest::Test
       define_singleton_method(:name) { "DedupRegCounter" }
 
       define_method(:build) do |width: 8|
-        input("clk", bit)
-        output("count", uint(width))
+        iodecl("clk", input(bit))
+        iodecl("count", output(uint(width)))
       end
     end
 
@@ -547,8 +547,8 @@ class ModuleStructureTest < Minitest::Test
       define_singleton_method(:name) { "ExportTestMod" }
 
       define_method(:build) do
-        input("din", uint(8))
-        output("dout", uint(8))
+        iodecl("din", input(uint(8)))
+        iodecl("dout", output(uint(8)))
       end
     end
 
@@ -572,8 +572,8 @@ class ModuleStructureTest < Minitest::Test
       define_singleton_method(:name) { "SubRegChild" }
 
       define_method(:build) do
-        input("din", uint(8))
-        output("dout", uint(8))
+        iodecl("din", input(uint(8)))
+        iodecl("dout", output(uint(8)))
       end
     end
 
@@ -581,8 +581,8 @@ class ModuleStructureTest < Minitest::Test
       define_singleton_method(:name) { "SubRegParent" }
 
       define_method(:build) do
-        din = input("din", uint(8))
-        dout = output("dout", uint(8))
+        din = iodecl("din", input(uint(8)))
+        dout = iodecl("dout", output(uint(8)))
         child = child_class.new(inst_name: "u_child")
         child.din <= din
         dout <= child.dout

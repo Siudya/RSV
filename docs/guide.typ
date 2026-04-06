@@ -13,13 +13,12 @@ SystemVerilog.
   `bit(...)`, `uint(...)`, and `vec(...)`.
 + Use `build(**kwargs)` keyword arguments as meta parameters to control
   module elaboration: `MyMod.new("name", width: 16, meta: val)`.
-+ Create named ports and locals with `input("name", type)`,
-  `output("name", type)`, `wire("name", type)`, and `reg("name", type)`.
++ Create named ports with `iodecl("name", input(type))` or `let :name, input(type)`.
+  Create local signals with `wire("name", type)` and `reg("name", type)`.
 + Use the unified `let` form to avoid repeating the name:
   `let :clk, input(clock)`, `let :cnt, reg(uint(8), init: 0)`.
   The `let` form defines an accessor method so handles can be referenced by
   name in later assignments and procedural blocks.
-  The Symbol shorthand (`input :clk, clock`) and String form also remain available.
 + Declare constants with `const("name", type)` where the data type carries an
   init value (emits as SV `localparam`).
 + Use `generate_for` and `generate_if` for elaboration-time code generation

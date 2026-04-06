@@ -17,12 +17,8 @@ Three declaration forms are supported (all produce identical SV):
 let :clk,   input(clock)
 let :cnt,   reg(uint(width: 16, init: 0x15))
 
-# Symbol form
-input :clk, clock
-reg :cnt, uint(16), init: 0x15
-
-# String form (returns handle)
-clk = input("clk", clock)
+# iodecl form (returns handle)
+clk = iodecl("clk", input(clock))
 cnt = reg("cnt", uint(16), init: 0x15)
 ```
 

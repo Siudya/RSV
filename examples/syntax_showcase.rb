@@ -26,7 +26,7 @@ class SyntaxShowcase < RSV::ModuleDef
     let :clk, input(clock)
     let :rst_n, input(reset)
     let :gate, input(bit)
-    load = input("load", bit)
+    load = iodecl("load", input(bit))
     let :sel, input(bit)
     let :pad, inout(bit)
     let :a, input(uint(8))

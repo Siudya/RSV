@@ -73,9 +73,9 @@ module RSV
   # Example:
   #   class Counter < RSV::ModuleDef
   #     def build(width: 8)
-  #       clk = input("clk", bit)
-  #       rst = input("rst", bit)
-  #       out = output("count", uint(width))
+  #       clk = iodecl("clk", input(bit))
+  #       rst = iodecl("rst", input(bit))
+  #       out = iodecl("count", output(uint(width)))
   #       count_r = reg("count_r", uint(width), init: 0)
   #       out <= count_r
   #       with_clk_and_rst(clk, rst)
@@ -224,56 +224,24 @@ module RSV
     end
 
     # Direction decorator: wraps a data type with :input direction.
-    # When given (name, type), declares an input port directly (for clock/reset convenience).
-    # Symbol form: input(:clk, bit) — declares port and registers accessor.
-    def input(name_or_type, data_type = nil, init: UNSET_INIT, attr: nil)
-      if name_or_type.is_a?(Symbol)
-        handler = input(name_or_type.to_s, data_type, init: init, attr: attr)
-        return _register_signal_accessor(name_or_type, handler)
-      end
-      if data_type.nil?
-        # Direction decorator mode: input(uint(8)) → DirectedType
-        type = name_or_type
-        type = RSV.normalize_data_type(type) if type.is_a?(DataType)
-        return DirectedType.new(:input, type)
-      end
-      clock_type = data_type.instance_variable_get(:@_clock_type) || false
-      reset_type = data_type.instance_variable_get(:@_reset_type) || false
-      declare_port(:input, build_signal_spec(name_or_type, data_type, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
+    # Use with iodecl or let to declare ports.
+    def input(data_type)
+      type = data_type.is_a?(DataType) ? RSV.normalize_data_type(data_type) : data_type
+      DirectedType.new(:input, type)
     end
 
     # Direction decorator: wraps a data type with :output direction.
-    # When given (name, type), declares an output port directly (for clock/reset convenience).
-    # Symbol form: output(:count, uint(8))
-    def output(name_or_type, data_type = nil, init: UNSET_INIT, attr: nil)
-      if name_or_type.is_a?(Symbol)
-        handler = output(name_or_type.to_s, data_type, init: init, attr: attr)
-        return _register_signal_accessor(name_or_type, handler)
-      end
-      if data_type.nil?
-        type = name_or_type
-        type = RSV.normalize_data_type(type) if type.is_a?(DataType)
-        return DirectedType.new(:output, type)
-      end
-      clock_type = data_type.instance_variable_get(:@_clock_type) || false
-      reset_type = data_type.instance_variable_get(:@_reset_type) || false
-      declare_port(:output, build_signal_spec(name_or_type, data_type, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
+    # Use with iodecl or let to declare ports.
+    def output(data_type)
+      type = data_type.is_a?(DataType) ? RSV.normalize_data_type(data_type) : data_type
+      DirectedType.new(:output, type)
     end
 
-    # Symbol form: inout(:data, uint(8))
-    def inout(name_or_type, data_type = nil, init: UNSET_INIT, attr: nil)
-      if name_or_type.is_a?(Symbol)
-        handler = inout(name_or_type.to_s, data_type, init: init, attr: attr)
-        return _register_signal_accessor(name_or_type, handler)
-      end
-      if data_type.nil?
-        type = name_or_type
-        type = RSV.normalize_data_type(type) if type.is_a?(DataType)
-        return DirectedType.new(:inout, type)
-      end
-      clock_type = data_type.instance_variable_get(:@_clock_type) || false
-      reset_type = data_type.instance_variable_get(:@_reset_type) || false
-      declare_port(:inout, build_signal_spec(name_or_type, data_type, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
+    # Direction decorator: wraps a data type with :inout direction.
+    # Use with iodecl or let to declare ports.
+    def inout(data_type)
+      type = data_type.is_a?(DataType) ? RSV.normalize_data_type(data_type) : data_type
+      DirectedType.new(:inout, type)
     end
 
     # Flip bundle direction: all input fields become output and vice versa.

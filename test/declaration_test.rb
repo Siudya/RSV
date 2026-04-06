@@ -10,15 +10,15 @@ require "rsv"
 
 class MetaParamDeclTestModule < RSV::ModuleDef
   def build(width: 8)
-    input("d", uint(width))
-    output("q", uint(width))
+    iodecl("d", input(uint(width)))
+    iodecl("q", output(uint(width)))
   end
 end
 
 class MetaParamDeclExprModule < RSV::ModuleDef
   def build(n: 4)
-    a = input("a", uint(n))
-    y = output("y", uint(n))
+    a = iodecl("a", input(uint(n)))
+    y = iodecl("y", output(uint(n)))
     y <= a + n
   end
 end
@@ -62,9 +62,9 @@ class DeclarationTest < Minitest::Test
 
   def test_handler_signals_emit_wire_and_logic_declarations
     mod = module_class("Counter") do
-      clk = input("clk", clock)
-      rst_n = input("rst_n", reset)
-      count = output("count", uint(16))
+      clk = iodecl("clk", input(clock))
+      rst_n = iodecl("rst_n", input(reset))
+      count = iodecl("count", output(uint(16)))
       seed = wire("seed", uint(16), init: 0x7)
       count_r = reg("count_r", uint(16), init: 0)
 
@@ -129,7 +129,7 @@ class DeclarationTest < Minitest::Test
     mod = module_class("ConstTest") do
       a = const("MAGIC", sint(16, 0x57))
       b = const("THRESHOLD", uint(8, 42))
-      out = output("out", sint(16))
+      out = iodecl("out", output(sint(16)))
       out <= a
     end.new
 
@@ -167,8 +167,8 @@ class DeclarationTest < Minitest::Test
 
   def test_attr_on_port
     mod = module_class("AttrPort") do
-      input("clk", bit, attr: { "mark_debug" => "\"true\"" })
-      output("dout", uint(8), attr: { "keep" => nil })
+      iodecl("clk", input(bit), attr: { "mark_debug" => "\"true\"" })
+      iodecl("dout", output(uint(8)), attr: { "keep" => nil })
     end.new
 
     sv = mod.to_sv
@@ -198,10 +198,10 @@ class DeclarationTest < Minitest::Test
 
   def test_continuous_assigns_align_equals
     mod = module_class("AlignedAssigns") do
-      a = input("a", uint(8))
+      a = iodecl("a", input(uint(8)))
       short = wire("x", uint(8))
       long_name = wire("long_name", uint(8))
-      y = output("y", uint(8))
+      y = iodecl("y", output(uint(8)))
 
       short <= a
       long_name <= short
@@ -259,14 +259,14 @@ class DeclarationTest < Minitest::Test
     assert_includes sv, "[15:0]"
   end
 
-  # ── Symbol shorthand tests ──────────────────────────────────────────
+  # ── let form shorthand tests ──────────────────────────────────────
 
-  def test_symbol_form_declares_ports_and_locals
-    mod = module_class("SymbolForm") {
-      input :clk, clock
-      input :rst, reset
-      input :en, bit
-      output :count, uint(8)
+  def test_let_form_declares_ports_and_locals
+    mod = module_class("LetForm") {
+      let :clk, input(clock)
+      let :rst, input(reset)
+      let :en, input(bit)
+      let :count, output(uint(8))
       reg :count_r, uint(8), init: 0
       expr :count_next, count_r + 1
       count_r >= count
@@ -282,10 +282,10 @@ class DeclarationTest < Minitest::Test
     assert_includes sv, "count_r <= count_next"
   end
 
-  def test_symbol_form_wire_and_const
-    mod = module_class("SymbolWireConst") {
-      input :a, uint(8)
-      output :y, uint(8)
+  def test_let_form_wire_and_const
+    mod = module_class("LetWireConst") {
+      let :a, input(uint(8))
+      let :y, output(uint(8))
       wire :tmp, uint(8)
       # SV const 一般大写，Ruby 大写标识符是常量，需用 String 形式
       offset = const("OFFSET", uint(8, 42))
@@ -300,12 +300,12 @@ class DeclarationTest < Minitest::Test
     assert_includes sv, "assign tmp = a + OFFSET"
   end
 
-  def test_symbol_form_accessible_in_always_blocks
-    mod = module_class("SymbolAlways") {
-      input :clk, clock
-      input :rst, reset
-      input :d, uint(4)
-      output :q, uint(4)
+  def test_let_form_accessible_in_always_blocks
+    mod = module_class("LetAlways") {
+      let :clk, input(clock)
+      let :rst, input(reset)
+      let :d, input(uint(4))
+      let :q, output(uint(4))
       reg :r, uint(4), init: 0
       q <= r
       with_clk_and_rst(clk, rst)
@@ -404,11 +404,11 @@ class DeclarationTest < Minitest::Test
     assert_includes sv, "assign out = cnt"
   end
 
-  def test_let_form_mixed_with_symbol_and_string_forms
+  def test_let_form_mixed_with_string_forms
     mod = module_class("LetMixed") {
       let :a, input(uint(8))
-      input :b, uint(8)
-      c = input("c", uint(8))
+      let :b, input(uint(8))
+      c = iodecl("c", input(uint(8)))
       let :y, output(uint(8))
       y <= a + b + c
     }.new

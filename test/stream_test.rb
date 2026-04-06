@@ -11,13 +11,13 @@ require "rsv"
 class StreamTest < Minitest::Test
   def test_uint_stream_foreach_reduce_and_map_emit_expected_sv
     mod = module_class("UintStream") do
-      clk = input("clk", clock)
-      rst = input("rst", reset)
+      clk = iodecl("clk", input(clock))
+      rst = iodecl("rst", input(reset))
       old_mask = reg("om", uint(16))
       new_mask = reg("nm", uint(16, 0))
-      update = input("m_upd", bit)
-      parity = output("e_par", bit)
-      result = output("res", uint(4))
+      update = iodecl("m_upd", input(bit))
+      parity = iodecl("e_par", output(bit))
+      result = iodecl("res", output(uint(4)))
 
       with_clk_and_rst(clk, rst)
       always_ff do
@@ -52,8 +52,8 @@ class StreamTest < Minitest::Test
 
   def test_mem_stream_map_preserves_word_order
     mod = module_class("MemArrStream") do
-      words = input("words", vec([4], uint(8)))
-      out = output("out", vec([2], uint(8)))
+      words = iodecl("words", input(vec([4], uint(8))))
+      out = iodecl("out", output(vec([2], uint(8))))
 
       out <= words
         .sv_take(4)
@@ -69,13 +69,13 @@ class StreamTest < Minitest::Test
 
   def test_mem_bit_stream_foreach_reduce_and_map_emit_expected_sv
     mod = module_class("MemBitStream") do
-      clk = input("clk", clock)
-      rst = input("rst", reset)
-      src = input("src", vec([8], bit))
+      clk = iodecl("clk", input(clock))
+      rst = iodecl("rst", input(reset))
+      src = iodecl("src", input(vec([8], bit)))
       dst = reg("dst", vec([8], bit), init: vec.fill(8, bit(0)))
-      update = input("m_upd", bit)
-      parity = output("e_par", bit)
-      result = output("res", uint(4))
+      update = iodecl("m_upd", input(bit))
+      parity = iodecl("e_par", output(bit))
+      result = iodecl("res", output(uint(4)))
 
       with_clk_and_rst(clk, rst)
       always_ff do
@@ -108,8 +108,8 @@ class StreamTest < Minitest::Test
 
   def test_mem_word_stream_map_preserves_word_order
     mod = module_class("MemWordStream") do
-      words = input("words", vec([4], uint(8)))
-      out = output("out", vec([2], uint(8)))
+      words = iodecl("words", input(vec([4], uint(8))))
+      out = iodecl("out", output(vec([2], uint(8))))
       out <= words
         .sv_take(4)
         .sv_select { |_, i| i < 2 }
@@ -124,9 +124,9 @@ class StreamTest < Minitest::Test
 
   def test_mixed_multidim_stream_foreach_supports_nested_views
     mod = module_class("MixedStreamForeach") do
-      clk = input("clk", clock)
-      rst = input("rst", reset)
-      data = input("data", vec([2], vec([3], uint(8))))
+      clk = iodecl("clk", input(clock))
+      rst = iodecl("rst", input(reset))
+      data = iodecl("data", input(vec([2], vec([3], uint(8)))))
       out = reg("out", vec([2], vec([3], uint(8))), init: vec.fill(2, vec.fill(3, uint(8, 0))))
 
       with_clk_and_rst(clk, rst)

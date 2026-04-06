@@ -15,7 +15,7 @@ class MacroGenerateTest < Minitest::Test
     mod = module_class("DefTest") do
       sv_def "MY_MACRO", "42"
       sv_def "FLAG"
-      output("dout", uint(8))
+      iodecl("dout", output(uint(8)))
     end.new
 
     sv = mod.to_sv
@@ -38,7 +38,7 @@ class MacroGenerateTest < Minitest::Test
 
   def test_sv_ifdef_endif
     mod = module_class("IfdefTest") do
-      out = output("out", uint(8))
+      out = iodecl("out", output(uint(8)))
       w = wire("w", uint(8))
       sv_ifdef("SIM") do
         out <= w
@@ -53,7 +53,7 @@ class MacroGenerateTest < Minitest::Test
 
   def test_sv_ifdef_else
     mod = module_class("IfdefElseTest") do
-      out = output("out", uint(8))
+      out = iodecl("out", output(uint(8)))
       a = wire("a", uint(8))
       b = wire("b", uint(8))
       sv_ifdef("SIM") do
@@ -75,7 +75,7 @@ class MacroGenerateTest < Minitest::Test
 
   def test_sv_ifndef_with_elif
     mod = module_class("IfndefElifTest") do
-      out = output("out", uint(8))
+      out = iodecl("out", output(uint(8)))
       a = wire("a", uint(8))
       b = wire("b", uint(8))
       c = wire("c", uint(8))
@@ -97,7 +97,7 @@ class MacroGenerateTest < Minitest::Test
 
   def test_sv_ifndef_standalone
     mod = module_class("IfndefStandalone") do
-      out = output("out", uint(8))
+      out = iodecl("out", output(uint(8)))
       w = wire("w", uint(8))
       sv_ifndef("GATE_SIM") do
         out <= w
@@ -116,7 +116,7 @@ class MacroGenerateTest < Minitest::Test
   def test_sv_dref_macro_reference
     mod = module_class("DrefTest") do
       sv_def "WIDTH", "8"
-      out = output("out", uint(8))
+      out = iodecl("out", output(uint(8)))
       w = wire("w", uint(8))
       out <= w + sv_dref("WIDTH")
     end.new
@@ -130,10 +130,10 @@ class MacroGenerateTest < Minitest::Test
 
   def test_generate_for_with_local_and_always
     mod = module_class("GenForTest") {
-      clk = input("clk", clock)
-      rst = input("rst", reset)
-      d = input("d", vec(4, uint(8)))
-      q = output("q", vec(4, uint(8)))
+      clk = iodecl("clk", input(clock))
+      rst = iodecl("rst", input(reset))
+      d = iodecl("d", input(vec(4, uint(8))))
+      q = iodecl("q", output(vec(4, uint(8))))
       with_clk_and_rst(clk, rst)
       generate_for("i", 0, 4, label: "gen_pipe") do |i|
         r = reg("r", uint(8))
@@ -153,8 +153,8 @@ class MacroGenerateTest < Minitest::Test
 
   def test_generate_for_without_label
     mod = module_class("GenForNoLabel") {
-      d = input("d", vec(2, uint(4)))
-      q = output("q", vec(2, uint(4)))
+      d = iodecl("d", input(vec(2, uint(4))))
+      q = iodecl("q", output(vec(2, uint(4))))
       generate_for("j", 0, 2) do |j|
         q[j] <= d[j]
       end
@@ -170,8 +170,8 @@ class MacroGenerateTest < Minitest::Test
   def test_generate_if_with_elsif_and_else
     mod = module_class("GenIfTest") {
       mode = const("MODE", uint(2, 1))
-      a = input("a", uint(8))
-      y = output("y", uint(8))
+      a = iodecl("a", input(uint(8)))
+      y = iodecl("y", output(uint(8)))
       generate_if(mode.eq(0), label: "m0") {
         y <= 0
       }.generate_elif(mode.eq(1), label: "m1") {
@@ -191,8 +191,8 @@ class MacroGenerateTest < Minitest::Test
   def test_generate_if_only_then
     mod = module_class("GenIfOnly") {
       en = const("EN", uint(1, 1))
-      a = input("a", uint(8))
-      y = output("y", uint(8))
+      a = iodecl("a", input(uint(8)))
+      y = iodecl("y", output(uint(8)))
       generate_if(en.eq(1), label: "gen_en") {
         y <= a
       }
