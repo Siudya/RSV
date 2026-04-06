@@ -82,6 +82,10 @@ class ExamplesSuiteTest < Minitest::Test
     "pop_count_demo.rb" => {
       outputs: ["pop_count_demo.sv"],
       lint_files: ["build/rtl/pop_count_demo.sv"]
+    },
+    "type_conv_demo.rb" => {
+      outputs: ["type_conv_demo.sv"],
+      lint_files: ["build/rtl/type_conv_demo.sv"]
     }
   }.freeze
 

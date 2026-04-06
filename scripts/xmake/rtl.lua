@@ -14,6 +14,7 @@ local example_catalog = {
   {name = "storage_streams", alias = "str", summary = "arr/mem storage shapes, fill helpers, and stream views"},
   {name = "sv_plugin_demo", alias = "svp", summary = "inline SystemVerilog embedding with sv_plugin"},
   {name = "syntax_showcase", alias = "syn", summary = "operators, slices, casts, and procedural blocks"},
+  {name = "type_conv_demo", alias = "tcv", summary = "as_type conversion between scalar, bundle, and mem"},
   {name = "verilog_wrapper", alias = "vwr", summary = "Verilog-compatible wrapper generation for RSV modules"}
 }
 
