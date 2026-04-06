@@ -9,7 +9,7 @@ local example_catalog = {
   {name = "import_demo", alias = "imp", summary = "import existing SystemVerilog modules with pyslang"},
   {name = "macro_demo", alias = "mac", summary = "SystemVerilog macro directives and macro references"},
   {name = "manual_dedup", alias = "man", summary = "manual definition/instance dedup and auto wiring"},
-  {name = "mux_cases", alias = "mux", summary = "mux, mux1h, and muxp selection helpers"},
+  {name = "mux_cases", alias = "mux", summary = "mux, mux1h, muxp, bundle mux, as_uint, cat, reverse"},
   {name = "pop_count_demo", alias = "pop", summary = "pop_count and log2ceil bit-width utilities"},
   {name = "storage_streams", alias = "str", summary = "arr/mem storage shapes, fill helpers, and stream views"},
   {name = "sv_plugin_demo", alias = "svp", summary = "inline SystemVerilog embedding with sv_plugin"},
