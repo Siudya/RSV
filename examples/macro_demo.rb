@@ -18,12 +18,12 @@ class MacroDemo < RSV::ModuleDef
   def build
     sv_def "DEFAULT_WIDTH", "8"
 
-    input :clk, bit
-    input :rst, bit
-    input :mode, uint(2)
-    output :out, uint(8)
+    let :clk, input(bit)
+    let :rst, input(bit)
+    let :mode, input(uint(2))
+    let :out, output(uint(8))
 
-    reg :count_r, uint(8), init: 0
+    let :count_r, reg(uint(8), init: 0)
 
     with_clk_and_rst(clk, rst)
     always_ff do

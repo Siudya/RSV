@@ -235,12 +235,13 @@ class TypeSystemTest < Minitest::Test
     assert_equal expected, mod.to_sv
   end
 
-  def test_legacy_named_type_api_is_removed
-    assert_raises(ArgumentError, TypeError) do
-      module_class("LegacyDecl") do
-        wire(uint("legacy", 8))
-      end.new
-    end
+  def test_wire_descriptor_mode_returns_wire_type
+    desc = nil
+    mod = module_class("WireDescTest") do
+      desc = wire(uint(8))
+    end.new
+    assert_kind_of RSV::WireType, desc
+    assert_empty mod.locals
   end
 
   # ── 运行时 DataType 算术 ───────────────────────────────────────────────

@@ -321,34 +321,55 @@ module RSV
 
     # ── Internal signal declarations ────────────────────────────────────────
 
+    # Descriptor mode: wire(uint(8)) → WireType (for use with let)
     # Symbol form: wire(:data, uint(16))
-    def wire(name, data_type, init: UNSET_INIT, attr: nil)
-      if name.is_a?(Symbol)
-        handler = wire(name.to_s, data_type, init: init, attr: attr)
-        return _register_signal_accessor(name, handler)
+    # String form: wire("data", uint(16))
+    def wire(name_or_type, data_type = nil, init: UNSET_INIT, attr: nil)
+      if name_or_type.is_a?(Symbol)
+        handler = wire(name_or_type.to_s, data_type, init: init, attr: attr)
+        return _register_signal_accessor(name_or_type, handler)
       end
+      if data_type.nil? && !name_or_type.is_a?(String)
+        type = name_or_type.is_a?(DataType) ? name_or_type : RSV.normalize_data_type(name_or_type)
+        return WireType.new(type, init: init.equal?(UNSET_INIT) ? nil : init)
+      end
+      name = name_or_type
       clock_type = data_type.instance_variable_get(:@_clock_type) || false
       reset_type = data_type.instance_variable_get(:@_reset_type) || false
       declare_local(:wire, build_signal_spec(name, data_type, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
     end
 
+    # Descriptor mode: reg(uint(16), init: 0) → RegType (for use with let)
     # Symbol form: reg(:count_r, uint(8), init: 0)
-    def reg(name, data_type, init: UNSET_INIT, attr: nil)
-      if name.is_a?(Symbol)
-        handler = reg(name.to_s, data_type, init: init, attr: attr)
-        return _register_signal_accessor(name, handler)
+    # String form: reg("count_r", uint(8), init: 0)
+    def reg(name_or_type, data_type = nil, init: UNSET_INIT, attr: nil)
+      if name_or_type.is_a?(Symbol)
+        handler = reg(name_or_type.to_s, data_type, init: init, attr: attr)
+        return _register_signal_accessor(name_or_type, handler)
       end
+      if data_type.nil? && !name_or_type.is_a?(String)
+        type = name_or_type.is_a?(DataType) ? name_or_type : RSV.normalize_data_type(name_or_type)
+        return RegType.new(type, init: init.equal?(UNSET_INIT) ? nil : init)
+      end
+      name = name_or_type
       clock_type = data_type.instance_variable_get(:@_clock_type) || false
       reset_type = data_type.instance_variable_get(:@_reset_type) || false
       declare_local(:reg, build_signal_spec(name, data_type, init: init), clock_type: clock_type, reset_type: reset_type, attr: attr)
     end
 
+    # Descriptor mode: const(uint(8, 42)) → ConstType (for use with let)
     # Symbol form: const(:BASE_ADDR, uint(16, 0xBEEF))
-    def const(name, data_type, attr: nil)
-      if name.is_a?(Symbol)
-        handler = const(name.to_s, data_type, attr: attr)
-        return _register_signal_accessor(name, handler)
+    # String form: const("BASE_ADDR", uint(16, 0xBEEF))
+    def const(name_or_type, data_type = nil, attr: nil)
+      if name_or_type.is_a?(Symbol)
+        handler = const(name_or_type.to_s, data_type, attr: attr)
+        return _register_signal_accessor(name_or_type, handler)
       end
+      if data_type.nil? && !name_or_type.is_a?(String)
+        type = name_or_type.is_a?(DataType) ? name_or_type : RSV.normalize_data_type(name_or_type)
+        return ConstType.new(type)
+      end
+      name = name_or_type
       spec = build_signal_spec(name, data_type, init: data_type.init)
       raise ArgumentError, "const requires an init value" if spec.init.nil?
 
@@ -356,12 +377,18 @@ module RSV
       build_handler(spec, :wire)
     end
 
+    # Descriptor mode: expr(a + b) → ExprType (for use with let)
     # Symbol form: expr(:count_next, count_r + 1)
-    def expr(name, rhs, width: nil, signed: false)
-      if name.is_a?(Symbol)
-        handler = expr(name.to_s, rhs, width: width, signed: signed)
-        return _register_signal_accessor(name, handler)
+    # String form: expr("count_next", count_r + 1)
+    def expr(name_or_rhs, rhs = nil, width: nil, signed: false)
+      if name_or_rhs.is_a?(Symbol)
+        handler = expr(name_or_rhs.to_s, rhs, width: width, signed: signed)
+        return _register_signal_accessor(name_or_rhs, handler)
       end
+      if rhs.nil? && !name_or_rhs.is_a?(String)
+        return ExprType.new(name_or_rhs, width: width, signed: signed)
+      end
+      name = name_or_rhs
       rhs_expr = RSV.normalize_expr(rhs)
       inferred_width = width || RSV.infer_expr_width(rhs_expr)
       raise ArgumentError, "cannot infer width for expr #{name}" if inferred_width.nil?
@@ -369,6 +396,40 @@ module RSV
       handler = declare_local(:wire, SignalSpec.new(name, width: inferred_width, signed: signed))
       append_assignment(handler, rhs_expr)
       handler
+    end
+
+    # ── Unified let declaration ─────────────────────────────────────────────
+    # let :name, kind(type)
+    #
+    #   let :clk,  input(clock)
+    #   let :dout, output(uint(12))
+    #   let :cnt,  reg(uint(16), init: 0)
+    #   let :tmp,  wire(uint(8))
+    #   let :base, const(uint(16, 0xBEEF))
+    #   let :sum,  expr(a + b)
+    #   let :px,   input(Pixel.new)         # bundle port
+    #   let :px_f, flip(Pixel.new)          # flipped bundle
+    def let(sym, qualified_type, attr: nil)
+      raise ArgumentError, "let expects a Symbol name, got #{sym.class}" unless sym.is_a?(Symbol)
+
+      name = sym.to_s
+      handler = case qualified_type
+      when DirectedType, FlippedType
+        iodecl(name, qualified_type, attr: attr)
+      when WireType
+        init_val = qualified_type.init
+        wire(name, qualified_type.data_type, init: init_val.nil? ? UNSET_INIT : init_val, attr: attr)
+      when RegType
+        init_val = qualified_type.init
+        reg(name, qualified_type.data_type, init: init_val.nil? ? UNSET_INIT : init_val, attr: attr)
+      when ConstType
+        const(name, qualified_type.data_type, attr: attr)
+      when ExprType
+        expr(name, qualified_type.rhs, width: qualified_type.width, signed: qualified_type.signed)
+      else
+        raise ArgumentError, "let expects a qualified type (input/output/wire/reg/const/expr), got #{qualified_type.class}"
+      end
+      _register_signal_accessor(sym, handler)
     end
 
     def mem(*dims_and_target)

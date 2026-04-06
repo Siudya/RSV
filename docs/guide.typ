@@ -15,10 +15,11 @@ SystemVerilog.
   module elaboration: `MyMod.new("name", width: 16, meta: val)`.
 + Create named ports and locals with `input("name", type)`,
   `output("name", type)`, `wire("name", type)`, and `reg("name", type)`.
-+ Use the Symbol shorthand to avoid repeating the name:
-  `input :clk, clock`, `output :count, uint(8)`, `reg :r, uint(8), init: 0`.
-  The Symbol form defines an accessor method so handles can be referenced by
++ Use the unified `let` form to avoid repeating the name:
+  `let :clk, input(clock)`, `let :cnt, reg(uint(8), init: 0)`.
+  The `let` form defines an accessor method so handles can be referenced by
   name in later assignments and procedural blocks.
+  The Symbol shorthand (`input :clk, clock`) and String form also remain available.
 + Declare constants with `const("name", type)` where the data type carries an
   init value (emits as SV `localparam`).
 + Use `generate_for` and `generate_if` for elaboration-time code generation
@@ -76,13 +77,13 @@ require "rsv"
 
 class Counter < RSV::ModuleDef
   def build(width: 8)
-    input :clk, bit
-    input :rst, bit
-    input :en, bit
-    output :count, uint(width)
+    let :clk,        input(bit)
+    let :rst,        input(bit)
+    let :en,         input(bit)
+    let :count,      output(uint(width))
 
-    reg :count_r, uint(width), init: 0
-    expr :count_next, count_r + 1
+    let :count_r,    reg(uint(width), init: 0)
+    let :count_next, expr(count_r + 1)
 
     count_r >= count
 
@@ -150,9 +151,9 @@ name, RSV preserves the first name and suffixes later variants with `_1`,
 ```ruby
 class Top < RSV::ModuleDef
   def build(counter_def:)
-    input :clk, bit
-    input :rst, bit
-    output :count, uint(8)
+    let :clk,   input(bit)
+    let :rst,   input(bit)
+    let :count, output(uint(8))
 
     counter = instance(counter_def, inst_name: "u_counter")
     counter.clk <= clk
@@ -245,8 +246,8 @@ ImportedCounter = RSV.import_sv(
 
 class ImportDemo < RSV::ModuleDef
   def build
-    input :clk, bit
-    output :dout, uint(12)
+    let :clk,  input(bit)
+    let :dout, output(uint(12))
 
     counter = ImportedCounter.new(inst_name: "u_imported_counter", WIDTH: 12)
     counter.clk <= clk
@@ -277,11 +278,11 @@ end
 
 class PixProc < RSV::ModuleDef
   def build
-    input :clk, clock
-    input :rst, reset
-    iodecl :px_in, Pixel.new           # fields keep their dirs
-    iodecl :px_out, flip(Pixel.new)    # dirs reversed
-    reg :px, Pixel.new, init: { "r" => 0, "g" => 0, "b" => 0 }
+    let :clk,    input(clock)
+    let :rst,    input(reset)
+    let :px_in,  input(Pixel.new)          # fields keep their dirs
+    let :px_out, flip(Pixel.new)           # dirs reversed
+    let :px,     reg(Pixel.new, init: { "r" => 0, "g" => 0, "b" => 0 })
     with_clk_and_rst(clk, rst)
     px_out <= px
     always_ff { px.r <= px_in.r }

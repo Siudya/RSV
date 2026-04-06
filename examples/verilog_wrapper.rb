@@ -30,13 +30,13 @@ end
 # ── Inner module using plain ports + unpacked arrays ──
 class InnerModule < ModuleDef
   def build
-    input :clk, clock
-    input :rst, reset
-    input :data_in, mem(4, uint(8))
-    output :data_out, mem(4, uint(8))
-    input :mem_in, mem(2, uint(16))
-    output :flag, uint(1)
-    reg :count_r, uint(16), init: 0
+    let :clk, input(clock)
+    let :rst, input(reset)
+    let :data_in, input(mem(4, uint(8)))
+    let :data_out, output(mem(4, uint(8)))
+    let :mem_in, input(mem(2, uint(16)))
+    let :flag, output(uint(1))
+    let :count_r, reg(uint(16), init: 0)
 
     flag <= count_r[0]
     data_out <= data_in
@@ -51,8 +51,8 @@ end
 # ── Module with bundle ports ──
 class BundleModule < ModuleDef
   def build
-    iodecl :px_in, Pixel.new
-    iodecl :px_out, flip(Pixel.new)
+    let :px_in, input(Pixel.new)
+    let :px_out, flip(Pixel.new)
     px_out <= px_in
   end
 end
@@ -60,7 +60,7 @@ end
 # ── Module with mem(N, Bundle) port ──
 class MemBundleModule < ModuleDef
   def build
-    iodecl :fifo, Pixel.new
+    let :fifo, input(Pixel.new)
     r = output("red0", uint(8))
     r <= fifo.r
   end

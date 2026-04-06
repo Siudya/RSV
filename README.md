@@ -10,6 +10,22 @@ imported black-box modules, Verilog wrapper emission, inline
 SystemVerilog escape hatches, automatic module deduplication, and a CLI
 entry point (`RSV::App`) for one-command SV export.
 
+Three declaration forms are supported (all produce identical SV):
+
+```ruby
+# let form (recommended)
+let :clk,   input(clock)
+let :cnt,   reg(uint(width: 16, init: 0x15))
+
+# Symbol form
+input :clk, clock
+reg :cnt, uint(16), init: 0x15
+
+# String form (returns handle)
+clk = input("clk", clock)
+cnt = reg("cnt", uint(16), init: 0x15)
+```
+
 ## Environment
 
 - Ruby >= 2.7

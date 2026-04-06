@@ -317,18 +317,107 @@ class DeclarationTest < Minitest::Test
     assert_includes sv, "assign q = r"
   end
 
-  def test_symbol_form_mixed_with_string_form
-    mod = module_class("MixedForm") {
-      input :a, uint(8)
-      b = input("b", uint(8))
-      output :y, uint(8)
-      y <= a + b
+  # ── let form tests ───────────────────────────────────────────────────
+
+  def test_let_form_ports
+    mod = module_class("LetPorts") {
+      let :clk, input(clock)
+      let :rst, input(reset)
+      let :din, input(uint(8))
+      let :dout, output(uint(8))
+      dout <= din
+    }.new
+
+    sv = mod.to_sv
+    assert_includes sv, "input  logic       clk"
+    assert_includes sv, "input  logic       rst"
+    assert_includes sv, "input  logic [7:0] din"
+    assert_includes sv, "output logic [7:0] dout"
+    assert_includes sv, "assign dout = din"
+  end
+
+  def test_let_form_wire_and_reg
+    mod = module_class("LetWireReg") {
+      let :clk, input(clock)
+      let :rst, input(reset)
+      let :d,   input(uint(4))
+      let :q,   output(uint(4))
+      let :tmp, wire(uint(4))
+      let :r,   reg(uint(4), init: 0)
+      tmp <= d
+      q <= r
+      with_clk_and_rst(clk, rst)
+      always_ff { r <= tmp }
+    }.new
+
+    sv = mod.to_sv
+    assert_includes sv, "logic [3:0] tmp"
+    assert_includes sv, "logic [3:0] r"
+    assert_includes sv, "r <= tmp"
+    assert_includes sv, "= 4'h0"
+  end
+
+  def test_let_form_reg_with_init_on_type
+    mod = module_class("LetRegInitOnType") {
+      let :clk, input(clock)
+      let :rst, input(reset)
+      let :cnt, reg(uint(width: 16, init: 0x15))
+      with_clk_and_rst(clk, rst)
+      always_ff { cnt <= cnt + 1 }
+    }.new
+
+    sv = mod.to_sv
+    assert_includes sv, "logic [15:0] cnt"
+    assert_includes sv, "= 16'h15"
+  end
+
+  def test_let_form_const_and_expr
+    mod = module_class("LetConstExpr") {
+      let :a,    input(uint(8))
+      let :y,    output(uint(8))
+      let :base, const(uint(8, 0x10))
+      let :sum,  expr(a + base)
+      y <= sum
+    }.new
+
+    sv = mod.to_sv
+    assert_includes sv, "localparam"
+    assert_includes sv, "base = 8'h10"
+    assert_includes sv, "assign sum = a + base"
+    assert_match(/assign y\s+= sum/, sv)
+  end
+
+  def test_let_form_accessible_in_always_blocks
+    mod = module_class("LetAlways") {
+      let :clk,    input(clock)
+      let :rst,    input(reset)
+      let :enable, input(bit)
+      let :cnt,    reg(uint(8), init: 0)
+      let :out,    output(uint(8))
+      out <= cnt
+      with_clk_and_rst(clk, rst)
+      always_ff { svif(enable) { cnt <= cnt + 1 } }
+    }.new
+
+    sv = mod.to_sv
+    assert_includes sv, "cnt <= cnt + 8'd1"
+    assert_includes sv, "assign out = cnt"
+  end
+
+  def test_let_form_mixed_with_symbol_and_string_forms
+    mod = module_class("LetMixed") {
+      let :a, input(uint(8))
+      input :b, uint(8)
+      c = input("c", uint(8))
+      let :y, output(uint(8))
+      y <= a + b + c
     }.new
 
     sv = mod.to_sv
     assert_includes sv, "input  logic [7:0] a"
     assert_includes sv, "input  logic [7:0] b"
-    assert_includes sv, "assign y = a + b"
+    assert_includes sv, "input  logic [7:0] c"
+    assert_includes sv, "assign y = a + b + c"
   end
 
   private

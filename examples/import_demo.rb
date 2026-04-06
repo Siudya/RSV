@@ -24,11 +24,11 @@ ImportedCounter = RSV.import_sv(
 
 class ImportDemo < RSV::ModuleDef
   def build
-    input :clk, bit
-    input :rst_n, bit
-    input :din, uint(12)
-    output :dout, uint(12)
-    output :mem_tap, mem([4], uint(8))
+    let :clk, input(bit)
+    let :rst_n, input(bit)
+    let :din, input(uint(12))
+    let :dout, output(uint(12))
+    let :mem_tap, output(mem([4], uint(8)))
 
     counter = ImportedCounter.new(inst_name: "u_imported_counter", WIDTH: 12)
     counter.clk <= clk

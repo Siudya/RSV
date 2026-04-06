@@ -23,65 +23,65 @@ require "rsv"
 
 class SyntaxShowcase < RSV::ModuleDef
   def build
-    input :clk, clock
-    input :rst_n, reset
-    input :gate, bit
+    let :clk, input(clock)
+    let :rst_n, input(reset)
+    let :gate, input(bit)
     load = input("load", bit)
-    input :sel, bit
-    inout :pad, bit
-    input :a, uint(8)
-    input :b, uint(8)
-    input :signed_b, sint(8)
-    input :bus, uint(16)
-    input :nibble, bits(4)
+    let :sel, input(bit)
+    let :pad, inout(bit)
+    let :a, input(uint(8))
+    let :b, input(uint(8))
+    let :signed_b, input(sint(8))
+    let :bus, input(uint(16))
+    let :nibble, input(bits(4))
 
-    output :sum_o, uint(8)
-    output :right_assign_o, uint(8)
-    output :eq_o, bit
-    output :ne_o, bit
-    output :lt_o, bit
-    output :le_o, bit
-    output :gt_o, bit
-    output :ge_o, bit
-    output :logic_and_o, bit
-    output :logic_or_o, bit
-    output :red_or_o, bit
-    output :red_and_o, bit
-    output :not_o, bit
-    output :pad_sample_o, bit
-    output :bit_inv_o, uint(8)
-    output :shl_o, uint(8)
-    output :shr_o, uint(8)
-    output :mul_o, uint(8)
-    output :div_o, uint(8)
-    output :mod_o, uint(8)
-    output :range_o, uint(4)
-    output :range_alt_o, uint(4)
-    output :indexed_up_o, uint(4)
-    output :indexed_down_o, uint(4)
-    output :mux_o, uint(8)
-    output :comb_o, uint(8)
-    output :cat_o, uint(8)
-    output :fill_o, uint(8)
-    output :signed_sum_o, sint(8)
-    output :latch_o, uint(8)
-    output :ff_o, uint(8)
-    output :neg_ff_o, uint(8)
+    let :sum_o, output(uint(8))
+    let :right_assign_o, output(uint(8))
+    let :eq_o, output(bit)
+    let :ne_o, output(bit)
+    let :lt_o, output(bit)
+    let :le_o, output(bit)
+    let :gt_o, output(bit)
+    let :ge_o, output(bit)
+    let :logic_and_o, output(bit)
+    let :logic_or_o, output(bit)
+    let :red_or_o, output(bit)
+    let :red_and_o, output(bit)
+    let :not_o, output(bit)
+    let :pad_sample_o, output(bit)
+    let :bit_inv_o, output(uint(8))
+    let :shl_o, output(uint(8))
+    let :shr_o, output(uint(8))
+    let :mul_o, output(uint(8))
+    let :div_o, output(uint(8))
+    let :mod_o, output(uint(8))
+    let :range_o, output(uint(4))
+    let :range_alt_o, output(uint(4))
+    let :indexed_up_o, output(uint(4))
+    let :indexed_down_o, output(uint(4))
+    let :mux_o, output(uint(8))
+    let :comb_o, output(uint(8))
+    let :cat_o, output(uint(8))
+    let :fill_o, output(uint(8))
+    let :signed_sum_o, output(sint(8))
+    let :latch_o, output(uint(8))
+    let :ff_o, output(uint(8))
+    let :neg_ff_o, output(uint(8))
 
     # `DataType` values with init data can be combined at Ruby time. Here the
     # result is used as a declaration-time constant, and the generated SV shows
     # the derived width and init value directly.
     runtime_seed_t = uint(8, 5) + uint(8, 2)
-    wire :seed, uint(runtime_seed_t.width), init: runtime_seed_t.init
+    let :seed, wire(uint(runtime_seed_t.width), init: runtime_seed_t.init)
 
     # `expr(...)` materializes an inferred logic signal while keeping the Ruby
     # expression readable at the call site.
-    expr :sum_next, a + b
-    wire :signed_sum_w, sint(8)
-    wire :comb_w, uint(8)
-    reg :latch_q, uint(8)
-    reg :ff_q, uint(8), init: 0
-    reg :neg_ff_q, uint(8), init: 0
+    let :sum_next, expr(a + b)
+    let :signed_sum_w, wire(sint(8))
+    let :comb_w, wire(uint(8))
+    let :latch_q, reg(uint(8))
+    let :ff_q, reg(uint(8), init: 0)
+    let :neg_ff_q, reg(uint(8), init: 0)
 
     # Continuous assignments cover the basic expression forms.
     sum_next >= sum_o

@@ -26,11 +26,11 @@ include RSV
 # A simple pipeline stage with meta-parameter width.
 class PipeStage < ModuleDef
   def build(width: 8)
-    input :clk, clock
-    input :rst, reset
-    input :din, uint(width)
-    output :dout, uint(width)
-    reg :r, uint(width), init: 0
+    let :clk, input(clock)
+    let :rst, input(reset)
+    let :din, input(uint(width))
+    let :dout, output(uint(width))
+    let :r, reg(uint(width), init: 0)
     dout <= r
     with_clk_and_rst(clk, rst)
     always_ff { r <= din }
@@ -41,12 +41,12 @@ end
 
 class GenerateDemo < ModuleDef
   def build(depth: 3, data_w: 8, mode: 0, n_ch: 4)
-    input :clk, clock
-    input :rst, reset
+    let :clk, input(clock)
+    let :rst, input(reset)
 
     # ---- Part 1: generate-for with inline logic and genvar indexing ----
-    input :data_in, mem(n_ch, uint(8))
-    output :data_out, mem(n_ch, uint(8)), attr: { "keep" => nil }
+    let :data_in, input(mem(n_ch, uint(8)))
+    let :data_out, output(mem(n_ch, uint(8))), attr: { "keep" => nil }
 
     generate_for("i", 0, n_ch, label: "gen_reg") do |i|
       r = reg("stage_r", uint(8), init: 0)
@@ -58,7 +58,7 @@ class GenerateDemo < ModuleDef
     end
 
     # ---- Part 2: mode-dependent logic (Ruby if, since mode is a Ruby integer) ----
-    wire :flag, uint(8)
+    let :flag, wire(uint(8))
 
     if mode == 0
       flag <= data_in[0]
@@ -69,10 +69,10 @@ class GenerateDemo < ModuleDef
     end
 
     # ---- Part 3: generate-for with definition/instance (meta-param sub-module) ----
-    input :pipe_in, uint(data_w)
-    output :pipe_out, uint(data_w)
+    let :pipe_in, input(uint(data_w))
+    let :pipe_out, output(uint(data_w))
 
-    wire :meta_chain, mem(depth + 1, uint(data_w))
+    let :meta_chain, wire(mem(depth + 1, uint(data_w)))
     meta_chain[0] <= pipe_in
 
     stage_def = PipeStage.definition(width: data_w)
@@ -88,7 +88,7 @@ class GenerateDemo < ModuleDef
     pipe_out <= meta_chain[depth]
 
     # ---- Part 4: generate-if with const inside block ----
-    wire :status, uint(8)
+    let :status, wire(uint(8))
 
     if mode < 2
       status <= const("STATUS_VAL", uint(8, 0xAA))

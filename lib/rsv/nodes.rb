@@ -579,6 +579,46 @@ module RSV
     end
   end
 
+  # Wire type descriptor: wire(uint(8)) — for use with let
+  class WireType
+    attr_reader :data_type, :init
+
+    def initialize(data_type, init: nil)
+      @data_type = data_type
+      @init = init
+    end
+  end
+
+  # Reg type descriptor: reg(uint(16), init: 0x15) — for use with let
+  class RegType
+    attr_reader :data_type, :init
+
+    def initialize(data_type, init: nil)
+      @data_type = data_type
+      @init = init
+    end
+  end
+
+  # Const type descriptor: const(uint(8, 42)) — for use with let
+  class ConstType
+    attr_reader :data_type
+
+    def initialize(data_type)
+      @data_type = data_type
+    end
+  end
+
+  # Expr type descriptor: expr(a + b) — for use with let
+  class ExprType
+    attr_reader :rhs, :width, :signed
+
+    def initialize(rhs, width: nil, signed: false)
+      @rhs = rhs
+      @width = width
+      @signed = signed
+    end
+  end
+
   # Expression node for accessing a field of a bundle-typed signal: base.field_name
   class FieldAccessExpr
     include ExprOps

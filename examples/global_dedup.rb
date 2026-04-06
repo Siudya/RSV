@@ -23,13 +23,13 @@ include RSV
 
 class DedupCounter < ModuleDef
   def build(width: 8)
-    input :clk, clock
-    input :rst, reset
-    input :en, bit
-    input :din, uint(width)
-    output :dout, uint(width)
+    let :clk, input(clock)
+    let :rst, input(reset)
+    let :en, input(bit)
+    let :din, input(uint(width))
+    let :dout, output(uint(width))
 
-    reg :r, uint(width), init: 0
+    let :r, reg(uint(width), init: 0)
     dout <= r
 
     with_clk_and_rst(clk, rst)
@@ -43,9 +43,9 @@ end
 
 class DedupAdder < ModuleDef
   def build(width: 8)
-    input :a, uint(width)
-    input :b, uint(width)
-    output :sum, uint(width)
+    let :a, input(uint(width))
+    let :b, input(uint(width))
+    let :sum, output(uint(width))
 
     sum <= a + b
   end
@@ -55,12 +55,12 @@ end
 
 class DedupTop < ModuleDef
   def build
-    input :clk, clock
-    input :rst, reset
-    input :en, bit
-    input :data_in, uint(8)
-    input :wide_in, uint(16)
-    output :result, uint(8)
+    let :clk, input(clock)
+    let :rst, input(reset)
+    let :en, input(bit)
+    let :data_in, input(uint(8))
+    let :wide_in, input(uint(16))
+    let :result, output(uint(8))
 
     # ── 自动去重 ─────────────────────────────────────────────
     # 两个 width=8 counter → 同一份 SV 模板（自动去重）
