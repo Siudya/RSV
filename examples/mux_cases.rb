@@ -3,7 +3,7 @@
 #
 # Demonstrates the three mux helpers:
 # - `mux(...)` for a plain ternary expression
-# - `mux1h(...)` for a one-hot casez tree
+# - `mux1h(...)` for a one-hot case tree
 # - `muxp(...)` for a priority casez tree in both LSB-first and MSB-first modes
 #
 # Run:

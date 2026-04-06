@@ -63,8 +63,9 @@
 / `mux(sel, a, b)`: ternary mux expression. Emits `sel ? a : b` in SV. When
   `sel` is 1, selects `a`; otherwise selects `b`.
 / `mux1h(sel1h, dats)`: one-hot mux. Eagerly creates a temp wire and `always_comb`
-  with `unique casez`, returning the wire handler directly. `dats` must be a `mem`
-  whose highest dimension length matches `sel1h` width. The returned handler can be
+  with `unique case` (hex one-hot patterns), returning the wire handler directly.
+  `dats` must be a `mem` whose highest dimension length matches `sel1h` width.
+  Zero selector yields `'0`, default yields `'x`. The returned handler can be
   reused across multiple assignments: `res = mux1h(sel, dats); out <= res`.
   Works at module level, in `always_comb`, `always_ff`, or `always_latch`.
 / `muxp(sel, dats, lsb_first: true)`: priority mux. Same as `mux1h` but

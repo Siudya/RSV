@@ -194,7 +194,7 @@ class NewTypesDslTest < Minitest::Test
 
   # ── mux1h ────────────────────────────────────────────────────────────────
 
-  def test_mux1h_emits_unique_casez
+  def test_mux1h_emits_unique_case
     mod = module_class("Mux1hTop") do
       sel = input("sel", uint(3))
       dats = input("dats", mem([3], uint(8)))
@@ -208,11 +208,12 @@ class NewTypesDslTest < Minitest::Test
     sv = mod.to_sv
     assert_includes sv, "logic [7:0] sel_mux1h_dats"
     assert_includes sv, "always_comb begin"
-    assert_includes sv, "unique casez (sel)"
-    assert_includes sv, "3'b001: sel_mux1h_dats = dats[0];"
-    assert_includes sv, "3'b010: sel_mux1h_dats = dats[1];"
-    assert_includes sv, "3'b100: sel_mux1h_dats = dats[2];"
-    assert_includes sv, "default: sel_mux1h_dats = 8'd0;"
+    assert_includes sv, "unique case (sel)"
+    assert_includes sv, "3'h0: sel_mux1h_dats = '0;"
+    assert_includes sv, "3'h1: sel_mux1h_dats = dats[0];"
+    assert_includes sv, "3'h2: sel_mux1h_dats = dats[1];"
+    assert_includes sv, "3'h4: sel_mux1h_dats = dats[2];"
+    assert_includes sv, "default: sel_mux1h_dats = 'x;"
     assert_includes sv, "endcase"
     assert_includes sv, "out = sel_mux1h_dats;"
   end
@@ -227,8 +228,30 @@ class NewTypesDslTest < Minitest::Test
 
     sv = mod.to_sv
     assert_includes sv, "logic [7:0] sel_mux1h_dats"
-    assert_includes sv, "unique casez (sel)"
+    assert_includes sv, "unique case (sel)"
     assert_includes sv, "assign out = sel_mux1h_dats;"
+  end
+
+  def test_mux1h_wide_sel_hex_format
+    mod = module_class("Mux1hWide") do
+      sel = input("sel", uint(16))
+      dats = input("dats", mem([16], uint(64)))
+      out = wire("out", uint(64))
+
+      always_comb do
+        out <= mux1h(sel, dats)
+      end
+    end.new
+
+    sv = mod.to_sv
+    assert_includes sv, "unique case (sel)"
+    assert_includes sv, "16'h0000: sel_mux1h_dats = '0;"
+    assert_includes sv, "16'h0001: sel_mux1h_dats = dats[0];"
+    assert_includes sv, "16'h0002: sel_mux1h_dats = dats[1];"
+    assert_includes sv, "16'h0004: sel_mux1h_dats = dats[2];"
+    assert_includes sv, "16'h0008: sel_mux1h_dats = dats[3];"
+    assert_includes sv, "16'h8000: sel_mux1h_dats = dats[15];"
+    assert_includes sv, "default: sel_mux1h_dats = 'x;"
   end
 
   # ── muxp ─────────────────────────────────────────────────────────────────

@@ -436,11 +436,10 @@ module RSV
       dat_entries = collect_mux_entries(dats)
       raise ArgumentError, "mux1h/muxp dats length must match sel width" if dat_entries.size != sel_width
 
-      case_keyword = stmt.case_type == :unique ? "unique casez" : "priority casez"
       lines = []
-      lines << "#{ind(level)}#{case_keyword} (#{sel_name})"
 
       if stmt.case_type == :priority
+        lines << "#{ind(level)}priority casez (#{sel_name})"
         lsb_first = stmt.lsb_first
         indices = lsb_first ? (0...sel_width).to_a : (0...sel_width).to_a.reverse
         lowest_priority_idx = lsb_first ? sel_width - 1 : 0
@@ -452,14 +451,20 @@ module RSV
 
         lines << "#{ind(level + 1)}default: #{lhs_name} = #{emit_expr(dat_entries[lowest_priority_idx])};"
       else
+        lines << "#{ind(level)}unique case (#{sel_name})"
+        hex_width = (sel_width + 3) / 4
+
+        # zero pattern → '0
+        lines << "#{ind(level + 1)}#{sel_width}'h#{"0" * hex_width}: #{lhs_name} = '0;"
+
+        # one-hot patterns
         (0...sel_width).each do |i|
-          pattern = build_mux1h_pattern(sel_width, i)
-          lines << "#{ind(level + 1)}#{sel_width}'b#{pattern}: #{lhs_name} = #{emit_expr(dat_entries[i])};"
+          hex_val = format("%0#{hex_width}x", 1 << i)
+          lines << "#{ind(level + 1)}#{sel_width}'h#{hex_val}: #{lhs_name} = #{emit_expr(dat_entries[i])};"
         end
 
-        zero_width = RSV.infer_expr_width(stmt.lhs)
-        zero_lit = zero_width ? "#{zero_width}'d0" : "'0"
-        lines << "#{ind(level + 1)}default: #{lhs_name} = #{zero_lit};"
+        # default → 'x
+        lines << "#{ind(level + 1)}default: #{lhs_name} = 'x;"
       end
 
       lines << "#{ind(level)}endcase"
@@ -473,11 +478,6 @@ module RSV
       end
 
       raise ArgumentError, "mux1h/muxp dats must be a mem signal"
-    end
-
-    def build_mux1h_pattern(width, idx)
-      # one-hot exact: only bit idx is 1, rest are 0
-      (0...width).reverse_each.map { |i| i == idx ? "1" : "0" }.join
     end
 
     def build_muxp_pattern(width, idx, lsb_first)
